@@ -21,6 +21,7 @@ class SearchService:
         category: str | None = None,
         zoning: str | None = None,
         bbox: list[float] | None = None,
+        has_interior: bool | None = None,
     ) -> SearchResponse:
         """Execute a combined search across buildings and POIs.
 
@@ -98,6 +99,9 @@ class SearchService:
 
         if zoning is not None:
             building_stmt = building_stmt.where(Building.zoning_code == zoning)
+
+        if has_interior is True:
+            building_stmt = building_stmt.where(Building.has_interior == True)  # noqa: E712
 
         if bbox is not None:
             west, south, east, north = bbox

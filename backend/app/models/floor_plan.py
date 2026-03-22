@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from geoalchemy2 import Geometry
-from sqlalchemy import DateTime, ForeignKey, Integer, Text, UniqueConstraint, text
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,6 +25,13 @@ class FloorPlan(Base):
     raster_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     raster_bounds = mapped_column(Geometry("POLYGON", srid=4326), nullable=True)
     source: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Interior map columns (migration 002)
+    confidence: Mapped[float | None] = mapped_column(Float, server_default="0.0")
+    source_type: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    vectorized: Mapped[bool | None] = mapped_column(Boolean, server_default="false")
+    vector_quality: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), server_default=text("now()")
     )
@@ -34,3 +41,6 @@ class FloorPlan(Base):
 
     # Relationships
     building = relationship("Building", back_populates="floor_plans")
+    interior_rooms = relationship("InteriorRoom", back_populates="floor_plan", lazy="selectin")
+    interior_walls = relationship("InteriorWall", back_populates="floor_plan", lazy="selectin")
+    interior_features = relationship("InteriorFeature", back_populates="floor_plan", lazy="selectin")

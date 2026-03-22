@@ -23,7 +23,7 @@ async def health():
     return {"status": "ok"}
 
 
-from app.routes import cities, buildings, pois, search, floor_plans, railroads
+from app.routes import cities, buildings, pois, search, floor_plans, railroads, interior
 
 app.include_router(cities.router, prefix="/api/v1")
 app.include_router(buildings.router, prefix="/api/v1")
@@ -31,3 +31,4 @@ app.include_router(pois.router, prefix="/api/v1")
 app.include_router(search.router, prefix="/api/v1")
 app.include_router(floor_plans.router, prefix="/api/v1")
 app.include_router(railroads.router, prefix="/api/v1")
+app.include_router(interior.router, prefix="/api/v1")

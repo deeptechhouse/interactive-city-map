@@ -45,3 +45,8 @@ class Building(Base):
     city = relationship("City", back_populates="buildings")
     pois = relationship("POI", back_populates="building", lazy="selectin")
     floor_plans = relationship("FloorPlan", back_populates="building", lazy="selectin")
+    interior_sources = relationship("InteriorSource", back_populates="building", lazy="noload")
+    interior_rooms = relationship("InteriorRoom", back_populates="building", lazy="noload")
+    interior_walls = relationship("InteriorWall", back_populates="building", lazy="noload")
+    interior_features = relationship("InteriorFeature", back_populates="building", lazy="noload")
+    scrape_targets = relationship("ScrapeTarget", back_populates="building", lazy="noload")

@@ -1,0 +1,47 @@
+city:
+  name: Detroit
+  slug: detroit
+  state: MI
+  center: [-83.0458, 42.3314]
+  default_zoom: 11
+  bounds: [[-83.30, 42.20], [-82.90, 42.50]]
+
+sources:
+  zoning:
+    url: "https://data.detroitmi.gov/resource/u5xs-kpz3.geojson?$limit=50000"
+    note: "Detroit Open Data Portal — zoning districts; verify resource ID at data.detroitmi.gov"
+  buildings:
+    url: "https://data.detroitmi.gov/resource/9dsg-kt4q.geojson?$limit=50000"
+    fallback_url: "https://usbuildingdata.blob.core.windows.net/usbuildings-v2/Michigan.geojson.zip"
+    note: "Detroit open data building footprints; fallback to Microsoft statewide file"
+  city_owned_land:
+    # Detroit Land Bank Authority
+    url: "https://data.detroitmi.gov/resource/vk5n-vbhq.geojson?$limit=50000"
+    note: "Detroit Land Bank Authority parcels — see also buildingdetroit.org for auction listings"
+  transit_lines:
+    # DDOT (city bus), SMART (suburban bus), QLine (streetcar), People Mover
+    ddot_gtfs_url: "https://transitfeeds.com/p/detroit-department-of-transportation/261/latest/download"
+    smart_gtfs_url: "https://transitfeeds.com/p/suburban-mobility-authority-for-regional-transportation/229/latest/download"
+    qline_gtfs_url: "https://transitfeeds.com/p/qline-detroit/883/latest/download"
+    people_mover_note: "Detroit People Mover GTFS — check transit.land or DDRTA for current feed"
+    note: "Multiple transit agencies; extract shapes.txt from each GTFS zip"
+  transit_stations:
+    ddot_gtfs_url: "https://transitfeeds.com/p/detroit-department-of-transportation/261/latest/download"
+    smart_gtfs_url: "https://transitfeeds.com/p/suburban-mobility-authority-for-regional-transportation/229/latest/download"
+    note: "Extract stops.txt from each GTFS zip; merge for unified station layer"
+  waterways:
+    # Detroit River, Rouge River, River Rouge via USGS NHD
+    url: "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/6/query?where=1%3D1&geometry=-83.30%2C42.20%2C-82.90%2C42.50&geometryType=esriGeometryEnvelope&outFields=*&f=geojson"
+    note: "NHD flowlines clipped to Detroit bbox; includes Detroit River, Rouge River"
+  parks:
+    url: "https://data.detroitmi.gov/resource/b5hg-q7dg.geojson?$limit=5000"
+    note: "Detroit parks from open data portal; verify resource ID at data.detroitmi.gov"
+  railroads:
+    fra_url: "https://data-usdot.opendata.arcgis.com/datasets/north-american-rail-network-lines.geojson"
+    osm_overpass_bbox: "42.20,-83.30,42.50,-82.90"
+  pois:
+    osm_overpass_bbox: "42.20,-83.30,42.50,-82.90"
+  parcels:
+    note: "Wayne County or Detroit assessor parcel data — available via data.detroitmi.gov"
+  streets:
+    note: "Streets come from basemap tiles; TIGER/Line import is optional"

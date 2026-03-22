@@ -1,0 +1,40 @@
+city:
+  name: Cincinnati
+  slug: cincinnati
+  state: OH
+  center: [-84.5120, 39.1031]
+  default_zoom: 12
+  bounds: [[-84.65, 39.00], [-84.35, 39.20]]
+
+sources:
+  zoning:
+    url: "https://data.cincinnati-oh.gov/resource/vvfa-rurh.geojson?$limit=50000"
+    note: "Cincinnati Open Data portal — zoning districts; verify resource ID at data.cincinnati-oh.gov"
+  buildings:
+    url: "https://data.cincinnati-oh.gov/resource/dm47-gs8y.geojson?$limit=50000"
+    fallback_url: "https://usbuildingdata.blob.core.windows.net/usbuildings-v2/Ohio.geojson.zip"
+    note: "Cincinnati open data building footprints; fallback to Microsoft Ohio statewide file"
+  transit_lines:
+    # SORTA / Cincinnati Metro bus routes + Cincinnati Bell Connector streetcar
+    metro_gtfs_url: "https://transitfeeds.com/p/southwest-ohio-regional-transit-authority/425/latest/download"
+    streetcar_note: "Cincinnati Bell Connector streetcar — check transit.land for GTFS feed"
+    note: "Extract shapes.txt from GTFS zip for route geometries"
+  transit_stations:
+    metro_gtfs_url: "https://transitfeeds.com/p/southwest-ohio-regional-transit-authority/425/latest/download"
+    note: "Extract stops.txt from GTFS zip for station/stop points"
+  waterways:
+    # Ohio River, Mill Creek, Little Miami River via USGS NHD
+    url: "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/6/query?where=1%3D1&geometry=-84.65%2C39.00%2C-84.35%2C39.20&geometryType=esriGeometryEnvelope&outFields=*&f=geojson"
+    note: "NHD flowlines clipped to Cincinnati bbox; includes Ohio River, Mill Creek, Little Miami River"
+  parks:
+    url: "https://data.cincinnati-oh.gov/resource/4btf-y49d.geojson?$limit=5000"
+    note: "Cincinnati parks from open data portal; verify resource ID at data.cincinnati-oh.gov"
+  railroads:
+    fra_url: "https://data-usdot.opendata.arcgis.com/datasets/north-american-rail-network-lines.geojson"
+    osm_overpass_bbox: "39.00,-84.65,39.20,-84.35"
+  pois:
+    osm_overpass_bbox: "39.00,-84.65,39.20,-84.35"
+  parcels:
+    note: "Hamilton County Auditor parcel data — available via Hamilton County GIS or CAGIS (cagis.org)"
+  streets:
+    note: "Streets come from basemap tiles; TIGER/Line import is optional"

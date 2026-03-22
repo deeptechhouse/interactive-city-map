@@ -1,0 +1,101 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: citymap-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-citymap}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-citymap}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/scripts/init_extensions.sql:/docker-entrypoint-initdb.d/01-extensions.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-citymap}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  martin:
+    image: ghcr.io/maplibre/martin:v0.14.2
+    container_name: citymap-martin
+    ports:
+      - "3030:3000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-citymap}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-citymap}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./martin.yaml:/config/martin.yaml
+    command: ["--config", "/config/martin.yaml"]
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: citymap-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+
+  createbucket:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 3;
+      /usr/bin/mc alias set myminio http://minio:9000 $${MINIO_ROOT_USER:-minioadmin} $${MINIO_ROOT_PASSWORD};
+      /usr/bin/mc mb myminio/${S3_BUCKET_NAME:-citymap-tiles} --ignore-existing;
+      /usr/bin/mc anonymous set public myminio/${S3_BUCKET_NAME:-citymap-tiles};
+      exit 0;
+      "
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: citymap-backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-citymap}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-citymap}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-citymap}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-citymap}
+      MARTIN_URL: http://martin:3000
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-citymap-tiles}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      FOURSQUARE_API_KEY: ${FOURSQUARE_API_KEY:-}
+      PELIAS_URL: ${PELIAS_URL:-http://localhost:4000}
+      APP_ENV: production
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: citymap-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  minio_data:

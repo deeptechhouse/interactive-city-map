@@ -23,11 +23,11 @@ async def health():
     return {"status": "ok"}
 
 
-# Route registrations will be added here after Wave 1 merge
-# from app.routes import cities, buildings, pois, search, floor_plans, railroads
-# app.include_router(cities.router, prefix="/api/v1")
-# app.include_router(buildings.router, prefix="/api/v1")
-# app.include_router(pois.router, prefix="/api/v1")
-# app.include_router(search.router, prefix="/api/v1")
-# app.include_router(floor_plans.router, prefix="/api/v1")
-# app.include_router(railroads.router, prefix="/api/v1")
+from app.routes import cities, buildings, pois, search, floor_plans, railroads
+
+app.include_router(cities.router, prefix="/api/v1")
+app.include_router(buildings.router, prefix="/api/v1")
+app.include_router(pois.router, prefix="/api/v1")
+app.include_router(search.router, prefix="/api/v1")
+app.include_router(floor_plans.router, prefix="/api/v1")
+app.include_router(railroads.router, prefix="/api/v1")

@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sanborn Map Georeferencing Guide — Interactive City Map</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0d1117;
+      color: #c9d1d9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      line-height: 1.7;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 28px;
+      color: #e6edf3;
+      border-bottom: 2px solid #58a6ff;
+      padding-bottom: 12px;
+      margin-bottom: 30px;
+    }
+
+    h2 {
+      font-size: 20px;
+      color: #58a6ff;
+      margin-top: 40px;
+      margin-bottom: 14px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #21262d;
+    }
+
+    h3 {
+      font-size: 16px;
+      color: #e6edf3;
+      margin-top: 24px;
+      margin-bottom: 10px;
+    }
+
+    p {
+      margin-bottom: 14px;
+    }
+
+    a {
+      color: #58a6ff;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    ol, ul {
+      margin: 10px 0 18px 24px;
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    code {
+      background: #161b22;
+      color: #79c0ff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: 'SF Mono', 'Fira Code', 'Fira Mono', monospace;
+    }
+
+    pre {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 16px;
+      overflow-x: auto;
+      margin: 14px 0 18px;
+      font-size: 13px;
+      line-height: 1.5;
+      font-family: 'SF Mono', 'Fira Code', 'Fira Mono', monospace;
+      color: #c9d1d9;
+    }
+
+    .callout {
+      background: #161b22;
+      border-left: 4px solid #58a6ff;
+      padding: 14px 18px;
+      margin: 18px 0;
+      border-radius: 0 6px 6px 0;
+    }
+
+    .callout--warning {
+      border-left-color: #d29922;
+    }
+
+    .callout--tip {
+      border-left-color: #3fb950;
+    }
+
+    .callout__title {
+      font-weight: 600;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 6px;
+    }
+
+    .callout--warning .callout__title { color: #d29922; }
+    .callout--tip .callout__title { color: #3fb950; }
+
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: #58a6ff;
+      color: #0d1117;
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 14px;
+      margin-right: 10px;
+      flex-shrink: 0;
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      margin-top: 24px;
+      margin-bottom: 10px;
+    }
+
+    .step-header h3 {
+      margin: 0;
+    }
+
+    .screenshot-placeholder {
+      background: #21262d;
+      border: 2px dashed #30363d;
+      border-radius: 6px;
+      padding: 30px;
+      text-align: center;
+      color: #484f58;
+      font-style: italic;
+      margin: 14px 0;
+      font-size: 13px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 18px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 10px 14px;
+      border: 1px solid #30363d;
+      font-size: 13px;
+    }
+
+    th {
+      background: #161b22;
+      color: #e6edf3;
+      font-weight: 600;
+    }
+
+    td {
+      background: #0d1117;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge--required { background: #da3633; color: #fff; }
+    .badge--optional { background: #30363d; color: #8b949e; }
+
+    footer {
+      margin-top: 50px;
+      padding-top: 16px;
+      border-top: 1px solid #21262d;
+      color: #484f58;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <h1>Sanborn Map Georeferencing Guide</h1>
+    <p>
+      This guide walks through the process of georeferencing downloaded Sanborn
+      fire insurance map sheets in QGIS, then converting them to PMTiles for
+      display in the Interactive City Map. The overall pipeline is:
+    </p>
+    <pre>Download (import_sanborn.py) → Georeference (QGIS, this guide) → PMTiles (georeference_to_pmtiles.sh)</pre>
+
+    <!-- =============================================================== -->
+    <h2>Prerequisites</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Tool</th>
+          <th>Version</th>
+          <th>Purpose</th>
+          <th>Install</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>QGIS</strong></td>
+          <td>3.28+ LTR</td>
+          <td>Georeferencing UI</td>
+          <td><a href="https://qgis.org/download/">qgis.org/download</a></td>
+        </tr>
+        <tr>
+          <td><strong>GDAL</strong></td>
+          <td>3.6+</td>
+          <td>Raster processing</td>
+          <td><code>brew install gdal</code></td>
+        </tr>
+        <tr>
+          <td><strong>pmtiles CLI</strong></td>
+          <td>latest</td>
+          <td>Tile packaging</td>
+          <td><code>brew install pmtiles</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      You also need Sanborn sheets downloaded via <code>import_sanborn.py</code>.
+      See the backend README for instructions. Sheets will be in
+      <code>data/sanborn/</code> organized by decade.
+    </p>
+
+    <!-- =============================================================== -->
+    <h2>Step-by-Step Georeferencing in QGIS</h2>
+
+    <!-- Step 1 -->
+    <div class="step-header">
+      <span class="step-num">1</span>
+      <h3>Open QGIS and Add a Basemap</h3>
+    </div>
+    <p>
+      Launch QGIS and add a modern basemap layer to use as your reference.
+      This gives you the current street grid to align the Sanborn sheet against.
+    </p>
+    <ol>
+      <li>Go to <strong>Web &rarr; QuickMapServices &rarr; OSM &rarr; OSM Standard</strong>.
+          If you do not have QuickMapServices installed, go to
+          <strong>Plugins &rarr; Manage and Install Plugins</strong> and search for it.</li>
+      <li>Zoom to the area of Chicago your Sanborn sheet covers.</li>
+    </ol>
+
+    <div class="screenshot-placeholder">
+      [Screenshot: QGIS with OpenStreetMap basemap zoomed to Chicago]
+    </div>
+
+    <!-- Step 2 -->
+    <div class="step-header">
+      <span class="step-num">2</span>
+      <h3>Open the Georeferencer</h3>
+    </div>
+    <p>
+      The Georeferencer is a built-in QGIS tool (no separate plugin needed
+      in QGIS 3.26+).
+    </p>
+    <ol>
+      <li>Go to <strong>Layer &rarr; Georeferencer</strong> (or
+          <strong>Raster &rarr; Georeferencer</strong> in older versions).</li>
+      <li>In the Georeferencer window, click <strong>Open Raster</strong> (the
+          folder icon) and navigate to your downloaded Sanborn sheet image.</li>
+      <li>The Sanborn sheet will appear in the Georeferencer canvas.</li>
+    </ol>
+
+    <div class="screenshot-placeholder">
+      [Screenshot: Georeferencer window with a Sanborn sheet loaded]
+    </div>
+
+    <!-- Step 3 -->
+    <div class="step-header">
+      <span class="step-num">3</span>
+      <h3>Place Ground Control Points (GCPs)</h3>
+    </div>
+    <p>
+      Ground Control Points are pairs of coordinates: a point on the Sanborn
+      sheet matched to its real-world location on the basemap. The more
+      accurate your GCPs, the better the final alignment.
+    </p>
+    <ol>
+      <li>Click the <strong>Add GCP Point</strong> tool (crosshair icon) in the
+          Georeferencer toolbar.</li>
+      <li>Click on an identifiable location on the Sanborn sheet (e.g., a street
+          intersection).</li>
+      <li>In the dialog that appears, choose <strong>"From Map Canvas"</strong>,
+          then click the matching location on the QGIS basemap.</li>
+      <li>Repeat for at least 8&ndash;12 GCPs spread across the entire sheet.</li>
+    </ol>
+
+    <div class="callout callout--tip">
+      <div class="callout__title">GCP Strategy</div>
+      <p>
+        <strong>Best GCP locations</strong> (in order of reliability):
+      </p>
+      <ol>
+        <li><strong>Street intersections</strong> — Most reliable. Streets rarely
+            move. Use the center of the intersection.</li>
+        <li><strong>River/canal bends and bridges</strong> — Waterway geometry is
+            stable over a century.</li>
+        <li><strong>Railroad crossings</strong> — Rail alignments persist even if
+            tracks are removed.</li>
+        <li><strong>Major building corners</strong> — Use only for buildings you
+            can confirm still exist (e.g., churches, city hall).</li>
+      </ol>
+      <p>
+        <strong>Spread your GCPs evenly</strong> across the entire sheet. Avoid
+        clustering them in one area — this causes distortion in other parts
+        of the image.
+      </p>
+    </div>
+
+    <div class="screenshot-placeholder">
+      [Screenshot: GCP points placed on Sanborn sheet with matching basemap locations]
+    </div>
+
+    <!-- Step 4 -->
+    <div class="step-header">
+      <span class="step-num">4</span>
+      <h3>Choose the Transformation Type</h3>
+    </div>
+    <p>
+      The transformation type determines how the raster image is warped to
+      fit the GCPs. Different types suit different situations.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Min GCPs</th>
+          <th>Best For</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Thin Plate Spline</strong></td>
+          <td>3+</td>
+          <td>Historical maps with irregular distortion</td>
+          <td><span class="badge badge--required">Recommended</span> — handles
+              local warping well</td>
+        </tr>
+        <tr>
+          <td>Polynomial 1 (Affine)</td>
+          <td>3</td>
+          <td>Minimal distortion, just shift/rotate/scale</td>
+          <td>Good for maps that are already close to correct</td>
+        </tr>
+        <tr>
+          <td>Polynomial 2</td>
+          <td>6</td>
+          <td>Moderate curvature correction</td>
+          <td>Middle ground; fewer GCPs needed than TPS</td>
+        </tr>
+        <tr>
+          <td>Polynomial 3</td>
+          <td>10</td>
+          <td>Significant warping</td>
+          <td>Needs many accurate GCPs to avoid overfitting</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <div class="callout__title">Recommendation</div>
+      <p>
+        For Sanborn maps, <strong>Thin Plate Spline (TPS)</strong> is almost
+        always the best choice. These maps were hand-drawn and have irregular
+        distortion patterns that TPS handles well. Use at least 8 GCPs for
+        good results, 12+ for excellent results.
+      </p>
+    </div>
+
+    <p>
+      To set the transformation type:
+    </p>
+    <ol>
+      <li>In the Georeferencer, go to <strong>Settings &rarr; Transformation
+          Settings</strong>.</li>
+      <li>Set <strong>Transformation type</strong> to
+          <code>Thin Plate Spline</code>.</li>
+      <li>Set <strong>Target CRS</strong> to <code>EPSG:4326</code> (WGS 84).</li>
+      <li>Set <strong>Resampling method</strong> to <code>Cubic</code> for the
+          best visual quality.</li>
+    </ol>
+
+    <!-- Step 5 -->
+    <div class="step-header">
+      <span class="step-num">5</span>
+      <h3>Configure Output Settings</h3>
+    </div>
+    <p>
+      Still in the Transformation Settings dialog:
+    </p>
+    <ol>
+      <li>Set <strong>Output raster</strong> to your desired path, e.g.:<br>
+          <code>data/sanborn/georeferenced/1890s/sheet_001_geo.tif</code></li>
+      <li>Check <strong>Create world file</strong> (optional but useful for
+          debugging).</li>
+      <li>Check <strong>Load in project when done</strong> to immediately see
+          the result overlaid on the basemap.</li>
+      <li>Set <strong>Compression</strong> to <code>JPEG</code> to keep
+          file sizes manageable.</li>
+      <li>Click <strong>OK</strong>.</li>
+    </ol>
+
+    <div class="screenshot-placeholder">
+      [Screenshot: Transformation Settings dialog with recommended values filled in]
+    </div>
+
+    <!-- Step 6 -->
+    <div class="step-header">
+      <span class="step-num">6</span>
+      <h3>Run the Georeferencing</h3>
+    </div>
+    <ol>
+      <li>Review your GCPs in the table at the bottom of the Georeferencer.
+          Check the <strong>Residual</strong> column — values above 5&ndash;10
+          pixels indicate a misplaced GCP.</li>
+      <li>Remove or adjust any GCPs with high residuals.</li>
+      <li>Click the <strong>Start Georeferencing</strong> button (green play
+          icon).</li>
+      <li>QGIS will warp the image and save the output GeoTIFF.</li>
+    </ol>
+
+    <div class="callout callout--warning">
+      <div class="callout__title">Verify the Result</div>
+      <p>
+        After georeferencing, the sheet should appear overlaid on the basemap.
+        Toggle transparency to verify that streets align with their modern
+        counterparts. If alignment is poor in some areas, go back and add
+        more GCPs in those regions, then re-run.
+      </p>
+    </div>
+
+    <!-- Step 7 -->
+    <div class="step-header">
+      <span class="step-num">7</span>
+      <h3>Repeat for All Sheets in an Era</h3>
+    </div>
+    <p>
+      Each Sanborn sheet covers a small area (a few blocks). For a full
+      neighborhood or city coverage, you need to georeference many sheets.
+      Organize your output GeoTIFFs by era:
+    </p>
+    <pre>data/sanborn/georeferenced/
+  1890s/
+    sheet_001_geo.tif
+    sheet_002_geo.tif
+    ...
+  1905-1910/
+    sheet_001_geo.tif
+    ...
+  1920s-1950/
+    sheet_001_geo.tif
+    ...</pre>
+
+    <!-- =============================================================== -->
+    <h2>Converting to PMTiles</h2>
+
+    <p>
+      Once you have georeferenced GeoTIFFs for an era, run the conversion
+      pipeline to produce a PMTiles file the frontend can display:
+    </p>
+
+    <pre>cd backend/scripts
+
+# Process the 1890s era
+./georeference_to_pmtiles.sh \
+  ../../data/sanborn/georeferenced/1890s \
+  ../../tiles \
+  "1890s"
+
+# Process 1905-1910
+./georeference_to_pmtiles.sh \
+  ../../data/sanborn/georeferenced/1905-1910 \
+  ../../tiles \
+  "1905-1910"
+
+# Process 1920s-1950
+./georeference_to_pmtiles.sh \
+  ../../data/sanborn/georeferenced/1920s-1950 \
+  ../../tiles \
+  "1920s-1950"</pre>
+
+    <p>The script will:</p>
+    <ol>
+      <li>Convert each GeoTIFF to a Cloud Optimized GeoTIFF (COG)</li>
+      <li>Build overview pyramids for fast multi-zoom rendering</li>
+      <li>Generate a tile pyramid using <code>gdal2tiles.py</code></li>
+      <li>Package tiles into a single PMTiles file per era</li>
+    </ol>
+
+    <p>
+      The output PMTiles files go into the <code>tiles/</code> directory.
+      Serve them with any static file server, or place them where the
+      frontend can access them. Update the tile URLs in
+      <code>frontend/src/map/controls/EraSelector.tsx</code> if needed.
+    </p>
+
+    <!-- =============================================================== -->
+    <h2>Tips for Accuracy</h2>
+
+    <ul>
+      <li><strong>Work at high zoom.</strong> Zoom in closely when placing GCPs
+          on both the Sanborn sheet and the basemap. Pixel-level accuracy at
+          intersections makes a big difference.</li>
+      <li><strong>Use "From Map Canvas" mode</strong> for GCP coordinate entry
+          rather than typing coordinates manually. Visual matching is faster
+          and less error-prone for this use case.</li>
+      <li><strong>Save your GCPs.</strong> In the Georeferencer, go to
+          <strong>File &rarr; Save GCP Points</strong>. This creates a
+          <code>.points</code> file so you can reload and adjust later.</li>
+      <li><strong>Check residuals before running.</strong> A GCP with residual
+          above 10 pixels is probably wrong. Delete it or fix it.</li>
+      <li><strong>Use multiple basemap sources.</strong> If OSM does not show
+          enough detail, try a satellite layer or the Chicago 1939 aerial
+          photos for cross-reference.</li>
+      <li><strong>Batch similar sheets.</strong> Sheets in the same volume
+          often have consistent distortion. After georeferencing a few, you
+          will develop an intuition for where GCPs need to go.</li>
+      <li><strong>Name files consistently.</strong> Use the sheet number from
+          the Sanborn atlas (visible in the corner of each sheet) in the
+          filename. This makes the manifest and file organization much easier
+          to navigate.</li>
+    </ul>
+
+    <!-- =============================================================== -->
+    <h2>Troubleshooting</h2>
+
+    <h3>Streets are aligned in one area but shifted in another</h3>
+    <p>
+      Add more GCPs in the misaligned region. With Thin Plate Spline, local
+      corrections do not affect areas that are already well-aligned.
+    </p>
+
+    <h3>The output GeoTIFF has black borders or NoData areas</h3>
+    <p>
+      This is normal — the warped image does not perfectly fill a rectangular
+      bounding box. The <code>georeference_to_pmtiles.sh</code> script handles
+      this. If you need to set a specific NoData value:
+    </p>
+    <pre>gdal_translate -a_nodata 0 input.tif output.tif</pre>
+
+    <h3>The Georeferencer crashes on large images</h3>
+    <p>
+      Sanborn TIFFs from the LoC can be very large. Try downsampling first:
+    </p>
+    <pre>gdal_translate -outsize 50% 50% large_sheet.tif smaller_sheet.tif</pre>
+    <p>
+      Georeference the smaller version, then apply the same GCP points file
+      to the full-resolution image.
+    </p>
+
+    <h3>EPSG:4326 vs EPSG:3857</h3>
+    <p>
+      Always georeference to <code>EPSG:4326</code> (WGS 84 geographic
+      coordinates). The tile generation pipeline handles reprojection to
+      Web Mercator (EPSG:3857) automatically.
+    </p>
+
+    <!-- =============================================================== -->
+    <h2>Reference Links</h2>
+
+    <ul>
+      <li><a href="https://www.loc.gov/collections/sanborn-maps/about-this-collection/">Library of Congress — Sanborn Maps Collection</a></li>
+      <li><a href="https://docs.qgis.org/latest/en/docs/user_manual/working_with_raster/georeferencer.html">QGIS Georeferencer Documentation</a></li>
+      <li><a href="https://gdal.org/programs/gdal2tiles.html">GDAL gdal2tiles.py Reference</a></li>
+      <li><a href="https://github.com/protomaps/go-pmtiles">PMTiles CLI (go-pmtiles)</a></li>
+    </ul>
+
+    <footer>
+      Interactive City Map Project &mdash; Sanborn Georeferencing Guide
+    </footer>
+
+  </div>
+</body>
+</html>

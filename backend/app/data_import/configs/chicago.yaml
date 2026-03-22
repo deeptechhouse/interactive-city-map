@@ -1,0 +1,31 @@
+city:
+  name: Chicago
+  slug: chicago
+  state: IL
+  center: [-87.6298, 41.8781]
+  default_zoom: 11
+  bounds: [[-87.94, 41.64], [-87.52, 42.02]]
+
+sources:
+  zoning:
+    url: "https://data.cityofchicago.org/resource/7cve-jgbp.geojson?$limit=50000"
+  buildings:
+    url: "https://data.cityofchicago.org/resource/syp8-uezg.geojson?$limit=50000"
+    fallback_url: "https://usbuildingdata.blob.core.windows.net/usbuildings-v2/Illinois.geojson.zip"
+  transit_lines:
+    url: "https://data.cityofchicago.org/resource/53r7-y88m.geojson?$limit=5000"
+  transit_stations:
+    url: "https://data.cityofchicago.org/resource/8pix-ypme.geojson?$limit=5000"
+  waterways:
+    url: "https://data.cityofchicago.org/resource/eg9f-z3t6.geojson?$limit=5000"
+  parks:
+    url: "https://data.cityofchicago.org/resource/ejsh-fztr.geojson?$limit=5000"
+  railroads:
+    fra_url: "https://data-usdot.opendata.arcgis.com/datasets/north-american-rail-network-lines.geojson"
+    osm_overpass_bbox: "41.64,-87.94,42.02,-87.52"
+  pois:
+    osm_overpass_bbox: "41.64,-87.94,42.02,-87.52"
+  parcels:
+    note: "Cook County GIS data — requires manual download or ArcGIS REST API"
+  streets:
+    note: "Streets come from basemap tiles; TIGER/Line import is optional"

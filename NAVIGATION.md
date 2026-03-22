@@ -12,12 +12,14 @@ Layered architecture: React + MapLibre GL frontend communicates with a FastAPI b
 |---|---|---|
 | `backend/` | Backend Root | FastAPI application, data import pipeline, migrations |
 | `backend/app/` | Application | Main FastAPI app package |
-| `backend/app/models/` | Data Layer | SQLAlchemy + GeoAlchemy2 models (building, city, parcel, poi, floor_plan, railroad, transit, waterway, zoning) |
-| `backend/app/schemas/` | Data Transfer | Pydantic request/response schemas (building, city, floor_plan, poi, search) |
-| `backend/app/services/` | Business Logic | Service classes for buildings, floor plans, geocoding, POIs, and search |
-| `backend/app/routes/` | API Interface | FastAPI route handlers (buildings, cities, pois, search, floor_plans, railroads) |
+| `backend/app/models/` | Data Layer | SQLAlchemy + GeoAlchemy2 models (building, city, parcel, poi, floor_plan, railroad, transit, waterway, zoning, interior_source, interior_room, interior_wall, interior_feature, scrape_target) |
+| `backend/app/schemas/` | Data Transfer | Pydantic request/response schemas (building, city, floor_plan, poi, search, interior) |
+| `backend/app/services/` | Business Logic | Service classes for buildings, floor plans, geocoding, POIs, search, interior CRUD, interior sources, georeferencing |
+| `backend/app/services/extractors/` | AI Pipeline | Floor plan extraction: LineDetector, RoomSegmenter, TextExtractor, SanbornParser, GeoJSONWriter |
+| `backend/app/routes/` | API Interface | FastAPI route handlers (buildings, cities, pois, search, floor_plans, railroads, interior) |
 | `backend/app/adapters/` | Integration | Swappable adapters for storage (S3/MinIO), geocoder (Pelias), POI fetcher (Foursquare) |
 | `backend/app/data_import/` | Pipeline | Spatial data import CLI — per-source importers with YAML city configs |
+| `backend/app/data_import/interior/` | Interior Pipeline | Interior data importers: user upload processor, Sanborn cropper, county records enricher, OSM indoor importer |
 | `backend/app/data_import/configs/` | Config | Per-city YAML configuration files (e.g., chicago.yaml) |
 | `backend/alembic/` | Migrations | Alembic database migration scripts |
 | `backend/alembic/versions/` | Migrations | Individual migration files |
@@ -43,6 +45,9 @@ Layered architecture: React + MapLibre GL frontend communicates with a FastAPI b
 - **Database models:** `backend/app/models/__init__.py` — all SQLAlchemy model imports
 - **API routes:** `backend/app/routes/` — each file registers a FastAPI `APIRouter`
 - **Data import CLI:** `python -m app.data_import.run --city chicago` (run from `backend/`)
+- **Interior API:** `backend/app/routes/interior.py` — 13 endpoints for interior CRUD + extraction
+- **Interior services:** `backend/app/services/interior_service.py`, `interior_source_service.py`, `georeferencing_service.py`
+- **Extraction pipeline:** `backend/app/services/floor_plan_extractor.py` — orchestrates extractors → GeoJSON → DB
 - **City config:** `backend/app/data_import/configs/chicago.yaml` — data sources and bounds for Chicago
 - **Alembic migrations:** `backend/alembic.ini` + `backend/alembic/versions/`
 - **Frontend start:** `frontend/src/main.tsx` — React entry point
@@ -77,3 +82,8 @@ Layered architecture: React + MapLibre GL frontend communicates with a FastAPI b
 | MapLibre GL JS | Frontend map rendering | Replaceable but central to frontend |
 | PMTiles | Static historical map tile format | Format-level dependency |
 | Protomaps | Basemap tile theme | Swappable basemap source |
+| OpenCV (headless) | Floor plan image processing | No (core to extraction) |
+| Tesseract (pytesseract) | OCR text extraction from floor plans | Yes (EasyOCR) |
+| scikit-learn | Floor plan binary classifier (SVM) | Yes (any ML framework) |
+| Playwright | JS-rendered venue website scraping | Yes (Selenium) |
+| BeautifulSoup4 | HTML parsing for venue scraper | Yes (lxml) |

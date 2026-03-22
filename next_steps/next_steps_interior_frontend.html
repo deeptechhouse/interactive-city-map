@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Next Steps — Interior Maps Frontend + Remaining Work</title>
+<style>
+  :root { --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --green: #3fb950; --orange: #d29922; --red: #f85149; --border: #30363d; --card: #161b22; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace; background: var(--bg); color: var(--fg); max-width: 960px; margin: 2rem auto; padding: 0 1.5rem; line-height: 1.6; }
+  h1 { color: var(--accent); border-bottom: 2px solid var(--border); padding-bottom: .5rem; }
+  h2 { color: var(--green); margin-top: 2rem; }
+  h3 { color: var(--orange); }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  th, td { border: 1px solid var(--border); padding: .5rem .75rem; text-align: left; }
+  th { background: var(--card); color: var(--accent); }
+  code { background: var(--card); padding: 2px 6px; border-radius: 4px; font-size: .9em; }
+  pre { background: var(--card); border: 1px solid var(--border); padding: 1rem; border-radius: 8px; overflow-x: auto; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+  .priority-high { color: var(--red); font-weight: bold; }
+  .priority-med { color: var(--orange); }
+  .priority-low { color: var(--fg); }
+</style>
+</head>
+<body>
+
+<h1>Next Steps — Interior Maps: Frontend + Remaining Work</h1>
+<p><strong>Date:</strong> 2026-03-22<br>
+<strong>Branch:</strong> <code>feat/interior-maps-core</code> (commit <code>6112b90</code>)<br>
+<strong>Prerequisite:</strong> Interior backend is complete. Migration 002 needs to be applied before testing.</p>
+
+<h2>Phase 1: Frontend Interior Viewer (High Priority)</h2>
+<p>These components let users view interior data when clicking a building. Dependencies: backend interior API endpoints.</p>
+
+<div class="card">
+<h3>Files to Create</h3>
+<table>
+<tr><th>File</th><th>Purpose</th></tr>
+<tr><td><code>frontend/src/api/interior.ts</code></td><td>API client: getSources, getRooms, getWalls, getFeatures, getSummary, createSource, createRoom, deleteRoom, triggerExtraction</td></tr>
+<tr><td><code>frontend/src/interior/InteriorViewer.tsx</code></td><td>Main interior view — zoomed-in building with floor plan overlay, rooms, walls</td></tr>
+<tr><td><code>frontend/src/interior/InteriorRasterLayer.ts</code></td><td>MapLibre image source for floor plan raster overlay from MinIO</td></tr>
+<tr><td><code>frontend/src/interior/InteriorVectorLayer.ts</code></td><td>MapLibre vector layer for rooms (fill), walls (line), features (symbol)</td></tr>
+<tr><td><code>frontend/src/interior/SanbornCropLayer.ts</code></td><td>Historical Sanborn crop overlay with opacity control</td></tr>
+<tr><td><code>frontend/src/interior/InteriorLabelLayer.ts</code></td><td>Room name, type, and dimension labels</td></tr>
+<tr><td><code>frontend/src/interior/FloorSelector.tsx</code></td><td>Vertical pill bar (B2, B1, G, 1, 2…) to switch floors</td></tr>
+<tr><td><code>frontend/src/interior/SourceSelector.tsx</code></td><td>Toggle between sources (Sanborn, upload, OSM, etc.)</td></tr>
+<tr><td><code>frontend/src/interior/SourceAttribution.tsx</code></td><td>Source icon, date, confidence badge</td></tr>
+<tr><td><code>frontend/src/interior/RoomInfoPopup.tsx</code></td><td>Click-on-room popup: name, type, area, capacity</td></tr>
+<tr><td><code>frontend/src/interior/hooks/useInteriorData.ts</code></td><td>Hook: fetch sources/rooms/walls/features for a building</td></tr>
+<tr><td><code>frontend/src/interior/hooks/useFloorLevel.ts</code></td><td>Hook: manage current floor level state</td></tr>
+<tr><td><code>frontend/src/interior/utils/interiorStyles.ts</code></td><td>MapLibre style definitions for room types (color by category)</td></tr>
+<tr><td><code>frontend/src/interior/utils/coordinateTransform.ts</code></td><td>Client-side affine transform for pixel↔world conversion</td></tr>
+</table>
+
+<h3>Files to Modify</h3>
+<table>
+<tr><th>File</th><th>Change</th></tr>
+<tr><td><code>frontend/src/panels/BuildingDetail.tsx</code></td><td>Add "Interior" tab that shows InteriorViewer when building has interior data</td></tr>
+<tr><td><code>frontend/src/panels/FloorPlanUpload.tsx</code></td><td>Add source_type selector, multi-image support, confidence display</td></tr>
+</table>
+</div>
+
+<h2>Phase 2: Frontend Interior Editor (Medium Priority)</h2>
+<p>Vector drawing tools for creating/editing interior layouts. Requires Phase 1.</p>
+
+<div class="card">
+<table>
+<tr><th>File</th><th>Purpose</th></tr>
+<tr><td><code>frontend/src/interior/InteriorEditor.tsx</code></td><td>Full vector editor: draw walls, rooms, features. Trace-over-raster mode. Save to API.</td></tr>
+<tr><td><code>frontend/src/interior/MeasureTool.tsx</code></td><td>Turf.js distance measurement between points</td></tr>
+<tr><td><code>frontend/src/interior/hooks/useInteriorEditor.ts</code></td><td>Editor state management, undo/redo stack (Ctrl+Z/Ctrl+Shift+Z)</td></tr>
+<tr><td><code>frontend/src/interior/utils/snapToWall.ts</code></td><td>Perpendicular wall snapping algorithm</td></tr>
+<tr><td><code>frontend/src/interior/utils/drawModes.ts</code></td><td>Custom @mapbox/mapbox-gl-draw modes for walls, rooms, features</td></tr>
+</table>
+</div>
+
+<h2>Phase 3: Venue Scraper Runner + Batch Processing (Medium Priority)</h2>
+<p>Can run independently of frontend work.</p>
+
+<div class="card">
+<table>
+<tr><th>File</th><th>Purpose</th></tr>
+<tr><td><code>backend/app/data_import/interior/venue_scraper_runner.py</code></td><td>Query POIs by venue categories, create scrape_targets, execute crawl, classify, store, auto-georef</td></tr>
+<tr><td><code>backend/app/data_import/interior/__main__.py</code></td><td>CLI entry: <code>python -m app.data_import.interior</code></td></tr>
+<tr><td><code>backend/scripts/run_venue_scrape.py</code></td><td>Standalone argparse CLI wrapper with progress reporting</td></tr>
+</table>
+</div>
+
+<h2>Phase 4: Contribution System + Moderation (Lower Priority)</h2>
+<div class="card">
+<table>
+<tr><th>File</th><th>Purpose</th></tr>
+<tr><td><code>backend/app/routes/interior_contributions.py</code></td><td>POST /interior/verify/{id}, /report/{id}, GET /admin/interior/moderation</td></tr>
+<tr><td><code>backend/app/services/contribution_service.py</code></td><td>Verification voting, report handling, moderation queue</td></tr>
+<tr><td><code>frontend/src/interior/InteriorSearchResults.tsx</code></td><td>"Buildings with ballrooms" style interior search</td></tr>
+<tr><td><code>frontend/src/panels/ModerationPanel.tsx</code></td><td>Admin review of contributed floor plans</td></tr>
+</table>
+</div>
+
+<h2>Phase 5: Tests (Required Before Merge)</h2>
+<div class="card">
+<table>
+<tr><th>Scope</th><th>Tests</th></tr>
+<tr><td>Backend unit</td><td>interior_service, interior_source_service, georeferencing_service, floor_plan_extractor, floor_plan_classifier (mock images)</td></tr>
+<tr><td>Backend integration</td><td>All 13 interior API endpoints vs test PostGIS database</td></tr>
+<tr><td>Frontend component</td><td>InteriorViewer, FloorSelector, SourceSelector, RoomInfoPopup, InteriorEditor</td></tr>
+<tr><td>E2E (Playwright)</td><td>Click building → Interior tab → view rooms → switch floors → upload plan → auto-fit</td></tr>
+<tr><td>Target</td><td>90% line coverage</td></tr>
+</table>
+</div>
+
+<h2>Suggested Parallel Agent Strategy</h2>
+<pre>
+Wave A (parallel):
+  Agent A1: Frontend interior viewer (Phase 1 files)
+  Agent A2: Venue scraper runner + batch CLI (Phase 3 files)
+  Agent A3: Backend + frontend tests (Phase 5)
+
+Wave B (after Wave A merge):
+  Agent B1: Frontend interior editor (Phase 2 files)
+  Agent B2: Contribution system (Phase 4 files)
+  Agent B3: Multi-city interior expansion (run pipelines for Dayton/Detroit/Cincinnati)
+</pre>
+
+<h2>Key Backend Endpoints (for frontend reference)</h2>
+<pre>
+GET    /api/v1/buildings/{id}/interior/summary
+GET    /api/v1/buildings/{id}/interior/sources
+POST   /api/v1/buildings/{id}/interior/sources
+PATCH  /api/v1/interior/sources/{id}/status
+GET    /api/v1/buildings/{id}/interior/rooms?level=0
+POST   /api/v1/buildings/{id}/interior/rooms
+DELETE /api/v1/interior/rooms/{id}
+GET    /api/v1/buildings/{id}/interior/walls?level=0
+POST   /api/v1/buildings/{id}/interior/walls
+DELETE /api/v1/interior/walls/{id}
+GET    /api/v1/buildings/{id}/interior/features?level=0
+POST   /api/v1/buildings/{id}/interior/features
+DELETE /api/v1/interior/features/{id}
+POST   /api/v1/interior/sources/{id}/extract
+</pre>
+
+</body>
+</html>

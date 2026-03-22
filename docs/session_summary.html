@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session Summary — Interactive City Map: Interior Maps Backend</title>
+<style>
+  :root { --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --green: #3fb950; --orange: #d29922; --border: #30363d; --card: #161b22; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace; background: var(--bg); color: var(--fg); max-width: 960px; margin: 2rem auto; padding: 0 1.5rem; line-height: 1.6; }
+  h1 { color: var(--accent); border-bottom: 2px solid var(--border); padding-bottom: .5rem; }
+  h2 { color: var(--green); margin-top: 2rem; }
+  h3 { color: var(--orange); }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  th, td { border: 1px solid var(--border); padding: .5rem .75rem; text-align: left; }
+  th { background: var(--card); color: var(--accent); }
+  code { background: var(--card); padding: 2px 6px; border-radius: 4px; font-size: .9em; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+  .status-done { color: var(--green); } .status-pending { color: var(--orange); }
+  ul { padding-left: 1.5rem; }
+</style>
+</head>
+<body>
+
+<h1>Session Summary — 2026-03-22</h1>
+<p><strong>Project:</strong> Interactive City Map — Interior Building Maps<br>
+<strong>Branch:</strong> <code>feat/interior-maps-core</code><br>
+<strong>Commit:</strong> <code>6112b90</code></p>
+
+<h2>Section 1: Work Completed This Session</h2>
+
+<h3>Interior Maps Backend — Full Implementation (30 files, 2,926 lines)</h3>
+
+<div class="card">
+<h4>Models (5 new + 2 updated)</h4>
+<table>
+<tr><th>File</th><th>Description</th></tr>
+<tr><td><code>models/interior_source.py</code></td><td>InteriorSource — tracks raw data sources (Sanborn, scrape, upload, OSM, county records) with confidence scoring and status workflow</td></tr>
+<tr><td><code>models/interior_room.py</code></td><td>InteriorRoom — room polygons with PostGIS POLYGON geometry, area, capacity, room type</td></tr>
+<tr><td><code>models/interior_wall.py</code></td><td>InteriorWall — wall linestrings with material, thickness, wall type</td></tr>
+<tr><td><code>models/interior_feature.py</code></td><td>InteriorFeature — doors, stairs, elevators, restrooms, exits (GEOMETRY type)</td></tr>
+<tr><td><code>models/scrape_target.py</code></td><td>ScrapeTarget — URL queue for floor plan discovery with status tracking</td></tr>
+<tr><td><code>models/floor_plan.py</code></td><td>Extended with confidence, source_type, source_url, source_date, vectorized, vector_quality + interior relationships</td></tr>
+<tr><td><code>models/building.py</code></td><td>Added interior_sources, interior_rooms, interior_walls, interior_features, scrape_targets relationships</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h4>Schemas</h4>
+<table>
+<tr><th>File</th><th>Description</th></tr>
+<tr><td><code>schemas/interior.py</code></td><td>Pydantic request/response schemas for all 5 interior types + InteriorSummaryResponse</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h4>Services (7 new + 1 updated)</h4>
+<table>
+<tr><th>File</th><th>Description</th></tr>
+<tr><td><code>services/interior_service.py</code></td><td>Async CRUD for sources, rooms, walls, features + summary + delete operations</td></tr>
+<tr><td><code>services/interior_source_service.py</code></td><td>Confidence scoring by source type, query by type/status, mark as extracted</td></tr>
+<tr><td><code>services/georeferencing_service.py</code></td><td>OMBR auto-fit, control point affine, pixel↔world transforms, raster bounds</td></tr>
+<tr><td><code>services/floor_plan_extractor.py</code></td><td>Orchestrator: image → rooms/walls GeoJSON with DB persistence</td></tr>
+<tr><td><code>services/venue_scraper_service.py</code></td><td>Robots.txt-compliant website crawler with floor plan image scoring</td></tr>
+<tr><td><code>services/floor_plan_classifier.py</code></td><td>10-feature SVM binary classifier with heuristic fallback</td></tr>
+<tr><td><code>services/extractors/*</code></td><td>LineDetector (Hough), RoomSegmenter (contours), TextExtractor (OCR), SanbornParser (color/material), GeoJSONWriter</td></tr>
+<tr><td><code>services/search_service.py</code></td><td>Added <code>has_interior</code> filter parameter</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h4>Routes</h4>
+<table>
+<tr><th>File</th><th>Description</th></tr>
+<tr><td><code>routes/interior.py</code></td><td>13 endpoints: sources CRUD, rooms CRUD, walls CRUD, features CRUD, summary, extraction trigger</td></tr>
+<tr><td><code>main.py</code></td><td>Registered interior router at <code>/api/v1</code></td></tr>
+</table>
+</div>
+
+<div class="card">
+<h4>Data Import Pipeline</h4>
+<table>
+<tr><th>File</th><th>Description</th></tr>
+<tr><td><code>data_import/interior/user_upload_processor.py</code></td><td>Validate, thumbnail, MinIO storage, auto-georeference uploaded floor plans</td></tr>
+<tr><td><code>data_import/interior/sanborn_cropper.py</code></td><td>Crop georeferenced Sanborn sheets to individual building footprints</td></tr>
+<tr><td><code>data_import/interior/county_records.py</code></td><td>Enrich buildings with county auditor/assessor metadata</td></tr>
+<tr><td><code>data_import/interior/osm_indoor.py</code></td><td>Import indoor data from OpenStreetMap via Overpass API</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h4>Housekeeping</h4>
+<ul>
+<li>Cleaned up 8 stale branches (5 orphaned worktree branches + 3 empty feature branches)</li>
+<li>Migration 002 (interior schema) staged — defines all 5 tables + Martin MVT function</li>
+</ul>
+</div>
+
+<h2>Section 2: Prior Work Before This Session</h2>
+
+<h3>City Map — Complete (Waves 0–2 of unified plan)</h3>
+<ul>
+<li><span class="status-done">✓</span> Full backend: FastAPI + SQLAlchemy + PostGIS (buildings, parcels, POIs, zoning, railroads, transit, waterways)</li>
+<li><span class="status-done">✓</span> Full frontend: React + MapLibre + 20+ map layers, search, panels, Sanborn overlay</li>
+<li><span class="status-done">✓</span> Multi-city configs: Chicago, Dayton, Detroit, Cincinnati</li>
+<li><span class="status-done">✓</span> Basic floor plan upload/view/overlay</li>
+<li><span class="status-done">✓</span> CI/CD pipeline, Docker, tests</li>
+<li><span class="status-done">✓</span> Data import pipeline with Chicago YAML config</li>
+</ul>
+
+<h3>What Remains (Interior Maps)</h3>
+<table>
+<tr><th>Phase</th><th>Status</th><th>Description</th></tr>
+<tr><td>Backend core</td><td class="status-done">✓ Done</td><td>Models, schemas, services, routes, extraction pipeline</td></tr>
+<tr><td>Frontend viewer</td><td class="status-pending">Pending</td><td>InteriorViewer, FloorSelector, SourceSelector, RoomInfoPopup, map layers</td></tr>
+<tr><td>Frontend editor</td><td class="status-pending">Pending</td><td>Vector drawing (walls/rooms/features), undo/redo, snap-to-wall, measure tool</td></tr>
+<tr><td>Venue scraper runner</td><td class="status-pending">Pending</td><td>Batch execution against POI database, populate scrape_targets</td></tr>
+<tr><td>Contribution system</td><td class="status-pending">Pending</td><td>Anonymous upload, verification voting, moderation panel</td></tr>
+<tr><td>Tests</td><td class="status-pending">Pending</td><td>Unit + integration tests for all interior services</td></tr>
+<tr><td>Multi-city interior</td><td class="status-pending">Pending</td><td>Run pipelines for Dayton, Detroit, Cincinnati</td></tr>
+<tr><td>ML enhancement</td><td class="status-pending">Pending</td><td>Train wall/room segmentation on CubiCasa5k</td></tr>
+</table>
+
+</body>
+</html>

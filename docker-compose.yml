@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: citymap-postgres
+    environment:
+      POSTGRES_USER: citymap
+      POSTGRES_PASSWORD: citymap
+      POSTGRES_DB: citymap
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/scripts/init_extensions.sql:/docker-entrypoint-initdb.d/01-extensions.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U citymap"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  martin:
+    image: ghcr.io/maplibre/martin:v0.14.2
+    container_name: citymap-martin
+    ports:
+      - "3030:3000"
+    environment:
+      - DATABASE_URL=postgresql://citymap:citymap@postgres:5432/citymap
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./martin.yaml:/config/martin.yaml
+    command: ["--config", "/config/martin.yaml"]
+
+  minio:
+    image: minio/minio:latest
+    container_name: citymap-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+
+  createbucket:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 3;
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb myminio/citymap-tiles --ignore-existing;
+      /usr/bin/mc anonymous set public myminio/citymap-tiles;
+      exit 0;
+      "
+
+volumes:
+  postgres_data:
+  minio_data:

@@ -1,0 +1,7 @@
+postgres:
+  connection_string: postgresql://citymap:citymap@postgres:5432/citymap
+  auto_publish:
+    tables:
+      from_schemas: public
+    functions: true
+  pool_size: 20

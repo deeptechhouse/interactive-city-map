@@ -124,16 +124,23 @@ class TransitImporter(BaseImporter):
                 continue
             point_json = json.dumps(mapping(geom))
 
-            name = props.get("station_name", "") or props.get("name", "")
+            name = props.get("longname", "") or props.get("station_name", "") or props.get("name", "")
             if not name:
                 continue
 
-            # lines_served from properties
+            # lines_served from "lines" property (comma-separated)
             lines_served = []
-            for color in CTA_LINE_COLORS:
-                field = color
-                if props.get(field) is True or str(props.get(field, "")).lower() in ("true", "1", "yes"):
-                    lines_served.append(color.capitalize())
+            raw_lines = props.get("lines", "")
+            if raw_lines:
+                for part in raw_lines.split(","):
+                    normalized = _normalize_line_name(part.strip())
+                    if normalized:
+                        lines_served.append(normalized)
+            if not lines_served:
+                # Fallback: check boolean fields per color
+                for color in CTA_LINE_COLORS:
+                    if props.get(color) is True or str(props.get(color, "")).lower() in ("true", "1", "yes"):
+                        lines_served.append(color.capitalize())
 
             # Try to link to the first matching transit_line
             line_id = None

@@ -8,7 +8,7 @@ import uuid
 from pathlib import Path
 
 from shapely.geometry import shape, mapping
-from shapely import Polygon
+from shapely import Polygon, MultiPolygon
 
 from app.data_import.base_importer import BaseImporter
 
@@ -57,7 +57,14 @@ class BuildingsImporter(BaseImporter):
                 geom = shape(geom_json)
             except Exception:
                 continue
-            if not isinstance(geom, Polygon) or geom.is_empty:
+            if geom.is_empty:
+                continue
+            # API returns MultiPolygon — extract first polygon for buildings
+            if isinstance(geom, MultiPolygon):
+                geom = list(geom.geoms)[0] if geom.geoms else None
+                if not geom:
+                    continue
+            if not isinstance(geom, Polygon):
                 continue
 
             geom_str = json.dumps(mapping(geom))

@@ -8,14 +8,14 @@ city:
 
 sources:
   zoning:
-    url: "https://data.cityofchicago.org/resource/7cve-jgbp.geojson?$limit=50000"
+    url: "https://data.cityofchicago.org/resource/nifi-zqag.geojson?$limit=50000"
   buildings:
     url: "https://data.cityofchicago.org/resource/syp8-uezg.geojson?$limit=50000"
     fallback_url: "https://usbuildingdata.blob.core.windows.net/usbuildings-v2/Illinois.geojson.zip"
   transit_lines:
-    url: "https://data.cityofchicago.org/resource/53r7-y88m.geojson?$limit=5000"
+    url: "https://data.cityofchicago.org/resource/xbyr-jnvx.geojson?$limit=5000"
   transit_stations:
-    url: "https://data.cityofchicago.org/resource/8pix-ypme.geojson?$limit=5000"
+    url: "https://data.cityofchicago.org/resource/3tzw-cg4m.geojson?$limit=5000"
   waterways:
     url: "https://data.cityofchicago.org/resource/eg9f-z3t6.geojson?$limit=5000"
   parks:

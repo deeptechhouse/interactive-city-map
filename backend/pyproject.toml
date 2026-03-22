@@ -23,6 +23,13 @@ dependencies = [
     "structlog==24.4.0",
     "pyyaml==6.0.2",
     "python-dotenv==1.0.1",
+    # Interior maps dependencies
+    "opencv-python-headless==4.10.0.84",
+    "pytesseract==0.3.13",
+    "beautifulsoup4==4.12.3",
+    "playwright==1.49.1",
+    "scikit-learn==1.5.2",
+    "Pillow==10.4.0",
 ]
 
 [project.optional-dependencies]

@@ -3,5 +3,6 @@ postgres:
   auto_publish:
     tables:
       from_schemas: public
-    functions: true
+    functions:
+      from_schemas: public
   pool_size: 20

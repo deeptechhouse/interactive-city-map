@@ -40,12 +40,18 @@ const LAYER_REGISTRY: Record<
   sanborn: { add: addSanbornOverlay, getIds: getSanbornLayerIds },
 };
 
+export interface ClickedBuildingInfo {
+  id: string;
+  properties: Record<string, unknown>;
+}
+
 interface MapContainerProps {
   layers: LayerState[];
   onMapReady?: (map: maplibregl.Map) => void;
+  onBuildingClick?: (info: ClickedBuildingInfo) => void;
 }
 
-export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady }) => {
+export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady, onBuildingClick }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -189,8 +195,10 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady }
     if (!map || !clickInfo.clickedFeature || !clickInfo.position) return;
 
     const props = clickInfo.clickedFeature.properties ?? {};
+    const isBldg = clickInfo.featureType === 'building';
+
     let html: string;
-    if (clickInfo.featureType === 'building') {
+    if (isBldg) {
       html = buildBuildingPopup(props);
     } else if (clickInfo.featureType === 'zoning') {
       html = buildZoningPopup(props);
@@ -203,10 +211,25 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady }
       .setHTML(html)
       .addTo(map);
 
+    // Wire up "Open Details" button in building popups
+    if (isBldg && props.id) {
+      const el = popup.getElement();
+      const detailBtn = el?.querySelector('[data-action="open-details"]');
+      if (detailBtn) {
+        detailBtn.addEventListener('click', () => {
+          popup.remove();
+          onBuildingClick?.({
+            id: String(props.id),
+            properties: props as Record<string, unknown>,
+          });
+        });
+      }
+    }
+
     return () => {
       popup.remove();
     };
-  }, [clickInfo]);
+  }, [clickInfo, onBuildingClick]);
 
   return <div ref={containerRef} className="map-container" />;
 };
@@ -257,6 +280,11 @@ function buildBuildingPopup(p: Record<string, unknown>): string {
     ${row('Owner Type', p.owner_type)}
     ${row('Property Class', p.property_class)}
     ${row('Parcel PIN', p.parcel_pin)}
+    <div style="margin-top: 10px; display: flex; gap: 6px;">
+      <button data-action="open-details" style="flex:1; padding: 6px 12px; background: #2563eb; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
+        ${p.has_interior ? 'View Interior &amp; Details' : 'Open Details'}
+      </button>
+    </div>
   </div>`;
 }
 

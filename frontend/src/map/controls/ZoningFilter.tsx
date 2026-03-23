@@ -53,7 +53,7 @@ const styles = {
 /** Layer IDs that belong to the zoning layer */
 const ZONING_LAYER_IDS = [
   'zoning-fill',
-  'zoning-line',
+  'zoning-stroke',
   'zoning-label',
 ];
 

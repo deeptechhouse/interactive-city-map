@@ -306,7 +306,28 @@ function buildPOIPopup(p: Record<string, unknown>): string {
   if (p.category) badges.push(`<span style="${badgeStyle('#ede9fe', '#5b21b6')}">${p.category}</span>`);
   if (p.subcategory) badges.push(`<span style="${badgeStyle('#fce7f3', '#9d174d')}">${p.subcategory}</span>`);
 
-  return `<div style="${popupStyles} max-width: 340px; padding: 8px;">
+  // Parse metadata for contacts and photos
+  let metadata: Record<string, unknown> = {};
+  if (p.metadata) {
+    try {
+      metadata = typeof p.metadata === 'string' ? JSON.parse(p.metadata as string) : p.metadata as Record<string, unknown>;
+    } catch { /* ignore */ }
+  }
+
+  const contacts = Array.isArray(metadata.contacts) ? metadata.contacts as Array<Record<string, string>> : [];
+  const contactsHtml = contacts.length > 0 ? `
+    <div style="margin-top: 8px; border-top: 1px solid #e5e7eb; padding-top: 6px;">
+      <div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Contacts</div>
+      ${contacts.slice(0, 4).map(c => {
+        const parts: string[] = [];
+        if (c.role && c.role !== 'general') parts.push(`<span style="font-weight:500;color:#374151;">${c.role}</span>`);
+        if (c.email) parts.push(`<a href="mailto:${c.email}" style="color:#2563eb;font-size:11px;">${c.email}</a>`);
+        if (c.phone) parts.push(`<a href="tel:${c.phone}" style="color:#2563eb;font-size:11px;">${c.phone}</a>`);
+        return parts.length > 0 ? `<div style="font-size:12px;padding:2px 0;">${parts.join(' · ')}</div>` : '';
+      }).join('')}
+    </div>` : '';
+
+  return `<div style="${popupStyles} max-width: 360px; padding: 8px; max-height: 400px; overflow-y: auto;">
     <div style="${headerStyle}">${name}</div>
     ${badges.length > 0 ? `<div style="margin-bottom: 8px;">${badges.join('')}</div>` : ''}
     ${row('Address', p.address)}
@@ -315,6 +336,6 @@ function buildPOIPopup(p: Record<string, unknown>): string {
     ${row('Website', p.website ? `<a href="${p.website}" target="_blank" style="color:#2563eb">${(p.website as string).replace(/^https?:\/\//, '').slice(0, 30)}...</a>` : null)}
     ${row('Description', p.description)}
     ${row('Hours', typeof p.hours === 'string' ? p.hours : null)}
-    ${row('Verified', p.verified ? 'Yes' : null)}
+    ${contactsHtml}
   </div>`;
 }

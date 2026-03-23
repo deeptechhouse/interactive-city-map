@@ -390,6 +390,34 @@ export const InteriorViewer: React.FC<InteriorViewerProps> = ({
         />
       )}
 
+      {/* Interior photos panel */}
+      {selectedSource?.raw_data && (selectedSource.raw_data as Record<string, unknown>)?.interior_photos && (
+        <div style={styles.photosPanel}>
+          <div style={{ fontSize: '12px', fontWeight: 600, color: THEME.text, marginBottom: '8px' }}>
+            Interior Photos
+          </div>
+          <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+            {((selectedSource.raw_data as Record<string, unknown>).interior_photos as Array<{url: string; alt: string}>).slice(0, 8).map((photo, i) => (
+              <a key={i} href={photo.url} target="_blank" rel="noopener noreferrer" title={photo.alt || 'Interior photo'}>
+                <img
+                  src={photo.url}
+                  alt={photo.alt || 'Interior photo'}
+                  style={{
+                    width: '100px',
+                    height: '75px',
+                    objectFit: 'cover',
+                    borderRadius: '4px',
+                    border: `1px solid ${THEME.border}`,
+                    cursor: 'pointer',
+                  }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Loading state */}
       {loading && <div style={styles.loadingOverlay}>Loading interior data...</div>}
 
@@ -456,6 +484,20 @@ const styles = {
     padding: '0 12px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
     zIndex: 50,
+  },
+  photosPanel: {
+    pointerEvents: 'auto' as const,
+    position: 'absolute' as const,
+    bottom: '60px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: THEME.bgSecondary,
+    border: `1px solid ${THEME.border}`,
+    borderRadius: '8px',
+    padding: '10px 14px',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.4)',
+    zIndex: 50,
+    maxWidth: '90vw',
   },
   loadingOverlay: {
     pointerEvents: 'auto' as const,

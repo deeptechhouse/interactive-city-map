@@ -7,6 +7,7 @@ import { LayerPanel } from './map/controls/LayerPanel';
 import { BuildingLegend } from './map/controls/BuildingLegend';
 import { POIListPanel } from './map/controls/POIListPanel';
 import { SubFilterPanel } from './map/controls/SubFilterPanel';
+import { POICategoryFilter } from './map/controls/POICategoryFilter';
 import { useMapLayers } from './map/hooks/useMapLayers';
 import { BuildingDetail } from './panels/BuildingDetail';
 import { InteriorViewer } from './interior/InteriorViewer';
@@ -57,6 +58,7 @@ function App() {
       <BuildingLegend />
       <POIListPanel mapInstance={mapInstance} />
       <SubFilterPanel map={mapInstance} layers={layerControls.layers} />
+      <POICategoryFilter map={mapInstance} />
 
       {/* Building detail side panel */}
       {selectedBuilding && !showInterior && (

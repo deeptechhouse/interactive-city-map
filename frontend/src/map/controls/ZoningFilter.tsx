@@ -14,6 +14,14 @@ const ZONE_CLASSES = [
   { key: 'special', label: 'Special', color: ZONING_COLORS.special },
 ];
 
+// Manufacturing sub-types (Chicago zoning code prefixes)
+const MFG_SUBTYPES = [
+  { key: 'M1', label: 'M1 — Limited Mfg/Business Park' },
+  { key: 'M2', label: 'M2 — Light Manufacturing' },
+  { key: 'M3', label: 'M3 — Heavy Manufacturing' },
+  { key: 'PMD', label: 'PMD — Planned Mfg District' },
+];
+
 const styles = {
   container: {
     padding: '8px 12px',
@@ -61,47 +69,85 @@ export const ZoningFilter: React.FC<ZoningFilterProps> = ({ map }) => {
   const [activeClasses, setActiveClasses] = useState<Set<string>>(
     () => new Set(ZONE_CLASSES.map((z) => z.key)),
   );
+  const [activeMfgSubtypes, setActiveMfgSubtypes] = useState<Set<string>>(
+    () => new Set(MFG_SUBTYPES.map((s) => s.key)),
+  );
 
   const toggleClass = useCallback((key: string) => {
     setActiveClasses((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   }, []);
 
-  // Apply filter to map whenever selections change
+  const toggleMfgSubtype = useCallback((key: string) => {
+    setActiveMfgSubtypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  // Apply filter
   useEffect(() => {
     if (!map) return;
 
-    const allActive = activeClasses.size === ZONE_CLASSES.length;
+    const allClassesActive = activeClasses.size === ZONE_CLASSES.length;
+    const allMfgActive = activeMfgSubtypes.size === MFG_SUBTYPES.length;
+    const mfgIsActive = activeClasses.has('manufacturing');
 
     for (const layerId of ZONING_LAYER_IDS) {
       try {
-        if (map.getLayer(layerId)) {
-          if (allActive) {
-            map.setFilter(layerId, null);
-          } else if (activeClasses.size === 0) {
-            // Hide all
+        if (!map.getLayer(layerId)) continue;
+
+        if (allClassesActive && allMfgActive) {
+          map.setFilter(layerId, null);
+        } else if (activeClasses.size === 0) {
+          map.setFilter(layerId, ['==', ['get', 'zone_class'], '__none__']);
+        } else {
+          // Build conditions
+          const conditions: unknown[] = [];
+
+          // Non-manufacturing classes: simple in-list
+          const nonMfgClasses = [...activeClasses].filter(c => c !== 'manufacturing');
+          if (nonMfgClasses.length > 0) {
+            conditions.push(['in', ['get', 'zone_class'], ['literal', nonMfgClasses]]);
+          }
+
+          // Manufacturing: filter by sub-type (zone_code prefix)
+          if (mfgIsActive && !allMfgActive && activeMfgSubtypes.size > 0) {
+            // Match zone_code starting with selected prefixes
+            const mfgConditions = [...activeMfgSubtypes].map(prefix => {
+              if (prefix === 'PMD') {
+                return ['==', ['slice', ['get', 'zone_code'], 0, 3], 'PMD'];
+              }
+              return ['==', ['slice', ['get', 'zone_code'], 0, 2], prefix];
+            });
+            if (mfgConditions.length === 1) {
+              conditions.push(['all', ['==', ['get', 'zone_class'], 'manufacturing'], mfgConditions[0]]);
+            } else {
+              conditions.push(['all', ['==', ['get', 'zone_class'], 'manufacturing'], ['any', ...mfgConditions]]);
+            }
+          } else if (mfgIsActive) {
+            conditions.push(['==', ['get', 'zone_class'], 'manufacturing']);
+          }
+
+          if (conditions.length === 0) {
             map.setFilter(layerId, ['==', ['get', 'zone_class'], '__none__']);
+          } else if (conditions.length === 1) {
+            map.setFilter(layerId, conditions[0] as unknown as maplibregl.FilterSpecification);
           } else {
-            const classList = [...activeClasses];
-            map.setFilter(layerId, [
-              'in',
-              ['get', 'zone_class'],
-              ['literal', classList],
-            ]);
+            map.setFilter(layerId, ['any', ...conditions] as unknown as maplibregl.FilterSpecification);
           }
         }
-      } catch {
-        // Layer may not exist
-      }
+      } catch { /* */ }
     }
-  }, [map, activeClasses]);
+  }, [map, activeClasses, activeMfgSubtypes]);
+
+  const mfgActive = activeClasses.has('manufacturing');
 
   return (
     <div style={styles.container}>
@@ -118,6 +164,24 @@ export const ZoningFilter: React.FC<ZoningFilterProps> = ({ map }) => {
           {zone.label}
         </label>
       ))}
+
+      {/* Manufacturing sub-types — only show when manufacturing is active */}
+      {mfgActive && (
+        <div style={{ marginTop: '6px', paddingLeft: '8px', borderLeft: `2px solid ${ZONING_COLORS.manufacturing}` }}>
+          <div style={{ ...styles.title, fontSize: '9px', marginBottom: '4px' }}>Manufacturing Sub-Type</div>
+          {MFG_SUBTYPES.map((sub) => (
+            <label key={sub.key} style={{ ...styles.checkboxRow, fontSize: '10px' }}>
+              <input
+                type="checkbox"
+                checked={activeMfgSubtypes.has(sub.key)}
+                onChange={() => toggleMfgSubtype(sub.key)}
+                style={styles.checkbox}
+              />
+              {sub.label}
+            </label>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

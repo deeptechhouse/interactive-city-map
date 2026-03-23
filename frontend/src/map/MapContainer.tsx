@@ -376,12 +376,14 @@ function buildPOIPopup(p: Record<string, unknown>): string {
   const contactsHtml = contacts.length > 0 ? `
     <div style="margin-top: 8px; border-top: 1px solid #30363d; padding-top: 6px;">
       <div style="font-size: 11px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Contacts</div>
-      ${contacts.slice(0, 4).map(c => {
-        const parts: string[] = [];
-        if (c.role && c.role !== 'general') parts.push(`<span style="font-weight:500;color:#c9d1d9;">${c.role}</span>`);
-        if (c.email) parts.push(`<a href="mailto:${c.email}" style="color:#58a6ff;font-size:11px;">${c.email}</a>`);
-        if (c.phone) parts.push(`<a href="tel:${c.phone}" style="color:#58a6ff;font-size:11px;">${c.phone}</a>`);
-        return parts.length > 0 ? `<div style="font-size:12px;padding:2px 0;">${parts.join(' · ')}</div>` : '';
+      ${contacts.slice(0, 5).map(c => {
+        const nameLine = c.name ? `<span style="font-weight:600;color:#e6edf3;">${c.name}</span>` : '';
+        const roleLine = (c.role && c.role !== 'general') ? `<span style="color:#8b949e;font-size:11px;">${c.role}</span>` : '';
+        const emailLine = c.email ? `<a href="mailto:${c.email}" style="color:#58a6ff;font-size:11px;">${c.email}</a>` : '';
+        const phoneLine = c.phone ? `<a href="tel:${c.phone}" style="color:#58a6ff;font-size:11px;">${c.phone}</a>` : '';
+        const top = [nameLine, roleLine].filter(Boolean).join(' — ');
+        const bottom = [emailLine, phoneLine].filter(Boolean).join(' · ');
+        return (top || bottom) ? `<div style="padding:3px 0;border-bottom:1px solid #21262d;">${top ? `<div>${top}</div>` : ''}${bottom ? `<div style="margin-top:1px;">${bottom}</div>` : ''}</div>` : '';
       }).join('')}
     </div>` : '';
 

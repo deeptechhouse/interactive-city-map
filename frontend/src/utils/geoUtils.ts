@@ -20,7 +20,7 @@ export function martinTileUrl(tableName: string): string {
 
 /** Get the API base URL */
 export function apiBaseUrl(): string {
-  return import.meta.env.VITE_API_URL || 'http://localhost:8080';
+  return import.meta.env.VITE_API_URL || 'http://localhost:8000';
 }
 
 /** Chicago default center and zoom */

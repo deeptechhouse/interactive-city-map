@@ -1,6 +1,7 @@
 import './App.css';
 import { MapContainer } from './map/MapContainer';
 import { LayerPanel } from './map/controls/LayerPanel';
+import { BuildingLegend } from './map/controls/BuildingLegend';
 import { useMapLayers } from './map/hooks/useMapLayers';
 
 function App() {
@@ -10,6 +11,7 @@ function App() {
     <div className="app">
       <LayerPanel layerControls={layerControls} />
       <MapContainer layers={layerControls.layers} />
+      <BuildingLegend />
     </div>
   );
 }

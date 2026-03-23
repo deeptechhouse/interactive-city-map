@@ -1,7 +1,45 @@
 import type maplibregl from 'maplibre-gl';
 import type { LayerConfig } from '../../types/layer';
+import { BUILDING_CLASS_COLORS, BUILDING_DEFAULT_COLOR } from '../../utils/colorSchemes';
 
 const SOURCE_ID = 'buildings-source';
+
+function buildingFillColorExpression(): unknown {
+  // Data-driven color by property_class, with special cases for has_interior and owner_type
+  const pairs: string[] = [];
+  for (const [cls, color] of Object.entries(BUILDING_CLASS_COLORS)) {
+    pairs.push(cls, color);
+  }
+  return [
+    'case',
+    // Buildings with interior maps get a distinct teal tint
+    ['==', ['get', 'has_interior'], true],
+    '#0d9488',
+    // Government-owned buildings get cyan
+    ['==', ['get', 'owner_type'], 'government'],
+    '#06b6d4',
+    // Color by property_class if available
+    ['has', 'property_class'],
+    ['match', ['get', 'property_class'], ...pairs, BUILDING_DEFAULT_COLOR],
+    // Fallback: color by zoning_code prefix if available
+    ['has', 'zoning_code'],
+    [
+      'match',
+      // Extract first letter of zoning code: R=residential, C/B=commercial, M=manufacturing, etc.
+      ['slice', ['get', 'zoning_code'], 0, 1],
+      'R', '#22c55e',  // residential green
+      'C', '#ef4444',  // commercial red
+      'B', '#ef4444',  // business/commercial red
+      'M', '#f59e0b',  // manufacturing amber
+      'D', '#a855f7',  // downtown/mixed purple
+      'P', '#3b82f6',  // planned/institutional blue
+      'T', '#06b6d4',  // transportation cyan
+      BUILDING_DEFAULT_COLOR,
+    ],
+    // Default gray
+    BUILDING_DEFAULT_COLOR,
+  ];
+}
 
 export function addBuildingLayer(map: maplibregl.Map, config: LayerConfig): void {
   if (map.getSource(SOURCE_ID)) return;
@@ -13,7 +51,7 @@ export function addBuildingLayer(map: maplibregl.Map, config: LayerConfig): void
     maxzoom: 16,
   });
 
-  // Main building fill
+  // Main building fill — colored by type
   map.addLayer({
     id: `${config.id}-fill`,
     type: 'fill',
@@ -24,18 +62,19 @@ export function addBuildingLayer(map: maplibregl.Map, config: LayerConfig): void
       visibility: config.visible ? 'visible' : 'none',
     },
     paint: {
-      'fill-color': '#334155',
+      'fill-color': buildingFillColorExpression(),
       'fill-opacity': [
         'interpolate',
         ['linear'],
         ['zoom'],
-        10, 0.15 * config.opacity,
-        16, 0.4 * config.opacity,
+        10, 0.2 * config.opacity,
+        14, 0.35 * config.opacity,
+        16, 0.5 * config.opacity,
       ],
     },
-  });
+  } as maplibregl.AddLayerObject);
 
-  // Building stroke
+  // Building stroke — colored to match fill but darker
   map.addLayer({
     id: `${config.id}-stroke`,
     type: 'line',
@@ -49,11 +88,15 @@ export function addBuildingLayer(map: maplibregl.Map, config: LayerConfig): void
       visibility: config.visible ? 'visible' : 'none',
     },
     paint: {
-      'line-color': '#475569',
-      'line-width': 0.5,
-      'line-opacity': config.opacity,
+      'line-color': buildingFillColorExpression(),
+      'line-width': [
+        'interpolate', ['linear'], ['zoom'],
+        12, 0.3,
+        16, 1,
+      ],
+      'line-opacity': config.opacity * 0.8,
     },
-  });
+  } as maplibregl.AddLayerObject);
 
   // Buildings with interior: dashed stroke, different color
   map.addLayer({

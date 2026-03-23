@@ -64,6 +64,36 @@ export const POI_COLORS: Record<string, string> = {
   parks: '#38A169',
 };
 
+/** Building fill colors by property class */
+export const BUILDING_CLASS_COLORS: Record<string, string> = {
+  commercial: '#ef4444',       // red
+  residential: '#22c55e',      // green
+  industrial: '#f59e0b',       // amber
+  mixed_use: '#a855f7',        // purple
+  institutional: '#3b82f6',    // blue
+  government: '#06b6d4',       // cyan
+  religious: '#ec4899',        // pink
+  educational: '#8b5cf6',      // violet
+  medical: '#14b8a6',          // teal
+  entertainment: '#f97316',    // orange
+  hotel: '#eab308',            // yellow
+  warehouse: '#78716c',        // stone
+  parking: '#6b7280',          // gray
+  vacant: '#374151',           // dark gray
+};
+
+export const BUILDING_DEFAULT_COLOR = '#334155';
+
+/** Building owner type colors (used for border highlighting) */
+export const OWNER_TYPE_COLORS: Record<string, string> = {
+  government: '#06b6d4',
+  corporate: '#ef4444',
+  nonprofit: '#22c55e',
+  individual: '#8b949e',
+  religious: '#ec4899',
+  educational: '#8b5cf6',
+};
+
 /** App theme colors */
 export const THEME = {
   bg: '#0d1117',

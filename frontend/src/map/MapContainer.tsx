@@ -240,20 +240,20 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady, 
 
 const popupStyles = `
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 13px; color: #0d1117; line-height: 1.5;
+  font-size: 13px; color: #c9d1d9; line-height: 1.5;
 `;
 
 const headerStyle = `
-  font-size: 15px; font-weight: 600; margin: 0 0 6px 0; color: #0d1117;
+  font-size: 15px; font-weight: 600; margin: 0 0 6px 0; color: #e6edf3;
 `;
 
 const rowStyle = `
   display: flex; justify-content: space-between; padding: 3px 0;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #30363d;
 `;
 
-const labelStyle = `color: #6b7280; font-size: 12px;`;
-const valueStyle = `color: #111827; font-weight: 500; text-align: right; max-width: 180px; word-break: break-word;`;
+const labelStyle = `color: #8b949e; font-size: 12px;`;
+const valueStyle = `color: #e6edf3; font-weight: 500; text-align: right; max-width: 180px; word-break: break-word;`;
 
 const badgeStyle = (bg: string, fg: string) =>
   `display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; background: ${bg}; color: ${fg}; margin-right: 4px; margin-bottom: 4px;`;
@@ -283,7 +283,7 @@ function buildBuildingPopup(p: Record<string, unknown>): string {
     ${row('Property Class', p.property_class)}
     ${row('Parcel PIN', p.parcel_pin)}
     <div style="margin-top: 10px; display: flex; gap: 6px;">
-      <button data-action="open-details" style="flex:1; padding: 6px 12px; background: #2563eb; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
+      <button data-action="open-details" style="flex:1; padding: 6px 12px; background: #58a6ff; color: #0d1117; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
         ${p.has_interior ? 'View Interior &amp; Details' : 'Open Details'}
       </button>
     </div>
@@ -360,13 +360,13 @@ function buildPOIPopup(p: Record<string, unknown>): string {
   // Occupancy data
   const occupancy = metadata.occupancy as Record<string, unknown> | undefined;
   const occupancyHtml = occupancy ? `
-    <div style="margin-top: 8px; border-top: 1px solid #e5e7eb; padding-top: 6px;">
-      <div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Occupancy</div>
+    <div style="margin-top: 8px; border-top: 1px solid #30363d; padding-top: 6px;">
+      <div style="font-size: 11px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Occupancy</div>
       <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px;">
-        <span style="font-size: 20px; font-weight: 700; color: #111827;">${occupancy.estimated_max_occupancy}</span>
-        <span style="font-size: 12px; color: #6b7280;">max persons</span>
+        <span style="font-size: 20px; font-weight: 700; color: #58a6ff;">${occupancy.estimated_max_occupancy}</span>
+        <span style="font-size: 12px; color: #8b949e;">max persons</span>
       </div>
-      <div style="font-size: 11px; color: #6b7280;">
+      <div style="font-size: 11px; color: #8b949e;">
         ${occupancy.ibc_classification}<br/>
         ${occupancy.building_sqft ? `${Number(occupancy.building_sqft).toLocaleString()} sqft · ${occupancy.load_factor_sqft_per_person} sqft/person` : (occupancy.note || '')}
       </div>
@@ -374,13 +374,13 @@ function buildPOIPopup(p: Record<string, unknown>): string {
 
   const contacts = Array.isArray(metadata.contacts) ? metadata.contacts as Array<Record<string, string>> : [];
   const contactsHtml = contacts.length > 0 ? `
-    <div style="margin-top: 8px; border-top: 1px solid #e5e7eb; padding-top: 6px;">
-      <div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Contacts</div>
+    <div style="margin-top: 8px; border-top: 1px solid #30363d; padding-top: 6px;">
+      <div style="font-size: 11px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Contacts</div>
       ${contacts.slice(0, 4).map(c => {
         const parts: string[] = [];
-        if (c.role && c.role !== 'general') parts.push(`<span style="font-weight:500;color:#374151;">${c.role}</span>`);
-        if (c.email) parts.push(`<a href="mailto:${c.email}" style="color:#2563eb;font-size:11px;">${c.email}</a>`);
-        if (c.phone) parts.push(`<a href="tel:${c.phone}" style="color:#2563eb;font-size:11px;">${c.phone}</a>`);
+        if (c.role && c.role !== 'general') parts.push(`<span style="font-weight:500;color:#c9d1d9;">${c.role}</span>`);
+        if (c.email) parts.push(`<a href="mailto:${c.email}" style="color:#58a6ff;font-size:11px;">${c.email}</a>`);
+        if (c.phone) parts.push(`<a href="tel:${c.phone}" style="color:#58a6ff;font-size:11px;">${c.phone}</a>`);
         return parts.length > 0 ? `<div style="font-size:12px;padding:2px 0;">${parts.join(' · ')}</div>` : '';
       }).join('')}
     </div>` : '';
@@ -391,7 +391,7 @@ function buildPOIPopup(p: Record<string, unknown>): string {
     ${row('Address', p.address)}
     ${row('Category', p.category)}
     ${row('Phone', p.phone)}
-    ${row('Website', p.website ? `<a href="${p.website}" target="_blank" style="color:#2563eb">${(p.website as string).replace(/^https?:\/\//, '').slice(0, 30)}...</a>` : null)}
+    ${row('Website', p.website ? `<a href="${p.website}" target="_blank" style="color:#58a6ff">${(p.website as string).replace(/^https?:\/\//, '').slice(0, 30)}...</a>` : null)}
     ${row('Description', p.description)}
     ${row('Hours', typeof p.hours === 'string' ? p.hours : null)}
     ${occupancyHtml}

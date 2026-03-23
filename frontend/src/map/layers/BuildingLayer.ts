@@ -96,6 +96,42 @@ export function addBuildingLayer(map: maplibregl.Map, config: LayerConfig): void
       ],
     },
   });
+
+  // Building labels — show name or address at high zoom
+  map.addLayer({
+    id: `${config.id}-label`,
+    type: 'symbol',
+    source: SOURCE_ID,
+    'source-layer': 'buildings',
+    minzoom: 16,
+    filter: ['all',
+      ['==', ['get', 'is_hidden'], false],
+      ['any',
+        ['has', 'name'],
+        ['has', 'address'],
+      ],
+    ],
+    layout: {
+      visibility: config.visible ? 'visible' : 'none',
+      'text-field': ['coalesce', ['get', 'name'], ['get', 'address']],
+      'text-size': [
+        'interpolate', ['linear'], ['zoom'],
+        16, 9,
+        18, 12,
+      ],
+      'text-font': ['Noto Sans Regular'],
+      'text-anchor': 'center',
+      'text-max-width': 8,
+      'text-allow-overlap': false,
+      'text-ignore-placement': false,
+    },
+    paint: {
+      'text-color': '#e2e8f0',
+      'text-halo-color': '#0d1117',
+      'text-halo-width': 1.5,
+      'text-opacity': config.opacity,
+    },
+  });
 }
 
 export function getBuildingLayerIds(configId: string): string[] {
@@ -104,5 +140,6 @@ export function getBuildingLayerIds(configId: string): string[] {
     `${configId}-stroke`,
     `${configId}-interior-stroke`,
     `${configId}-highlight`,
+    `${configId}-label`,
   ];
 }

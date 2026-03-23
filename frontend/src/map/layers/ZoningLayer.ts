@@ -58,8 +58,36 @@ export function addZoningLayer(map: maplibregl.Map, config: LayerConfig): void {
       'line-opacity': config.opacity,
     },
   } as maplibregl.AddLayerObject);
+
+  // Zoning labels — show zone_code at medium-high zoom
+  map.addLayer({
+    id: `${config.id}-label`,
+    type: 'symbol',
+    source: SOURCE_ID,
+    'source-layer': 'zoning_districts',
+    minzoom: 14,
+    layout: {
+      visibility: config.visible ? 'visible' : 'none',
+      'text-field': ['concat', ['get', 'zone_code'], '\n', ['get', 'zone_class']],
+      'text-size': [
+        'interpolate', ['linear'], ['zoom'],
+        14, 9,
+        17, 13,
+      ],
+      'text-font': ['Noto Sans Regular'],
+      'text-anchor': 'center',
+      'text-max-width': 6,
+      'text-allow-overlap': false,
+    },
+    paint: {
+      'text-color': '#fbbf24',
+      'text-halo-color': '#0d1117',
+      'text-halo-width': 1.5,
+      'text-opacity': config.opacity * 0.8,
+    },
+  } as maplibregl.AddLayerObject);
 }
 
 export function getZoningLayerIds(configId: string): string[] {
-  return [`${configId}-fill`, `${configId}-stroke`];
+  return [`${configId}-fill`, `${configId}-stroke`, `${configId}-label`];
 }

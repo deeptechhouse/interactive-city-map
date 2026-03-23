@@ -181,23 +181,24 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers }) => {
     }
   }, [layers, mapLoaded]);
 
-  // Show click info (basic popup)
+  // Show click info (rich popup with all available properties)
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !clickInfo.clickedFeature || !clickInfo.position) return;
 
     const props = clickInfo.clickedFeature.properties ?? {};
-    const name = props.name ?? props.address ?? 'Unknown';
-    const type = clickInfo.featureType ?? 'feature';
+    let html: string;
+    if (clickInfo.featureType === 'building') {
+      html = buildBuildingPopup(props);
+    } else if (clickInfo.featureType === 'zoning') {
+      html = buildZoningPopup(props);
+    } else {
+      html = buildPOIPopup(props);
+    }
 
-    const popup = new maplibregl.Popup({ closeOnClick: true, maxWidth: '300px' })
+    const popup = new maplibregl.Popup({ closeOnClick: true, maxWidth: '360px' })
       .setLngLat(map.unproject([clickInfo.position.x, clickInfo.position.y]))
-      .setHTML(
-        `<div style="color:#0d1117;padding:4px">
-          <strong>${type === 'building' ? 'Building' : 'POI'}</strong><br/>
-          ${name}
-        </div>`,
-      )
+      .setHTML(html)
       .addTo(map);
 
     return () => {
@@ -207,3 +208,83 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers }) => {
 
   return <div ref={containerRef} className="map-container" />;
 };
+
+/* ─── Popup HTML builders ─────────────────────────────────────── */
+
+const popupStyles = `
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px; color: #0d1117; line-height: 1.5;
+`;
+
+const headerStyle = `
+  font-size: 15px; font-weight: 600; margin: 0 0 6px 0; color: #0d1117;
+`;
+
+const rowStyle = `
+  display: flex; justify-content: space-between; padding: 3px 0;
+  border-bottom: 1px solid #e5e7eb;
+`;
+
+const labelStyle = `color: #6b7280; font-size: 12px;`;
+const valueStyle = `color: #111827; font-weight: 500; text-align: right; max-width: 180px; word-break: break-word;`;
+
+const badgeStyle = (bg: string, fg: string) =>
+  `display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; background: ${bg}; color: ${fg}; margin-right: 4px; margin-bottom: 4px;`;
+
+function row(label: string, value: unknown): string {
+  if (value === null || value === undefined || value === '' || value === 'null') return '';
+  return `<div style="${rowStyle}"><span style="${labelStyle}">${label}</span><span style="${valueStyle}">${value}</span></div>`;
+}
+
+function buildBuildingPopup(p: Record<string, unknown>): string {
+  const name = p.name ?? p.address ?? 'Building';
+  const badges: string[] = [];
+  if (p.has_interior) badges.push(`<span style="${badgeStyle('#dcfce7', '#166534')}">Interior Map</span>`);
+  if (p.zoning_code) badges.push(`<span style="${badgeStyle('#dbeafe', '#1e40af')}">${p.zoning_code}</span>`);
+  if (p.property_class) badges.push(`<span style="${badgeStyle('#fef3c7', '#92400e')}">${p.property_class}</span>`);
+
+  return `<div style="${popupStyles} max-width: 340px; padding: 8px;">
+    <div style="${headerStyle}">${name}</div>
+    ${badges.length > 0 ? `<div style="margin-bottom: 8px;">${badges.join('')}</div>` : ''}
+    ${row('Address', p.address)}
+    ${row('Zoning', p.zoning_code ? `${p.zoning_code}${p.zoning_desc ? ' — ' + p.zoning_desc : ''}` : null)}
+    ${row('Year Built', p.year_built)}
+    ${row('Floors', p.floors)}
+    ${row('Square Feet', p.sq_ft ? Number(p.sq_ft).toLocaleString() : null)}
+    ${row('Owner', p.owner_name)}
+    ${row('Owner Type', p.owner_type)}
+    ${row('Property Class', p.property_class)}
+    ${row('Parcel PIN', p.parcel_pin)}
+  </div>`;
+}
+
+function buildZoningPopup(p: Record<string, unknown>): string {
+  const title = p.zone_code ?? p.zone_class ?? 'Zoning District';
+  return `<div style="${popupStyles} max-width: 340px; padding: 8px;">
+    <div style="${headerStyle}">${title}</div>
+    ${row('Zone Code', p.zone_code)}
+    ${row('Zone Class', p.zone_class)}
+    ${row('Zone Name', p.zone_name)}
+    ${row('Description', p.description)}
+    ${row('Ordinance Ref', p.ordinance_ref)}
+  </div>`;
+}
+
+function buildPOIPopup(p: Record<string, unknown>): string {
+  const name = p.name ?? 'Point of Interest';
+  const badges: string[] = [];
+  if (p.category) badges.push(`<span style="${badgeStyle('#ede9fe', '#5b21b6')}">${p.category}</span>`);
+  if (p.subcategory) badges.push(`<span style="${badgeStyle('#fce7f3', '#9d174d')}">${p.subcategory}</span>`);
+
+  return `<div style="${popupStyles} max-width: 340px; padding: 8px;">
+    <div style="${headerStyle}">${name}</div>
+    ${badges.length > 0 ? `<div style="margin-bottom: 8px;">${badges.join('')}</div>` : ''}
+    ${row('Address', p.address)}
+    ${row('Category', p.category)}
+    ${row('Phone', p.phone)}
+    ${row('Website', p.website ? `<a href="${p.website}" target="_blank" style="color:#2563eb">${(p.website as string).replace(/^https?:\/\//, '').slice(0, 30)}...</a>` : null)}
+    ${row('Description', p.description)}
+    ${row('Hours', typeof p.hours === 'string' ? p.hours : null)}
+    ${row('Verified', p.verified ? 'Yes' : null)}
+  </div>`;
+}

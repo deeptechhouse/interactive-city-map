@@ -1,0 +1,21 @@
+city: detroit
+state: MI
+interior:
+  enabled: true
+  osm:
+    enabled: true
+    overpass_bbox: [42.28, -83.29, 42.45, -82.91]
+  county:
+    name: "Wayne County"
+    assessor_url: "https://www.waynecounty.com/departments/treasurer/property-search.aspx"
+    api_type: "scrape"
+  sanborn:
+    enabled: true
+    loc_query: "sanborn detroit michigan"
+    years: [1884, 1897, 1910, 1921, 1950]
+  venue_scraping:
+    enabled: true
+    categories: ["banquet_hall", "church", "hotel", "community_center", "theater", "concert_hall", "museum", "gymnasium"]
+  permits:
+    enabled: true
+    api_url: "https://data.detroitmi.gov/resource/xw2a-a7tf.json"

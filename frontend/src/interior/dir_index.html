@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html><head><title>Directory Index — frontend/src/interior/</title>
+<style>body { font-family: monospace; background: #0d1117; color: #c9d1d9; padding: 2rem; }
+a { color: #58a6ff; } table { border-collapse: collapse; } td { padding: 4px 16px; }
+h1 { color: #58a6ff; font-size: 1.2rem; } h2 { color: #79c0ff; font-size: 1rem; margin-top: 1.5rem; }
+.deleted { color: #f85149; }</style></head>
+<body><h1>frontend/src/interior/</h1>
+
+<h2>Components</h2>
+<table>
+<tr><td>FloorSelector.tsx</td><td>Floor level selector UI for multi-story buildings</td></tr>
+<tr><td>InteriorEditor.tsx</td><td>Interactive editor for drawing walls, rooms, and features</td></tr>
+<tr><td>InteriorSearchResults.tsx</td><td>Search results filtered for interior/floor plan data</td></tr>
+<tr><td>InteriorViewer.tsx</td><td>Main interior map viewer component</td></tr>
+<tr><td>MeasureTool.tsx</td><td>Distance measurement tool for interior maps</td></tr>
+<tr><td>RoomInfoPopup.tsx</td><td>Popup displaying room metadata on hover/click</td></tr>
+<tr><td>SourceAttribution.tsx</td><td>Attribution display for interior data sources</td></tr>
+<tr><td>SourceSelector.tsx</td><td>Source picker with confidence scoring</td></tr>
+</table>
+
+<h2>hooks/</h2>
+<table>
+<tr><td>hooks/useFloorLevel.ts</td><td>Hook for managing selected floor level state</td></tr>
+<tr><td>hooks/useInteriorData.ts</td><td>Hook for fetching interior rooms, walls, features</td></tr>
+<tr><td>hooks/useInteriorEditor.ts</td><td>Hook for editor state management and draw actions</td></tr>
+</table>
+
+<h2>layers/</h2>
+<table>
+<tr><td>layers/InteriorLabelLayer.ts</td><td>MapLibre layer for interior room/feature labels</td></tr>
+<tr><td>layers/InteriorRasterLayer.ts</td><td>MapLibre layer for raster floor plan overlays</td></tr>
+<tr><td>layers/InteriorVectorLayer.ts</td><td>MapLibre layer for vector wall/room geometry</td></tr>
+<tr><td>layers/SanbornCropLayer.ts</td><td>MapLibre layer for cropped Sanborn map overlays</td></tr>
+</table>
+
+<h2>utils/</h2>
+<table>
+<tr><td>utils/coordinateTransform.ts</td><td>Coordinate transforms between floor plan and map space</td></tr>
+<tr><td>utils/drawModes.ts</td><td>Draw mode definitions for the interior editor</td></tr>
+<tr><td>utils/interiorStyles.ts</td><td>MapLibre style definitions for interior layers</td></tr>
+<tr><td>utils/snapToWall.ts</td><td>Snap-to-wall logic for precise editor drawing</td></tr>
+</table>
+
+<h2>__tests__/</h2>
+<table>
+<tr><td>__tests__/FloorSelector.test.tsx</td><td>Unit tests for FloorSelector component</td></tr>
+<tr><td>__tests__/InteriorEditor.test.tsx</td><td>Unit tests for InteriorEditor component</td></tr>
+<tr><td>__tests__/InteriorViewer.test.tsx</td><td>Unit tests for InteriorViewer component</td></tr>
+</table>
+
+<h2 style="margin-top: 2rem;">Deleted Files</h2>
+<p style="color: #484f58; font-style: italic;">None</p>
+</body></html>

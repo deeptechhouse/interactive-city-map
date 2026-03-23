@@ -1,0 +1,20 @@
+city: dayton
+state: OH
+interior:
+  enabled: true
+  osm:
+    enabled: true
+    overpass_bbox: [39.71, -84.26, 39.81, -84.12]
+  county:
+    name: "Montgomery County"
+    assessor_url: "https://www.mcrealestate.org/"
+    api_type: "scrape"  # No public API — requires web scraping
+  sanborn:
+    enabled: true
+    loc_query: "sanborn dayton ohio"
+    years: [1887, 1897, 1918, 1933, 1950]
+  venue_scraping:
+    enabled: true
+    categories: ["banquet_hall", "church", "hotel", "community_center", "theater", "museum"]
+  permits:
+    enabled: false  # No public API available

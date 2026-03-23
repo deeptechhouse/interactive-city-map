@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interactive City Map — README</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: #0d1117; color: #c9d1d9; padding: 2rem; line-height: 1.7;
+    max-width: 960px; margin: 0 auto;
+  }
+  h1 { color: #58a6ff; font-size: 2rem; margin-bottom: 0.25rem; border-bottom: 1px solid #21262d; padding-bottom: 0.5rem; }
+  h2 { color: #58a6ff; font-size: 1.4rem; margin-top: 2.5rem; margin-bottom: 0.75rem; border-bottom: 1px solid #21262d; padding-bottom: 0.4rem; }
+  h3 { color: #79c0ff; font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+  p { margin-bottom: 1rem; }
+  a { color: #58a6ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    background: #161b22; padding: 0.15em 0.4em; border-radius: 4px; font-size: 0.9em;
+  }
+  pre {
+    background: #161b22; border: 1px solid #30363d; border-radius: 6px;
+    padding: 1rem 1.25rem; overflow-x: auto; margin-bottom: 1.25rem; line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; font-size: 0.85em; }
+  ul, ol { margin-bottom: 1rem; padding-left: 1.75rem; }
+  li { margin-bottom: 0.35rem; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 1.25rem; }
+  th, td { border: 1px solid #30363d; padding: 0.5rem 0.75rem; text-align: left; }
+  th { background: #161b22; color: #79c0ff; font-weight: 600; }
+  tr:nth-child(even) { background: #0d1117; }
+  tr:nth-child(odd) { background: #161b22; }
+  .badge {
+    display: inline-block; padding: 0.2em 0.6em; border-radius: 4px;
+    font-size: 0.8em; font-weight: 600; margin-right: 0.4em;
+  }
+  .badge-green { background: #238636; color: #fff; }
+  .badge-blue { background: #1f6feb; color: #fff; }
+  .badge-purple { background: #8957e5; color: #fff; }
+  .subtitle { color: #8b949e; font-size: 1rem; margin-bottom: 1.5rem; }
+  .section-note { color: #8b949e; font-style: italic; margin-bottom: 1rem; }
+</style>
+</head>
+<body>
+
+<h1>Interactive City Map</h1>
+<p class="subtitle">Multi-layer urban map with buildings, zoning, transit, historical Sanborn overlays, and interior building maps.</p>
+<p>
+  <span class="badge badge-green">Open Source</span>
+  <span class="badge badge-blue">MIT License</span>
+  <span class="badge badge-purple">Multi-City</span>
+</p>
+
+<h2>Project Description</h2>
+<p>
+  Interactive City Map is an open-source web application that renders rich, multi-layer maps of
+  American cities. It combines modern geospatial data (buildings, zoning, points of interest,
+  railroads, transit lines, waterways, parks) with historical Sanborn fire insurance map overlays
+  and detailed interior building maps — including AI-extracted floor plans, venue-scraped layouts,
+  user-contributed uploads, and OpenStreetMap indoor data.
+</p>
+<p>
+  The project starts with <strong>Chicago</strong> as the primary city, with support for
+  <strong>Dayton OH</strong>, <strong>Detroit MI</strong>, and <strong>Cincinnati OH</strong>
+  following via YAML-driven multi-city configuration.
+</p>
+
+<h2>Tech Stack</h2>
+<table>
+  <tr><th>Layer</th><th>Technology</th></tr>
+  <tr><td>Frontend</td><td>React 18 + TypeScript + MapLibre GL JS</td></tr>
+  <tr><td>Backend</td><td>FastAPI + SQLAlchemy + Alembic</td></tr>
+  <tr><td>Database</td><td>PostgreSQL + PostGIS</td></tr>
+  <tr><td>Tile Server</td><td>Martin (vector tile server)</td></tr>
+  <tr><td>Object Storage</td><td>MinIO (S3-compatible)</td></tr>
+  <tr><td>AI / Extraction</td><td>OpenCV + Tesseract OCR</td></tr>
+  <tr><td>Infrastructure</td><td>Docker Compose</td></tr>
+</table>
+
+<h2>Features</h2>
+<h3>Map Layers (20+)</h3>
+<ul>
+  <li>Buildings with footprints and metadata</li>
+  <li>Zoning districts</li>
+  <li>Points of interest (POIs)</li>
+  <li>Railroads</li>
+  <li>Transit routes and stops</li>
+  <li>Waterways</li>
+  <li>Parks and green spaces</li>
+  <li>Streets and address parcels</li>
+</ul>
+
+<h3>Sanborn Historical Overlays</h3>
+<ul>
+  <li>Georeferenced Sanborn fire insurance map overlays</li>
+  <li>Crop and align historical maps to modern geography</li>
+  <li>Opacity and blend controls</li>
+</ul>
+
+<h3>Interior Building Maps</h3>
+<ul>
+  <li>Floor plans from multiple sources: Sanborn crops, venue scraping, user uploads, OSM indoor data</li>
+  <li>AI floor plan extraction using OpenCV and Tesseract OCR</li>
+  <li>Interactive interior editor — draw walls, rooms, and features</li>
+  <li>Floor level selector for multi-story buildings</li>
+  <li>Source selector with confidence scoring</li>
+  <li>Community contributions with verification and moderation</li>
+</ul>
+
+<h3>Search &amp; Interaction</h3>
+<ul>
+  <li>Typeahead search powered by PostgreSQL full-text search + trigram similarity</li>
+  <li>Building-level detail panels with click interaction</li>
+  <li>Measurement tool for interior distances</li>
+</ul>
+
+<h3>Multi-City Support</h3>
+<ul>
+  <li>YAML-driven city configuration (data sources, bounding boxes, layer toggles)</li>
+  <li>Chicago (primary), Dayton OH, Detroit MI, Cincinnati OH</li>
+</ul>
+
+<h2>Quick Start</h2>
+<h3>Prerequisites</h3>
+<ul>
+  <li>Docker &amp; Docker Compose</li>
+  <li>Python 3.12+</li>
+  <li>Node.js 20+</li>
+</ul>
+
+<h3>1. Clone and start infrastructure</h3>
+<pre><code>git clone https://github.com/your-org/interactive-city-map.git
+cd interactive-city-map
+docker compose up -d        # PostgreSQL+PostGIS, Martin, MinIO</code></pre>
+
+<h3>2. Backend setup</h3>
+<pre><code>cd backend
+python -m venv .venv &amp;&amp; source .venv/bin/activate
+pip install -e ".[dev]"
+alembic upgrade head
+python -m app.data_import.run --city chicago
+uvicorn app.main:app --reload --port 8000</code></pre>
+
+<h3>3. Frontend setup</h3>
+<pre><code>cd frontend
+npm install
+npm run dev                  # http://localhost:5173</code></pre>
+
+<h2>API Endpoints</h2>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+  <tr><td>GET</td><td><code>/api/cities</code></td><td>List all cities</td></tr>
+  <tr><td>GET</td><td><code>/api/cities/{slug}</code></td><td>Get city details</td></tr>
+  <tr><td>GET</td><td><code>/api/cities/{slug}/buildings</code></td><td>List buildings in a city</td></tr>
+  <tr><td>GET</td><td><code>/api/buildings/{id}</code></td><td>Get building details</td></tr>
+  <tr><td>PATCH</td><td><code>/api/buildings/{id}</code></td><td>Update building metadata</td></tr>
+  <tr><td>GET</td><td><code>/api/buildings/{id}/floor-plans</code></td><td>List floor plans for a building</td></tr>
+  <tr><td>POST</td><td><code>/api/buildings/{id}/floor-plans</code></td><td>Upload a floor plan</td></tr>
+  <tr><td>GET</td><td><code>/api/floor-plans/{id}</code></td><td>Get floor plan details</td></tr>
+  <tr><td>GET</td><td><code>/api/buildings/{id}/interior/sources</code></td><td>List interior sources for a building</td></tr>
+  <tr><td>POST</td><td><code>/api/buildings/{id}/interior/sources</code></td><td>Create an interior source</td></tr>
+  <tr><td>PATCH</td><td><code>/api/interior/sources/{id}/status</code></td><td>Update source status</td></tr>
+  <tr><td>POST</td><td><code>/api/interior/sources/{id}/extract</code></td><td>Trigger AI extraction on source</td></tr>
+  <tr><td>GET</td><td><code>/api/buildings/{id}/interior/rooms</code></td><td>List interior rooms</td></tr>
+  <tr><td>POST</td><td><code>/api/buildings/{id}/interior/rooms</code></td><td>Create an interior room</td></tr>
+  <tr><td>DELETE</td><td><code>/api/interior/rooms/{id}</code></td><td>Delete an interior room</td></tr>
+  <tr><td>GET</td><td><code>/api/buildings/{id}/interior/walls</code></td><td>List interior walls</td></tr>
+  <tr><td>POST</td><td><code>/api/buildings/{id}/interior/walls</code></td><td>Create an interior wall</td></tr>
+  <tr><td>DELETE</td><td><code>/api/interior/walls/{id}</code></td><td>Delete an interior wall</td></tr>
+  <tr><td>GET</td><td><code>/api/buildings/{id}/interior/features</code></td><td>List interior features</td></tr>
+  <tr><td>POST</td><td><code>/api/buildings/{id}/interior/features</code></td><td>Create an interior feature</td></tr>
+  <tr><td>DELETE</td><td><code>/api/interior/features/{id}</code></td><td>Delete an interior feature</td></tr>
+  <tr><td>GET</td><td><code>/api/buildings/{id}/interior/summary</code></td><td>Get interior data summary</td></tr>
+  <tr><td>POST</td><td><code>/api/buildings/{id}/interior/contributions/verify/{source_id}</code></td><td>Verify a community contribution</td></tr>
+  <tr><td>POST</td><td><code>/api/buildings/{id}/interior/contributions/report/{source_id}</code></td><td>Report a contribution</td></tr>
+  <tr><td>GET</td><td><code>/api/admin/interior/moderation</code></td><td>List sources pending moderation</td></tr>
+  <tr><td>PATCH</td><td><code>/api/admin/interior/moderation/{source_id}</code></td><td>Moderate a source</td></tr>
+  <tr><td>GET</td><td><code>/api/cities/{slug}/pois</code></td><td>List POIs in a city</td></tr>
+  <tr><td>GET</td><td><code>/api/pois/{id}</code></td><td>Get POI details</td></tr>
+  <tr><td>POST</td><td><code>/api/pois</code></td><td>Create a POI</td></tr>
+  <tr><td>GET</td><td><code>/api/cities/{slug}/railroads</code></td><td>List railroads in a city</td></tr>
+  <tr><td>GET</td><td><code>/api/cities/{slug}/search</code></td><td>Typeahead search (FTS + trigram)</td></tr>
+</table>
+
+<h2>Architecture</h2>
+<p>
+  The application follows a <strong>layered architecture</strong> with clear separation of concerns:
+</p>
+<ul>
+  <li><strong>Routes</strong> — FastAPI endpoint handlers that validate input and delegate to services</li>
+  <li><strong>Services</strong> — Business logic layer (building service, interior service, search service, floor plan extraction, venue scraping, geocoding, georeferencing)</li>
+  <li><strong>Models</strong> — SQLAlchemy ORM models mapped to PostGIS-enabled PostgreSQL tables (buildings, parcels, POIs, railroads, transit, waterways, zoning, interior rooms/walls/features/sources)</li>
+  <li><strong>Schemas</strong> — Pydantic schemas for request/response validation</li>
+  <li><strong>Adapters</strong> — Swappable external service integrations (geocoder, POI fetcher, S3-compatible storage via MinIO)</li>
+  <li><strong>Data Import</strong> — Modular importers for buildings, parcels, POIs, railroads, transit, waterways, zoning, Sanborn maps, and interior sources (OSM indoor, venue scraping, county records, user uploads)</li>
+</ul>
+<p>
+  The frontend uses <strong>React 18</strong> with <strong>MapLibre GL JS</strong> for GPU-accelerated map rendering.
+  Vector tiles are served by <strong>Martin</strong> directly from PostGIS. Interior map components include an interactive
+  editor (draw walls/rooms/features), floor level selector, source selector with confidence scoring, measurement tool,
+  and raster/vector/label layers.
+</p>
+
+<h2>Project Structure</h2>
+<pre><code>interactive-city-map/
+  backend/
+    app/
+      adapters/         # External service wrappers (geocoder, POI, storage)
+      data_import/      # City data importers + interior source importers
+        configs/        # YAML city configurations
+        interior/       # Sanborn cropper, OSM indoor, venue scraper, uploads
+      models/           # SQLAlchemy ORM models
+      routes/           # FastAPI route handlers
+      schemas/          # Pydantic request/response schemas
+      services/         # Business logic + AI extraction
+        extractors/     # Floor plan extraction pipeline
+      config.py         # App configuration
+      database.py       # DB session management
+      main.py           # FastAPI app entry point
+    alembic/            # Database migrations
+  frontend/
+    src/
+      api/              # API client functions
+      interior/         # Interior map components, hooks, layers, utils
+      map/              # Map components and layers
+      panels/           # Side panel UI components
+      types/            # TypeScript type definitions
+      utils/            # Shared utilities
+  docs/                 # Project documentation
+  docker-compose.yml    # Development infrastructure
+  martin.yaml           # Martin tile server configuration</code></pre>
+
+<h2>License</h2>
+<p>
+  This project is licensed under the <strong>MIT License</strong>. See <code>LICENSE</code> for details.
+</p>
+<p>
+  Open source — contributions welcome.
+</p>
+
+<hr style="border-color: #21262d; margin-top: 3rem;">
+<p style="color: #484f58; font-size: 0.85em; margin-top: 1rem;">
+  Interactive City Map &mdash; Built with FastAPI, React, MapLibre GL JS, PostGIS, and Martin.
+</p>
+
+</body>
+</html>

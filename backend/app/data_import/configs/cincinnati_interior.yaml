@@ -1,0 +1,21 @@
+city: cincinnati
+state: OH
+interior:
+  enabled: true
+  osm:
+    enabled: true
+    overpass_bbox: [39.07, -84.58, 39.22, -84.43]
+  county:
+    name: "Hamilton County"
+    assessor_api: "https://wedge1.hcauditor.org/api/property/"
+    api_type: "rest"
+  sanborn:
+    enabled: true
+    loc_query: "sanborn cincinnati ohio"
+    years: [1886, 1904, 1917, 1930, 1951]
+  venue_scraping:
+    enabled: true
+    categories: ["banquet_hall", "church", "hotel", "community_center", "theater", "museum"]
+  permits:
+    enabled: true
+    api_url: "https://data.cincinnati-oh.gov/resource/nzig-8kgs.json"

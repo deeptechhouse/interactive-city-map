@@ -42,9 +42,10 @@ const LAYER_REGISTRY: Record<
 
 interface MapContainerProps {
   layers: LayerState[];
+  onMapReady?: (map: maplibregl.Map) => void;
 }
 
-export const MapContainer: React.FC<MapContainerProps> = ({ layers }) => {
+export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -89,6 +90,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers }) => {
     map.on('load', () => {
       setMapLoaded(true);
       setMapInstance(map);
+      onMapReady?.(map);
     });
 
     mapRef.current = map;

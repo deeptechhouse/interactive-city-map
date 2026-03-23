@@ -51,7 +51,7 @@ def _building_to_dict(row) -> dict:
         "has_interior": building.has_interior,
         "is_hidden": building.is_hidden,
         "external_links": building.external_links,
-        "metadata": building.metadata,
+        "metadata": building.metadata_,
         "geometry": json.loads(geom_geojson) if geom_geojson else None,
         "created_at": building.created_at.isoformat() if building.created_at else None,
         "updated_at": building.updated_at.isoformat() if building.updated_at else None,

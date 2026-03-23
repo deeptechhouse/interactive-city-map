@@ -16,7 +16,7 @@ import { addBuildingLayer, getBuildingLayerIds } from './layers/BuildingLayer';
 import { addPOILayer, getPOILayerIds } from './layers/POILayer';
 import { addWaterwayLayer, getWaterwayLayerIds } from './layers/WaterwayLayer';
 import { addParkLayer, getParkLayerIds } from './layers/ParkLayer';
-import { addSanbornOverlay, getSanbornLayerIds } from './layers/SanbornOverlay';
+import { addSanbornOverlay, getSanbornLayerIds, setSanbornYear, getSanbornYears } from './layers/SanbornOverlay';
 
 // Register PMTiles protocol once
 const protocol = new Protocol();

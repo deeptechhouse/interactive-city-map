@@ -200,6 +200,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady, 
     let html: string;
     if (isBldg) {
       html = buildBuildingPopup(props);
+    } else if (clickInfo.featureType === 'railroad') {
+      html = buildRailroadPopup(props);
     } else if (clickInfo.featureType === 'zoning') {
       html = buildZoningPopup(props);
     } else {
@@ -285,6 +287,31 @@ function buildBuildingPopup(p: Record<string, unknown>): string {
         ${p.has_interior ? 'View Interior &amp; Details' : 'Open Details'}
       </button>
     </div>
+  </div>`;
+}
+
+function buildRailroadPopup(p: Record<string, unknown>): string {
+  const name = p.name ?? 'Railroad';
+  const statusColors: Record<string, [string, string]> = {
+    active: ['#dcfce7', '#166534'],
+    abandoned: ['#fef2f2', '#991b1b'],
+    disused: ['#fefce8', '#854d0e'],
+    spur: ['#f3f4f6', '#374151'],
+    razed: ['#f3f4f6', '#6b7280'],
+  };
+  const [bg, fg] = statusColors[p.status as string] ?? ['#f3f4f6', '#374151'];
+
+  return `<div style="${popupStyles} max-width: 340px; padding: 8px;">
+    <div style="${headerStyle}">${name}</div>
+    <div style="margin-bottom: 8px;">
+      <span style="${badgeStyle(bg, fg)}">${p.status ?? 'unknown'}</span>
+      ${p.owner ? `<span style="${badgeStyle('#dbeafe', '#1e40af')}">${p.owner}</span>` : ''}
+    </div>
+    ${row('Owner', p.owner)}
+    ${row('Status', p.status)}
+    ${row('Track Class', p.track_class)}
+    ${row('Trackage Rights', Array.isArray(p.trackage_rights) ? (p.trackage_rights as string[]).join(', ') : p.trackage_rights)}
+    ${row('Source', p.source)}
   </div>`;
 }
 

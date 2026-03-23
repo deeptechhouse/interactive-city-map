@@ -16,13 +16,13 @@ export const RAILROAD_DEFAULT_COLOR = '#888888';
 /** Railroad line style by status */
 export const RAILROAD_STATUS_STYLES: Record<
   string,
-  { dasharray: number[] | null; width: number; opacity: number }
+  { dasharray: number[] | null; width: number; opacity: number; colorOverride?: string }
 > = {
   active: { dasharray: null, width: 3, opacity: 1.0 },
-  abandoned: { dasharray: [4, 4], width: 2, opacity: 0.5 },
-  disused: { dasharray: [6, 3], width: 2, opacity: 0.6 },
-  spur: { dasharray: null, width: 1.5, opacity: 1.0 },
-  razed: { dasharray: [2, 4], width: 1, opacity: 0.3 },
+  abandoned: { dasharray: [4, 4], width: 2.5, opacity: 0.85, colorOverride: '#ef4444' },
+  disused: { dasharray: [6, 3], width: 2.5, opacity: 0.8, colorOverride: '#f59e0b' },
+  spur: { dasharray: null, width: 1.5, opacity: 0.9 },
+  razed: { dasharray: [2, 4], width: 1.5, opacity: 0.5, colorOverride: '#6b7280' },
 };
 
 /** CTA transit line colors */

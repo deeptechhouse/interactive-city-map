@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import type maplibregl from 'maplibre-gl';
-import { THEME, RAILROAD_COLORS } from '../../utils/colorSchemes';
+import { THEME, RAILROAD_COLORS, RAILROAD_STATUS_STYLES } from '../../utils/colorSchemes';
 
 interface RailroadFilterProps {
   map: maplibregl.Map | null;
@@ -17,10 +17,11 @@ const RAILROAD_OWNERS = [
 ];
 
 const RAILROAD_STATUSES = [
-  { key: 'active', label: 'Active' },
-  { key: 'abandoned', label: 'Abandoned' },
-  { key: 'disused', label: 'Disused' },
-  { key: 'spur', label: 'Spur' },
+  { key: 'active', label: 'Active', style: '━━━', color: '#22c55e' },
+  { key: 'abandoned', label: 'Abandoned', style: '╌ ╌ ╌', color: '#ef4444' },
+  { key: 'disused', label: 'Disused', style: '╍ ╍ ╍', color: '#f59e0b' },
+  { key: 'spur', label: 'Spur', style: '───', color: '#8b949e' },
+  { key: 'razed', label: 'Razed', style: '· · ·', color: '#6b7280' },
 ];
 
 const styles = {
@@ -63,65 +64,36 @@ const styles = {
 } as const;
 
 /**
- * Build a MapLibre filter expression from the active owner and status selections.
- * Returns undefined when no filter is needed (all selected).
- * Uses `unknown` return type to satisfy MapLibre's complex FilterSpecification union.
+ * Build an owner filter expression for a single railroad layer.
+ * Each status has its own layer, so we only filter by owner here.
  */
-function buildRailroadFilter(
-  activeOwners: Set<string>,
-  activeStatuses: Set<string>,
-): unknown | null {
-  const allOwnersActive = activeOwners.size === RAILROAD_OWNERS.length;
-  const allStatusesActive = activeStatuses.size === RAILROAD_STATUSES.length;
+function buildOwnerFilter(activeOwners: Set<string>): unknown | null {
+  const allActive = activeOwners.size === RAILROAD_OWNERS.length;
+  if (allActive) return null;
 
-  if (allOwnersActive && allStatusesActive) {
-    return null; // No filter needed
+  if (activeOwners.size === 0) {
+    return ['==', ['get', 'owner'], '__none__'];
   }
 
-  const conditions: unknown[] = [];
+  const hasOther = activeOwners.has('_other');
+  const specificOwners = [...activeOwners].filter((o) => o !== '_other');
+  const knownOwnerKeys = RAILROAD_OWNERS.filter((o) => o.key !== '_other').map((o) => o.key);
 
-  // Owner filter
-  if (!allOwnersActive) {
-    const hasOther = activeOwners.has('_other');
-    const specificOwners = [...activeOwners].filter((o) => o !== '_other');
-    const knownOwnerKeys = RAILROAD_OWNERS.filter((o) => o.key !== '_other').map((o) => o.key);
-
-    if (hasOther && specificOwners.length > 0) {
-      conditions.push([
-        'any',
+  if (hasOther && specificOwners.length > 0) {
+    return [
+      'all',
+      ['==', ['get', 'status'], '__STATUS__'],  // placeholder, replaced per-layer
+      ['any',
         ['in', ['get', 'owner'], ['literal', specificOwners]],
         ['!', ['in', ['get', 'owner'], ['literal', knownOwnerKeys]]],
-      ]);
-    } else if (hasOther) {
-      conditions.push(['!', ['in', ['get', 'owner'], ['literal', knownOwnerKeys]]]);
-    } else if (specificOwners.length > 0) {
-      conditions.push(['in', ['get', 'owner'], ['literal', specificOwners]]);
-    } else {
-      // Nothing selected — hide all
-      return ['==', ['get', 'owner'], '__none__'];
-    }
+      ],
+    ];
+  } else if (hasOther) {
+    return ['!', ['in', ['get', 'owner'], ['literal', knownOwnerKeys]]];
+  } else {
+    return ['in', ['get', 'owner'], ['literal', specificOwners]];
   }
-
-  // Status filter
-  if (!allStatusesActive) {
-    const statusList = [...activeStatuses];
-    if (statusList.length === 0) {
-      return ['==', ['get', 'status'], '__none__'];
-    }
-    conditions.push(['in', ['get', 'status'], ['literal', statusList]]);
-  }
-
-  if (conditions.length === 0) return null;
-  if (conditions.length === 1) return conditions[0];
-  return ['all', ...conditions];
 }
-
-/** Layer IDs that belong to the railroad layer */
-const RAILROAD_LAYER_IDS = [
-  'railroads-line',
-  'railroads-casing',
-  'railroads-label',
-];
 
 export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map }) => {
   const [activeOwners, setActiveOwners] = useState<Set<string>>(
@@ -155,21 +127,44 @@ export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map }) => {
     });
   }, []);
 
-  // Apply filter to map whenever selections change
+  // Apply filters: status toggles visibility, owner toggles data filter
   useEffect(() => {
     if (!map) return;
 
-    const filter = buildRailroadFilter(activeOwners, activeStatuses);
+    const ownerFilter = buildOwnerFilter(activeOwners);
 
-    for (const layerId of RAILROAD_LAYER_IDS) {
+    // Each status has its own layer: railroads-active, railroads-abandoned, etc.
+    for (const status of RAILROAD_STATUSES) {
+      const layerId = `railroads-${status.key}`;
       try {
-        if (map.getLayer(layerId)) {
-          map.setFilter(layerId, (filter ?? null) as maplibregl.FilterSpecification | null);
+        if (!map.getLayer(layerId)) continue;
+
+        // Toggle visibility based on status checkbox
+        const visible = activeStatuses.has(status.key);
+        map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+
+        // Apply owner filter
+        if (ownerFilter) {
+          map.setFilter(layerId, [
+            'all',
+            ['==', ['get', 'status'], status.key],
+            ownerFilter,
+          ] as unknown as maplibregl.FilterSpecification);
+        } else {
+          map.setFilter(layerId, ['==', ['get', 'status'], status.key] as unknown as maplibregl.FilterSpecification);
         }
       } catch {
         // Layer may not exist
       }
     }
+
+    // Also handle label layer if it exists
+    try {
+      if (map.getLayer('railroads-label')) {
+        const anyStatusVisible = RAILROAD_STATUSES.some(s => activeStatuses.has(s.key));
+        map.setLayoutProperty('railroads-label', 'visibility', anyStatusVisible ? 'visible' : 'none');
+      }
+    } catch { /* */ }
   }, [map, activeOwners, activeStatuses]);
 
   return (
@@ -202,6 +197,14 @@ export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map }) => {
               onChange={() => toggleStatus(status.key)}
               style={styles.checkbox}
             />
+            <span style={{
+              fontFamily: 'monospace',
+              fontSize: '10px',
+              color: status.color,
+              letterSpacing: '1px',
+              width: '36px',
+              display: 'inline-block',
+            }}>{status.style}</span>
             {status.label}
           </label>
         ))}

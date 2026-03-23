@@ -3,7 +3,7 @@ import type maplibregl from 'maplibre-gl';
 
 export interface ClickedFeatureInfo {
   clickedFeature: GeoJSON.Feature | null;
-  featureType: 'building' | 'poi' | 'zoning' | null;
+  featureType: 'building' | 'poi' | 'zoning' | 'railroad' | null;
   position: { x: number; y: number } | null;
 }
 
@@ -12,6 +12,11 @@ const INTERACTIVE_LAYERS = [
   'pois',
   'buildings-fill',
   'buildings-highlight',
+  'railroads-active',
+  'railroads-abandoned',
+  'railroads-disused',
+  'railroads-spur',
+  'railroads-razed',
   'zoning-fill',
 ];
 
@@ -50,12 +55,14 @@ export function useMapClick(map: maplibregl.Map | null): ClickedFeatureInfo {
     if (features.length > 0) {
       const feature = features[0];
       const layerId = feature.layer?.id ?? '';
-      let featureType: 'building' | 'poi' | 'zoning' | null = null;
+      let featureType: 'building' | 'poi' | 'zoning' | 'railroad' | null = null;
 
       if (layerId.startsWith('buildings')) {
         featureType = 'building';
       } else if (layerId.startsWith('pois')) {
         featureType = 'poi';
+      } else if (layerId.startsWith('railroads')) {
+        featureType = 'railroad';
       } else if (layerId.startsWith('zoning')) {
         featureType = 'zoning';
       }

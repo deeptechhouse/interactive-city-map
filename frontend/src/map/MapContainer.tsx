@@ -357,6 +357,21 @@ function buildPOIPopup(p: Record<string, unknown>): string {
     } catch { /* ignore */ }
   }
 
+  // Occupancy data
+  const occupancy = metadata.occupancy as Record<string, unknown> | undefined;
+  const occupancyHtml = occupancy ? `
+    <div style="margin-top: 8px; border-top: 1px solid #e5e7eb; padding-top: 6px;">
+      <div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Occupancy</div>
+      <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px;">
+        <span style="font-size: 20px; font-weight: 700; color: #111827;">${occupancy.estimated_max_occupancy}</span>
+        <span style="font-size: 12px; color: #6b7280;">max persons</span>
+      </div>
+      <div style="font-size: 11px; color: #6b7280;">
+        ${occupancy.ibc_classification}<br/>
+        ${occupancy.building_sqft ? `${Number(occupancy.building_sqft).toLocaleString()} sqft · ${occupancy.load_factor_sqft_per_person} sqft/person` : (occupancy.note || '')}
+      </div>
+    </div>` : '';
+
   const contacts = Array.isArray(metadata.contacts) ? metadata.contacts as Array<Record<string, string>> : [];
   const contactsHtml = contacts.length > 0 ? `
     <div style="margin-top: 8px; border-top: 1px solid #e5e7eb; padding-top: 6px;">
@@ -379,6 +394,7 @@ function buildPOIPopup(p: Record<string, unknown>): string {
     ${row('Website', p.website ? `<a href="${p.website}" target="_blank" style="color:#2563eb">${(p.website as string).replace(/^https?:\/\//, '').slice(0, 30)}...</a>` : null)}
     ${row('Description', p.description)}
     ${row('Hours', typeof p.hours === 'string' ? p.hours : null)}
+    ${occupancyHtml}
     ${contactsHtml}
   </div>`;
 }

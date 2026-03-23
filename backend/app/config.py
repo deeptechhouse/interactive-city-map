@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_port: int = 8000
     app_host: str = "0.0.0.0"
-    cors_origins: str = "http://localhost:5173"
+    cors_origins: str = "http://localhost:5173,http://localhost:5174"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

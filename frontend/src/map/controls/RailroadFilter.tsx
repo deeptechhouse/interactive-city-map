@@ -9,11 +9,23 @@ interface RailroadFilterProps {
 const RAILROAD_OWNERS = [
   { key: 'BNSF', label: 'BNSF', color: RAILROAD_COLORS.BNSF },
   { key: 'CP', label: 'CP/CPKC', color: RAILROAD_COLORS.CP },
-  { key: 'NS', label: 'NS', color: RAILROAD_COLORS.NS },
+  { key: 'NS', label: 'Norfolk Southern', color: RAILROAD_COLORS.NS },
   { key: 'CSX', label: 'CSX', color: RAILROAD_COLORS.CSX },
-  { key: 'CN', label: 'CN', color: RAILROAD_COLORS.CN },
+  { key: 'CN', label: 'Canadian National', color: RAILROAD_COLORS.CN },
   { key: 'CTA', label: 'CTA', color: RAILROAD_COLORS.CTA },
   { key: '_other', label: 'Other', color: '#888888' },
+];
+
+const OWNERSHIP_TYPES = [
+  { key: 'government_transit', label: 'Public Transit (CTA/Metra/NICTD)', color: '#06b6d4' },
+  { key: 'government_passenger', label: 'Amtrak (Federal)', color: '#8b5cf6' },
+  { key: 'city_owned', label: 'City of Chicago', color: '#ec4899' },
+  { key: 'county_owned', label: 'Cook County', color: '#14b8a6' },
+  { key: 'private_class1', label: 'Private — Class I', color: '#ef4444' },
+  { key: 'private_terminal', label: 'Private — Terminal/Switching', color: '#f97316' },
+  { key: 'private_shortline', label: 'Private — Short Line', color: '#eab308' },
+  { key: 'private_industrial', label: 'Private — Industrial', color: '#78716c' },
+  { key: 'unknown', label: 'Unknown Ownership', color: '#6b7280' },
 ];
 
 const RAILROAD_STATUSES = [
@@ -101,6 +113,9 @@ export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map }) => {
   const [activeStatuses, setActiveStatuses] = useState<Set<string>>(
     () => new Set(RAILROAD_STATUSES.map((s) => s.key)),
   );
+  const [activeOwnershipTypes, setActiveOwnershipTypes] = useState<Set<string>>(
+    () => new Set(OWNERSHIP_TYPES.map((t) => t.key)),
+  );
 
   const toggleOwner = useCallback((key: string) => {
     setActiveOwners((prev) => {
@@ -126,55 +141,69 @@ export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map }) => {
     });
   }, []);
 
-  // Apply filters: status toggles layer visibility, owner toggles data filter
+  const toggleOwnershipType = useCallback((key: string) => {
+    setActiveOwnershipTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
+
+  // Apply filters: status toggles visibility, owner + ownership_type toggle data filters
   useEffect(() => {
     if (!map) return;
 
     const ownerExpr = buildOwnerFilter(activeOwners);
     const noOwnersSelected = activeOwners.size === 0;
 
+    // Build ownership_type filter
+    const allOwnershipActive = activeOwnershipTypes.size === OWNERSHIP_TYPES.length;
+    const noOwnershipSelected = activeOwnershipTypes.size === 0;
+    const ownershipExpr = (!allOwnershipActive && !noOwnershipSelected)
+      ? ['in', ['get', 'owner_type'], ['literal', [...activeOwnershipTypes]]]
+      : null;
+
     for (const status of RAILROAD_STATUSES) {
       const layerId = `railroads-${status.key}`;
       try {
         if (!map.getLayer(layerId)) continue;
 
-        // Visibility: hide if status unchecked OR no owners selected
-        const visible = activeStatuses.has(status.key) && !noOwnersSelected;
+        const visible = activeStatuses.has(status.key) && !noOwnersSelected && !noOwnershipSelected;
         map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
 
-        // Data filter: always include the status match, optionally add owner filter
-        if (ownerExpr) {
-          map.setFilter(layerId, [
-            'all',
-            ['==', ['get', 'status'], status.key],
-            ownerExpr,
-          ] as unknown as maplibregl.FilterSpecification);
-        } else {
-          // No owner filter — just the original status filter
-          map.setFilter(layerId, [
-            '==', ['get', 'status'], status.key,
-          ] as unknown as maplibregl.FilterSpecification);
-        }
-      } catch {
-        // Layer may not exist yet
-      }
+        // Combine: status + owner + ownership_type
+        const conditions: unknown[] = [['==', ['get', 'status'], status.key]];
+        if (ownerExpr) conditions.push(ownerExpr);
+        if (ownershipExpr) conditions.push(ownershipExpr);
+
+        const filter = conditions.length === 1 ? conditions[0] : ['all', ...conditions];
+        map.setFilter(layerId, filter as unknown as maplibregl.FilterSpecification);
+      } catch { /* */ }
     }
 
-    // Label layer visibility
+    // Labels
     try {
       if (map.getLayer('railroads-label')) {
-        const anyVisible = !noOwnersSelected && RAILROAD_STATUSES.some(s => activeStatuses.has(s.key));
+        const anyVisible = !noOwnersSelected && !noOwnershipSelected && RAILROAD_STATUSES.some(s => activeStatuses.has(s.key));
         map.setLayoutProperty('railroads-label', 'visibility', anyVisible ? 'visible' : 'none');
 
-        // Apply owner filter to labels too
-        if (ownerExpr) {
-          map.setFilter('railroads-label', ownerExpr as unknown as maplibregl.FilterSpecification);
+        const labelConditions: unknown[] = [];
+        if (ownerExpr) labelConditions.push(ownerExpr);
+        if (ownershipExpr) labelConditions.push(ownershipExpr);
+
+        if (labelConditions.length > 0) {
+          const labelFilter = labelConditions.length === 1 ? labelConditions[0] : ['all', ...labelConditions];
+          map.setFilter('railroads-label', labelFilter as unknown as maplibregl.FilterSpecification);
         } else {
           map.setFilter('railroads-label', null);
         }
       }
     } catch { /* */ }
-  }, [map, activeOwners, activeStatuses]);
+  }, [map, activeOwners, activeStatuses, activeOwnershipTypes]);
 
   return (
     <div style={styles.container}>
@@ -191,6 +220,23 @@ export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map }) => {
             />
             <span style={{ ...styles.colorDot, background: owner.color }} />
             {owner.label}
+          </label>
+        ))}
+      </div>
+
+      {/* Ownership type filter */}
+      <div style={styles.group}>
+        <div style={styles.title}>By Ownership</div>
+        {OWNERSHIP_TYPES.map((ot) => (
+          <label key={ot.key} style={styles.checkboxRow}>
+            <input
+              type="checkbox"
+              checked={activeOwnershipTypes.has(ot.key)}
+              onChange={() => toggleOwnershipType(ot.key)}
+              style={styles.checkbox}
+            />
+            <span style={{ ...styles.colorDot, background: ot.color }} />
+            {ot.label}
           </label>
         ))}
       </div>

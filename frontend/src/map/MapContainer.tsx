@@ -290,6 +290,21 @@ function buildBuildingPopup(p: Record<string, unknown>): string {
   </div>`;
 }
 
+function formatOwnershipType(type: string | null | undefined): string | null {
+  const map: Record<string, string> = {
+    government_transit: 'Public Transit Agency',
+    government_passenger: 'Federal (Amtrak)',
+    city_owned: 'City of Chicago',
+    county_owned: 'Cook County',
+    private_class1: 'Private — Class I Railroad',
+    private_terminal: 'Private — Terminal/Switching',
+    private_shortline: 'Private — Short Line',
+    private_industrial: 'Private — Industrial',
+    unknown: 'Unknown',
+  };
+  return type ? (map[type] ?? type) : null;
+}
+
 function buildRailroadPopup(p: Record<string, unknown>): string {
   const name = p.name ?? 'Railroad';
   const statusColors: Record<string, [string, string]> = {
@@ -308,6 +323,7 @@ function buildRailroadPopup(p: Record<string, unknown>): string {
       ${p.owner ? `<span style="${badgeStyle('#dbeafe', '#1e40af')}">${p.owner}</span>` : ''}
     </div>
     ${row('Owner', p.owner)}
+    ${row('Ownership', formatOwnershipType(p.owner_type as string))}
     ${row('Status', p.status)}
     ${row('Track Class', p.track_class)}
     ${row('Trackage Rights', Array.isArray(p.trackage_rights) ? (p.trackage_rights as string[]).join(', ') : p.trackage_rights)}

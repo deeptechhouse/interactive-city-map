@@ -27,6 +27,7 @@ export const FloorPlanUpload: React.FC<FloorPlanUploadProps> = ({
   onClose,
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [sourceType, setSourceType] = useState<string>('upload');
   const [level, setLevel] = useState<number>(0);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -181,6 +182,24 @@ export const FloorPlanUpload: React.FC<FloorPlanUploadProps> = ({
               </p>
             </div>
           )}
+        </div>
+
+        <div style={styles.fieldGroup}>
+          <label style={styles.label} htmlFor="source-type-select">
+            Source Type
+          </label>
+          <select
+            id="source-type-select"
+            style={styles.select}
+            value={sourceType}
+            onChange={(e) => setSourceType(e.target.value)}
+            disabled={uploading}
+          >
+            <option value="upload">Upload</option>
+            <option value="professional">Professional</option>
+            <option value="sketch">Sketch</option>
+            <option value="photo">Photo</option>
+          </select>
         </div>
 
         <div style={styles.fieldGroup}>

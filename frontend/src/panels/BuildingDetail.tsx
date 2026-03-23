@@ -7,6 +7,7 @@ interface BuildingDetailProps {
   building: Building;
   onClose: () => void;
   onBuildingUpdated?: (building: Building) => void;
+  onViewInterior?: (buildingId: string) => void;
 }
 
 const styles = {
@@ -133,6 +134,7 @@ export const BuildingDetail: React.FC<BuildingDetailProps> = ({
   building,
   onClose,
   onBuildingUpdated,
+  onViewInterior,
 }) => {
   const [isHiding, setIsHiding] = useState(false);
 
@@ -182,10 +184,23 @@ export const BuildingDetail: React.FC<BuildingDetailProps> = ({
       <div style={styles.content}>
         {/* Badges */}
         {building.has_interior && (
-          <div style={{ marginBottom: '12px' }}>
+          <div style={{ marginBottom: '16px' }}>
             <span style={{ ...styles.badge, ...styles.interiorBadge }}>
               Has Interior Map
             </span>
+            <button
+              style={{
+                ...styles.toggleBtn,
+                ...styles.toggleBtnActive,
+                marginTop: '8px',
+                background: 'rgba(88, 166, 255, 0.15)',
+                color: THEME.accent,
+                borderColor: THEME.accent,
+              }}
+              onClick={() => onViewInterior?.(building.id)}
+            >
+              View Interior
+            </button>
           </div>
         )}
 

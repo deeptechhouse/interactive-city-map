@@ -64,35 +64,34 @@ const styles = {
 } as const;
 
 /**
- * Build an owner filter expression for a single railroad layer.
- * Each status has its own layer, so we only filter by owner here.
+ * Build an owner filter expression (returns just the owner part, no status).
+ * Returns null when all owners selected (no filter needed).
  */
-function buildOwnerFilter(activeOwners: Set<string>): unknown | null {
+function buildOwnerFilter(activeOwners: Set<string>): unknown[] | null {
   const allActive = activeOwners.size === RAILROAD_OWNERS.length;
   if (allActive) return null;
 
-  if (activeOwners.size === 0) {
-    return ['==', ['get', 'owner'], '__none__'];
-  }
+  if (activeOwners.size === 0) return null; // handled by hiding all layers
 
   const hasOther = activeOwners.has('_other');
   const specificOwners = [...activeOwners].filter((o) => o !== '_other');
   const knownOwnerKeys = RAILROAD_OWNERS.filter((o) => o.key !== '_other').map((o) => o.key);
 
   if (hasOther && specificOwners.length > 0) {
+    // Show selected owners + anything not in the known list
     return [
-      'all',
-      ['==', ['get', 'status'], '__STATUS__'],  // placeholder, replaced per-layer
-      ['any',
-        ['in', ['get', 'owner'], ['literal', specificOwners]],
-        ['!', ['in', ['get', 'owner'], ['literal', knownOwnerKeys]]],
-      ],
+      'any',
+      ['in', ['get', 'owner'], ['literal', specificOwners]],
+      ['!', ['in', ['get', 'owner'], ['literal', knownOwnerKeys]]],
     ];
   } else if (hasOther) {
+    // Show only unknown owners
     return ['!', ['in', ['get', 'owner'], ['literal', knownOwnerKeys]]];
-  } else {
+  } else if (specificOwners.length > 0) {
+    // Show only selected known owners
     return ['in', ['get', 'owner'], ['literal', specificOwners]];
   }
+  return null;
 }
 
 export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map }) => {
@@ -127,42 +126,52 @@ export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map }) => {
     });
   }, []);
 
-  // Apply filters: status toggles visibility, owner toggles data filter
+  // Apply filters: status toggles layer visibility, owner toggles data filter
   useEffect(() => {
     if (!map) return;
 
-    const ownerFilter = buildOwnerFilter(activeOwners);
+    const ownerExpr = buildOwnerFilter(activeOwners);
+    const noOwnersSelected = activeOwners.size === 0;
 
-    // Each status has its own layer: railroads-active, railroads-abandoned, etc.
     for (const status of RAILROAD_STATUSES) {
       const layerId = `railroads-${status.key}`;
       try {
         if (!map.getLayer(layerId)) continue;
 
-        // Toggle visibility based on status checkbox
-        const visible = activeStatuses.has(status.key);
+        // Visibility: hide if status unchecked OR no owners selected
+        const visible = activeStatuses.has(status.key) && !noOwnersSelected;
         map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
 
-        // Apply owner filter
-        if (ownerFilter) {
+        // Data filter: always include the status match, optionally add owner filter
+        if (ownerExpr) {
           map.setFilter(layerId, [
             'all',
             ['==', ['get', 'status'], status.key],
-            ownerFilter,
+            ownerExpr,
           ] as unknown as maplibregl.FilterSpecification);
         } else {
-          map.setFilter(layerId, ['==', ['get', 'status'], status.key] as unknown as maplibregl.FilterSpecification);
+          // No owner filter — just the original status filter
+          map.setFilter(layerId, [
+            '==', ['get', 'status'], status.key,
+          ] as unknown as maplibregl.FilterSpecification);
         }
       } catch {
-        // Layer may not exist
+        // Layer may not exist yet
       }
     }
 
-    // Also handle label layer if it exists
+    // Label layer visibility
     try {
       if (map.getLayer('railroads-label')) {
-        const anyStatusVisible = RAILROAD_STATUSES.some(s => activeStatuses.has(s.key));
-        map.setLayoutProperty('railroads-label', 'visibility', anyStatusVisible ? 'visible' : 'none');
+        const anyVisible = !noOwnersSelected && RAILROAD_STATUSES.some(s => activeStatuses.has(s.key));
+        map.setLayoutProperty('railroads-label', 'visibility', anyVisible ? 'visible' : 'none');
+
+        // Apply owner filter to labels too
+        if (ownerExpr) {
+          map.setFilter('railroads-label', ownerExpr as unknown as maplibregl.FilterSpecification);
+        } else {
+          map.setFilter('railroads-label', null);
+        }
       }
     } catch { /* */ }
   }, [map, activeOwners, activeStatuses]);

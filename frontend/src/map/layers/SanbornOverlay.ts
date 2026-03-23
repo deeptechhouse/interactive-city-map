@@ -21,7 +21,7 @@ const OVERLAY_COORDS: [[number, number], [number, number], [number, number], [nu
 ];
 
 // Track which year is currently displayed
-let currentYear = '1897';
+let currentYear = '1950';
 
 export function addSanbornOverlay(map: maplibregl.Map, config: LayerConfig): void {
   if (map.getSource(SOURCE_ID)) return;

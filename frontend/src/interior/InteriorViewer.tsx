@@ -142,6 +142,34 @@ export const InteriorViewer: React.FC<InteriorViewerProps> = ({
     }
   }, [sources, selectedSourceId]);
 
+  // Zoom to building when rooms load
+  useEffect(() => {
+    if (!mapInstance || rooms.length === 0) return;
+
+    // Compute bounding box of all room geometries
+    let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+    for (const room of rooms) {
+      if (!room.geom || room.geom.type !== 'Polygon') continue;
+      for (const ring of (room.geom as GeoJSON.Polygon).coordinates) {
+        for (const [lng, lat] of ring) {
+          if (lng < minLng) minLng = lng;
+          if (lat < minLat) minLat = lat;
+          if (lng > maxLng) maxLng = lng;
+          if (lat > maxLat) maxLat = lat;
+        }
+      }
+    }
+
+    if (minLng === Infinity) return;
+
+    // Add padding and fly to the building
+    const padding = 0.0003; // ~30m
+    mapInstance.fitBounds(
+      [[minLng - padding, minLat - padding], [maxLng + padding, maxLat + padding]],
+      { duration: 1000, maxZoom: 19, padding: { top: 80, bottom: 40, left: 40, right: 40 } },
+    );
+  }, [mapInstance, rooms.length > 0 ? buildingId : null]); // Only trigger once per building
+
   // Filter by current level
   const levelRooms = useMemo(
     () => rooms.filter((r) => r.level === currentLevel),
@@ -206,7 +234,7 @@ export const InteriorViewer: React.FC<InteriorViewerProps> = ({
     addInteriorLabelLayer(mapInstance, {
       id: LABEL_LAYER_ID,
       labelsGeoJson,
-      minZoom: 17,
+      minZoom: 15,
     });
     labelLayerAdded.current = true;
   }, [mapInstance, labelsGeoJson]);

@@ -57,7 +57,7 @@ function App() {
         onMapReady={setMapInstance}
         onBuildingClick={handleBuildingClick}
       />
-      <BuildingLegend />
+      <BuildingLegend map={mapInstance} />
       <POIListPanel mapInstance={mapInstance} />
       <SubFilterPanel map={mapInstance} layers={layerControls.layers} />
       <POICategoryFilter map={mapInstance} />

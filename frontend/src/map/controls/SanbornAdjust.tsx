@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import type maplibregl from 'maplibre-gl';
 import { THEME } from '../../utils/colorSchemes';
-import { setSanbornYear, getSanbornYears, nudgeSanborn, resetSanbornOffset } from '../layers/SanbornOverlay';
+import { setSanbornYear, getSanbornYears, nudgeSanborn, rotateSanborn, getRotation, resetSanbornOffset } from '../layers/SanbornOverlay';
 
 interface SanbornAdjustProps {
   map: maplibregl.Map | null;
@@ -108,9 +108,18 @@ export const SanbornAdjust: React.FC<SanbornAdjustProps> = ({ map, visible }) =>
     nudgeSanborn(map, dlng, dlat);
   }, [map]);
 
+  const [rotation, setRotation] = useState(0);
+
+  const handleRotate = useCallback((deg: number) => {
+    if (!map) return;
+    rotateSanborn(map, deg);
+    setRotation(getRotation());
+  }, [map]);
+
   const handleReset = useCallback(() => {
     if (!map) return;
     resetSanbornOffset();
+    setRotation(0);
     setSanbornYear(map, activeYear);
   }, [map, activeYear]);
 
@@ -150,12 +159,27 @@ export const SanbornAdjust: React.FC<SanbornAdjustProps> = ({ map, visible }) =>
           <button style={styles.nudgeBtn} onClick={() => handleNudge(0, -NUDGE_STEP)} title="Move south">↓</button>
           <div />
         </div>
-        <button style={styles.resetBtn} onClick={handleReset}>Reset to Default</button>
       </div>
 
+      <div style={styles.section}>
+        <span style={styles.label}>Rotate ({Math.round(rotation)}°)</span>
+        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+          <button style={styles.nudgeBtn} onClick={() => handleRotate(-5)} title="Rotate 5° CCW">↺ 5°</button>
+          <button style={styles.nudgeBtn} onClick={() => handleRotate(-1)} title="Rotate 1° CCW">↺ 1°</button>
+          <button style={styles.nudgeBtn} onClick={() => handleRotate(1)} title="Rotate 1° CW">↻ 1°</button>
+          <button style={styles.nudgeBtn} onClick={() => handleRotate(5)} title="Rotate 5° CW">↻ 5°</button>
+        </div>
+        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', marginTop: '4px' }}>
+          <button style={styles.nudgeBtn} onClick={() => handleRotate(90)} title="Rotate 90° CW">↻ 90°</button>
+          <button style={styles.nudgeBtn} onClick={() => handleRotate(180)} title="Rotate 180°">180°</button>
+        </div>
+      </div>
+
+      <button style={styles.resetBtn} onClick={handleReset}>Reset All</button>
+
       <div style={styles.hint}>
-        Use arrow buttons to nudge the overlay ~55m per click.
-        Align Halsted St (-87.647) and Ashland Ave (-87.667) as benchmarks.
+        Nudge ~55m/click. Rotate to align streets.
+        Benchmarks: Halsted St, Ashland Ave.
       </div>
     </div>
   );

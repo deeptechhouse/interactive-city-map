@@ -51,6 +51,14 @@ function createDefaultLayers(): LayerState[] {
       visible: true,
       opacity: 1,
     },
+    // Streets
+    {
+      id: 'major_streets',
+      name: 'Major Street Labels',
+      group: 'infrastructure',
+      visible: true,
+      opacity: 1,
+    },
     // Historical
     {
       id: 'sanborn',
@@ -79,6 +87,7 @@ export function getLayerSourceUrl(layerId: string): string {
     zoning: martinTileUrl('zoning_districts'),
     buildings: martinTileUrl('buildings'),
     pois: martinTileUrl('pois'),
+    major_streets: martinTileUrl('major_streets'),
     sanborn: '', // PMTiles URL, configured separately
     parks: martinTileUrl('parcels'),
   };

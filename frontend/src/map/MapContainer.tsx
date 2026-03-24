@@ -17,6 +17,7 @@ import { addPOILayer, getPOILayerIds } from './layers/POILayer';
 import { addWaterwayLayer, getWaterwayLayerIds } from './layers/WaterwayLayer';
 import { addParkLayer, getParkLayerIds } from './layers/ParkLayer';
 import { addSanbornOverlay, getSanbornLayerIds, setSanbornYear, getSanbornYears } from './layers/SanbornOverlay';
+import { addMajorStreetsLayer, getMajorStreetsLayerIds } from './layers/MajorStreetsLayer';
 
 // Register PMTiles protocol once
 const protocol = new Protocol();
@@ -38,6 +39,7 @@ const LAYER_REGISTRY: Record<
   waterways: { add: addWaterwayLayer, getIds: getWaterwayLayerIds },
   parks: { add: addParkLayer, getIds: getParkLayerIds },
   sanborn: { add: addSanbornOverlay, getIds: getSanbornLayerIds },
+  major_streets: { add: addMajorStreetsLayer, getIds: getMajorStreetsLayerIds },
 };
 
 export interface ClickedBuildingInfo {

@@ -63,3 +63,4 @@ htmlcov/
 *.pem
 *.key
 credentials.json
+.htpasswd

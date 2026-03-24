@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import type { LayerGroup, LayerState } from '../../types/layer';
 import { LAYER_GROUP_LABELS } from '../../types/layer';
 import { martinTileUrl } from '../../utils/geoUtils';
+import { IS_STATIC } from '../../utils/staticMode';
 
 /** Default layer definitions */
 function createDefaultLayers(): LayerState[] {
@@ -123,8 +124,31 @@ function createDefaultLayers(): LayerState[] {
   ];
 }
 
-/** Map layer IDs to their Martin tile source URLs */
+/** Map layer IDs to their Martin tile source URLs (dev mode) or PMTiles/empty (static mode) */
 export function getLayerSourceUrl(layerId: string): string {
+  if (IS_STATIC) {
+    // Static mode: large layers served as local PMTiles files
+    const staticPmtiles: Record<string, string> = {
+      buildings: 'pmtiles://./data/buildings.pmtiles',
+      zoning: 'pmtiles://./data/zoning_districts.pmtiles',
+      parks: 'pmtiles://./data/parcels.pmtiles',
+    };
+    if (staticPmtiles[layerId]) return staticPmtiles[layerId];
+
+    // Medium layers will be embedded as GeoJSON (handled in individual layer files)
+    // Return empty string so MapContainer skips the Martin tile source
+    const staticGeojsonLayers = new Set([
+      'railroads', 'transit', 'waterways', 'major_streets',
+      'zip_codes', 'pois',
+    ]);
+    if (staticGeojsonLayers.has(layerId)) return '';
+
+    // Sanborn, police_districts, wards, gang_territory, federal_properties, railroad_row
+    // already return '' in dev mode — same in static mode
+    return '';
+  }
+
+  // Dev mode: Martin vector tile server
   const sourceMap: Record<string, string> = {
     railroads: martinTileUrl('railroads'),
     transit: martinTileUrl('transit_lines'),

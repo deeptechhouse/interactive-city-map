@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import type maplibregl from 'maplibre-gl';
 import { THEME } from '../../utils/colorSchemes';
 import { apiBaseUrl } from '../../utils/geoUtils';
+import { IS_STATIC } from '../../utils/staticMode';
 
 interface POIRecord {
   id: string;
@@ -173,6 +174,11 @@ export const POIBrowsePanel: React.FC<POIBrowsePanelProps> = ({ map }) => {
   // Fetch POIs when category changes
   useEffect(() => {
     if (!selectedCategory) {
+      setPois([]);
+      return;
+    }
+    if (IS_STATIC) {
+      // Backend API unavailable in static mode — no POI browsing
       setPois([]);
       return;
     }

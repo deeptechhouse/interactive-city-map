@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deploy Guide — Interactive City Map on DreamHost</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      line-height: 1.7;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      color: #58a6ff;
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid #21262d;
+      padding-bottom: 0.75rem;
+    }
+
+    .subtitle {
+      color: #8b949e;
+      font-size: 0.95rem;
+      margin-bottom: 2.5rem;
+    }
+
+    h2 {
+      color: #58a6ff;
+      font-size: 1.4rem;
+      margin-top: 2.5rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid #21262d;
+      padding-bottom: 0.4rem;
+    }
+
+    h3 {
+      color: #d2a8ff;
+      font-size: 1.1rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    p { margin-bottom: 1rem; }
+
+    code {
+      background: #161b22;
+      color: #79c0ff;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
+      font-size: 0.9em;
+    }
+
+    pre {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      margin-bottom: 1.25rem;
+      font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
+      font-size: 0.88rem;
+      line-height: 1.6;
+      color: #e6edf3;
+    }
+
+    pre .comment { color: #8b949e; }
+    pre .cmd { color: #79c0ff; }
+    pre .flag { color: #d2a8ff; }
+    pre .path { color: #7ee787; }
+    pre .string { color: #a5d6ff; }
+
+    ul, ol {
+      margin-bottom: 1rem;
+      padding-left: 1.5rem;
+    }
+
+    li { margin-bottom: 0.4rem; }
+
+    .warning {
+      background: #1c1305;
+      border: 1px solid #d29922;
+      border-left: 4px solid #d29922;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      margin: 1.25rem 0;
+      color: #e3b341;
+    }
+
+    .warning strong { color: #f0c95c; }
+
+    .info {
+      background: #0c1929;
+      border: 1px solid #1f6feb;
+      border-left: 4px solid #1f6feb;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      margin: 1.25rem 0;
+      color: #79c0ff;
+    }
+
+    .success {
+      background: #0d1f0d;
+      border: 1px solid #238636;
+      border-left: 4px solid #238636;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      margin: 1.25rem 0;
+      color: #7ee787;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+    }
+
+    th, td {
+      border: 1px solid #30363d;
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+    }
+
+    th {
+      background: #161b22;
+      color: #58a6ff;
+      font-weight: 600;
+    }
+
+    td { color: #c9d1d9; }
+
+    a {
+      color: #58a6ff;
+      text-decoration: none;
+    }
+
+    a:hover { text-decoration: underline; }
+
+    .step-number {
+      display: inline-block;
+      background: #1f6feb;
+      color: #fff;
+      width: 1.6rem;
+      height: 1.6rem;
+      line-height: 1.6rem;
+      text-align: center;
+      border-radius: 50%;
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-right: 0.5rem;
+    }
+
+    .file-tree {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      font-family: 'SF Mono', monospace;
+      font-size: 0.88rem;
+      line-height: 1.8;
+      color: #8b949e;
+      margin-bottom: 1.25rem;
+    }
+
+    .file-tree .dir { color: #79c0ff; }
+    .file-tree .file { color: #c9d1d9; }
+    .file-tree .note { color: #8b949e; font-style: italic; }
+
+    hr {
+      border: none;
+      border-top: 1px solid #21262d;
+      margin: 2.5rem 0;
+    }
+
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #21262d;
+      color: #484f58;
+      font-size: 0.85rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <h1>Interactive City Map &mdash; DreamHost Deployment Guide</h1>
+    <p class="subtitle">
+      Static site deployment with password protection and PMTiles support
+    </p>
+
+    <!-- ================================================================= -->
+    <h2>Overview</h2>
+    <p>
+      This guide covers deploying the Interactive City Map as a <strong>static site</strong>
+      on DreamHost shared hosting. The frontend is built with Vite + React and uses
+      <code>pmtiles</code> for efficient map tile serving directly from static files
+      (no tile server needed).
+    </p>
+
+    <table>
+      <tr><th>Component</th><th>Technology</th><th>Deployment</th></tr>
+      <tr><td>Frontend</td><td>Vite + React + MapLibre GL</td><td>Static HTML/JS/CSS</td></tr>
+      <tr><td>Map Tiles</td><td>PMTiles (static archives)</td><td>Served via Apache with Range requests</td></tr>
+      <tr><td>Auth</td><td>Apache Basic Auth</td><td><code>.htaccess</code> + <code>.htpasswd</code></td></tr>
+      <tr><td>Routing</td><td>SPA fallback</td><td><code>mod_rewrite</code> &rarr; <code>index.html</code></td></tr>
+    </table>
+
+    <div class="warning">
+      <strong>Note:</strong> This static deployment does not include the backend API
+      (FastAPI + PostGIS). Features that depend on the backend (database queries,
+      dynamic data) will not be available. If you need those, consider a VPS deployment
+      with Docker.
+    </div>
+
+    <!-- ================================================================= -->
+    <h2>Prerequisites</h2>
+    <ul>
+      <li>DreamHost shared hosting account with shell (SSH) access enabled</li>
+      <li>A subdomain configured in the DreamHost panel (e.g., <code>map.resistor.technology</code>)</li>
+      <li>SSH key-based authentication set up for your DreamHost account</li>
+      <li>Node.js installed locally (see <code>.nvmrc</code> for exact version)</li>
+      <li>PMTiles data files available locally</li>
+    </ul>
+
+    <!-- ================================================================= -->
+    <h2>Step-by-Step Deployment</h2>
+
+    <!-- Step 1 -->
+    <h3><span class="step-number">1</span> Configure DreamHost Subdomain</h3>
+    <ol>
+      <li>Log in to the <a href="https://panel.dreamhost.com">DreamHost Panel</a></li>
+      <li>Go to <strong>Domains &rarr; Manage Domains</strong></li>
+      <li>Click <strong>Add Hosting to a Domain / Sub-Domain</strong></li>
+      <li>Enter your subdomain: <code>map.resistor.technology</code></li>
+      <li>Set the web directory to: <code>/home/YOUR_USERNAME/map.resistor.technology</code></li>
+      <li>Enable HTTPS (Let's Encrypt) under <strong>Secure Hosting</strong></li>
+      <li>Click <strong>Fully host this domain</strong></li>
+    </ol>
+
+    <div class="info">
+      DreamHost may take 15-30 minutes to provision the subdomain and SSL certificate.
+    </div>
+
+    <!-- Step 2 -->
+    <h3><span class="step-number">2</span> Generate the Password File</h3>
+    <p>
+      SSH into your DreamHost server and create the <code>.htpasswd</code> file
+      in your <strong>home directory</strong> (not the web root, for security):
+    </p>
+
+    <pre><span class="comment"># SSH into DreamHost</span>
+<span class="cmd">ssh</span> your-username@resistor.technology
+
+<span class="comment"># Create .htpasswd with your first user</span>
+<span class="cmd">htpasswd</span> <span class="flag">-c</span> <span class="path">~/.htpasswd</span> <span class="string">yourusername</span>
+<span class="comment"># Enter password when prompted</span>
+
+<span class="comment"># Add additional users (omit -c flag after the first)</span>
+<span class="cmd">htpasswd</span> <span class="path">~/.htpasswd</span> <span class="string">anotheruser</span></pre>
+
+    <div class="warning">
+      <strong>Security:</strong> The <code>.htpasswd</code> file must be placed
+      <em>outside</em> the web root (in your home directory) so it cannot be
+      downloaded by visitors. The <code>.htaccess</code> references it via
+      absolute path.
+    </div>
+
+    <!-- Step 3 -->
+    <h3><span class="step-number">3</span> Edit the Configuration</h3>
+    <p>
+      Before deploying, update two files with your actual DreamHost credentials:
+    </p>
+
+    <h3>3a. Update <code>deploy/.htaccess</code></h3>
+    <p>Change the <code>AuthUserFile</code> path to match your username:</p>
+    <pre><span class="comment"># Change this line:</span>
+AuthUserFile <span class="path">/home/USERNAME/.htpasswd</span>
+
+<span class="comment"># To your actual path:</span>
+AuthUserFile <span class="path">/home/your-actual-username/.htpasswd</span></pre>
+
+    <h3>3b. Update <code>deploy/deploy.sh</code></h3>
+    <p>Edit the configuration variables at the top of the script:</p>
+    <pre>DREAMHOST_USER=<span class="string">"your-actual-username"</span>
+DREAMHOST_HOST=<span class="string">"resistor.technology"</span>
+DREAMHOST_PATH=<span class="string">"/home/your-actual-username/map.resistor.technology"</span></pre>
+
+    <!-- Step 4 -->
+    <h3><span class="step-number">4</span> Build and Deploy</h3>
+    <p>Run the deployment script from the project root:</p>
+
+    <pre><span class="comment"># Make the script executable (first time only)</span>
+<span class="cmd">chmod</span> <span class="flag">+x</span> <span class="path">deploy/deploy.sh</span>
+
+<span class="comment"># Full build + deploy</span>
+<span class="cmd">./deploy/deploy.sh</span>
+
+<span class="comment"># Or build only (without uploading)</span>
+<span class="cmd">./deploy/deploy.sh</span> <span class="flag">--build-only</span>
+
+<span class="comment"># Or upload an existing build</span>
+<span class="cmd">./deploy/deploy.sh</span> <span class="flag">--upload-only</span></pre>
+
+    <p>The script will:</p>
+    <ol>
+      <li>Run <code>npm ci</code> and <code>npm run build</code> in the frontend directory</li>
+      <li>Copy <code>.htaccess</code> into the build output</li>
+      <li>Copy any <code>.pmtiles</code> files from <code>data/</code> into <code>dist/data/</code></li>
+      <li>Upload everything to DreamHost via <code>rsync</code></li>
+      <li>Verify the deployment</li>
+    </ol>
+
+    <!-- Step 5 -->
+    <h3><span class="step-number">5</span> Upload PMTiles Separately (if needed)</h3>
+    <p>
+      PMTiles files can be large. If you prefer not to include them in the rsync
+      deploy, upload them directly:
+    </p>
+
+    <pre><span class="comment"># Upload PMTiles to a data/ subdirectory on the server</span>
+<span class="cmd">ssh</span> your-username@resistor.technology <span class="string">"mkdir -p ~/map.resistor.technology/data"</span>
+
+<span class="cmd">rsync</span> <span class="flag">-avz --progress</span> \
+  <span class="path">./data/*.pmtiles</span> \
+  <span class="string">your-username@resistor.technology:~/map.resistor.technology/data/</span></pre>
+
+    <div class="info">
+      PMTiles files are served directly by Apache. The browser's <code>pmtiles</code>
+      library fetches byte ranges from the archive, so no tile server is needed.
+      Apache's default configuration supports Range requests, and the
+      <code>.htaccess</code> adds the necessary CORS headers.
+    </div>
+
+    <!-- ================================================================= -->
+    <h2>Verify the Deployment</h2>
+
+    <h3>Browser Test</h3>
+    <ol>
+      <li>Navigate to <code>https://map.resistor.technology</code></li>
+      <li>You should see a Basic Auth login prompt</li>
+      <li>Enter your username and password</li>
+      <li>The map should load with tile layers rendering</li>
+    </ol>
+
+    <h3>Command-Line Verification</h3>
+    <pre><span class="comment"># Test that auth is required (should return 401)</span>
+<span class="cmd">curl</span> <span class="flag">-s -o /dev/null -w</span> <span class="string">"%{http_code}"</span> https://map.resistor.technology
+<span class="comment"># Expected: 401</span>
+
+<span class="comment"># Test with credentials (should return 200)</span>
+<span class="cmd">curl</span> <span class="flag">-s -o /dev/null -w</span> <span class="string">"%{http_code}"</span> <span class="flag">-u</span> user:pass https://map.resistor.technology
+<span class="comment"># Expected: 200</span>
+
+<span class="comment"># Test PMTiles range request support (should return 206)</span>
+<span class="cmd">curl</span> <span class="flag">-s -o /dev/null -w</span> <span class="string">"%{http_code}"</span> <span class="flag">-u</span> user:pass \
+  <span class="flag">-H</span> <span class="string">"Range: bytes=0-511"</span> \
+  https://map.resistor.technology/data/yourfile.pmtiles
+<span class="comment"># Expected: 206 (Partial Content)</span></pre>
+
+    <!-- ================================================================= -->
+    <h2>File Structure on DreamHost</h2>
+
+    <div class="file-tree">
+      <span class="dir">/home/your-username/</span><br>
+      &nbsp;&nbsp;<span class="file">.htpasswd</span> <span class="note">&larr; password file (outside web root)</span><br>
+      &nbsp;&nbsp;<span class="dir">map.resistor.technology/</span> <span class="note">&larr; web root</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">.htaccess</span> <span class="note">&larr; auth + rewrite + CORS rules</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">index.html</span> <span class="note">&larr; SPA entry point</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">assets/</span> <span class="note">&larr; Vite-hashed JS, CSS, images</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">index-[hash].js</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">index-[hash].css</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">data/</span> <span class="note">&larr; PMTiles archives</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">chicago.pmtiles</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">sanborn.pmtiles</span><br>
+    </div>
+
+    <!-- ================================================================= -->
+    <h2>Troubleshooting</h2>
+
+    <table>
+      <tr><th>Problem</th><th>Solution</th></tr>
+      <tr>
+        <td>500 Internal Server Error</td>
+        <td>
+          Check <code>.htaccess</code> syntax. Verify the <code>AuthUserFile</code>
+          path is correct and the file exists. Check DreamHost error logs at
+          <code>~/logs/map.resistor.technology/https/error.log</code>
+        </td>
+      </tr>
+      <tr>
+        <td>Map tiles not loading</td>
+        <td>
+          Verify PMTiles files exist in <code>data/</code> on the server.
+          Check browser DevTools Network tab for 403/404 on <code>.pmtiles</code> requests.
+          Ensure Range request headers are not being stripped.
+        </td>
+      </tr>
+      <tr>
+        <td>CORS errors in console</td>
+        <td>
+          Verify <code>mod_headers</code> is enabled on DreamHost (it is by default).
+          Check that the <code>.htaccess</code> CORS rules for <code>.pmtiles</code>
+          files are present.
+        </td>
+      </tr>
+      <tr>
+        <td>SPA routes return 404</td>
+        <td>
+          Verify <code>mod_rewrite</code> is enabled. Check that the
+          <code>RewriteEngine On</code> directive is present in <code>.htaccess</code>.
+        </td>
+      </tr>
+      <tr>
+        <td>No password prompt appears</td>
+        <td>
+          Verify <code>.htpasswd</code> exists at the path specified in
+          <code>AuthUserFile</code>. Try using the full absolute path.
+          Check that <code>.htaccess</code> overrides are allowed (DreamHost
+          enables <code>AllowOverride All</code> by default).
+        </td>
+      </tr>
+      <tr>
+        <td>PMTiles returns 200 instead of 206</td>
+        <td>
+          Apache may not be honoring Range requests. This can happen if
+          <code>mod_deflate</code> compresses the response (it strips
+          Range support). The <code>.htaccess</code> only compresses
+          text types, not <code>application/octet-stream</code>, so this
+          should not occur. If it does, add:
+          <code>SetEnvIfNoCase Request_URI \.pmtiles$ no-gzip dont-vary</code>
+        </td>
+      </tr>
+    </table>
+
+    <!-- ================================================================= -->
+    <h2>Manual Deploy (Without Script)</h2>
+    <p>If you prefer not to use the deploy script:</p>
+
+    <pre><span class="comment"># 1. Build the frontend</span>
+<span class="cmd">cd</span> <span class="path">frontend</span>
+<span class="cmd">npm</span> ci
+<span class="cmd">npm</span> run build
+
+<span class="comment"># 2. Copy .htaccess into the build</span>
+<span class="cmd">cp</span> <span class="path">../deploy/.htaccess</span> <span class="path">dist/.htaccess</span>
+
+<span class="comment"># 3. Copy PMTiles data (if applicable)</span>
+<span class="cmd">mkdir</span> <span class="flag">-p</span> <span class="path">dist/data</span>
+<span class="cmd">cp</span> <span class="path">../data/*.pmtiles</span> <span class="path">dist/data/</span>
+
+<span class="comment"># 4. Upload to DreamHost</span>
+<span class="cmd">rsync</span> <span class="flag">-avz --delete</span> \
+  <span class="flag">--exclude=</span><span class="string">'.htpasswd'</span> \
+  <span class="path">dist/</span> \
+  <span class="string">your-username@resistor.technology:~/map.resistor.technology/</span></pre>
+
+    <hr>
+
+    <footer>
+      Interactive City Map &mdash; DreamHost Deployment Guide<br>
+      Generated 2026-03-24
+    </footer>
+
+  </div>
+</body>
+</html>

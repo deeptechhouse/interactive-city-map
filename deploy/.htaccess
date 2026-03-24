@@ -1,0 +1,129 @@
+# =============================================================================
+# Interactive City Map — DreamHost Static Deployment
+# =============================================================================
+# Password-protected static site with PMTiles support
+# Place this file in the web root of your DreamHost subdomain
+
+# -----------------------------------------------------------------------------
+# 1. Password Protection (Basic Auth)
+# -----------------------------------------------------------------------------
+# Generate .htpasswd:  htpasswd -c /home/USERNAME/.htpasswd yourusername
+# IMPORTANT: Update the path below to match your DreamHost username
+AuthType Basic
+AuthName "City Map — Authorized Access"
+AuthUserFile /home/USERNAME/.htpasswd
+Require valid-user
+
+# -----------------------------------------------------------------------------
+# 2. PMTiles — MIME Type, CORS, and Range Request Support
+# -----------------------------------------------------------------------------
+# PMTiles relies on HTTP Range requests to fetch individual tiles from
+# a single archive file. The browser (via pmtiles.js) requests byte ranges,
+# so the server MUST support Accept-Ranges and return partial content (206).
+
+<IfModule mod_headers.c>
+  # PMTiles files
+  <FilesMatch "\.pmtiles$">
+    Header set Content-Type "application/octet-stream"
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+    Header set Access-Control-Allow-Headers "Range"
+    Header set Access-Control-Expose-Headers "Content-Length,Content-Range,Accept-Ranges"
+    Header set Accept-Ranges "bytes"
+  </FilesMatch>
+
+  # Handle CORS preflight for PMTiles range requests
+  <FilesMatch "\.pmtiles$">
+    <If "%{REQUEST_METHOD} == 'OPTIONS'">
+      Header set Access-Control-Max-Age "86400"
+    </If>
+  </FilesMatch>
+</IfModule>
+
+# Ensure Apache does not strip Range headers for PMTiles
+<IfModule mod_setenvif.c>
+  SetEnvIf Range .+ HAVE_RANGE=1
+</IfModule>
+
+# -----------------------------------------------------------------------------
+# 3. Additional MIME Types
+# -----------------------------------------------------------------------------
+<IfModule mod_mime.c>
+  AddType application/javascript .js .mjs
+  AddType application/json .json .geojson
+  AddType text/css .css
+  AddType image/svg+xml .svg .svgz
+  AddType font/woff2 .woff2
+  AddType font/woff .woff
+  AddType application/octet-stream .pmtiles
+  AddType application/x-protobuf .pbf
+</IfModule>
+
+# -----------------------------------------------------------------------------
+# 4. SPA Fallback — Route All Non-File Requests to index.html
+# -----------------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Do not rewrite actual files or directories
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+
+  # Do not rewrite PMTiles requests (they must hit the actual file)
+  RewriteCond %{REQUEST_URI} !\.pmtiles$
+
+  # Everything else goes to index.html (SPA routing)
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# -----------------------------------------------------------------------------
+# 5. Compression
+# -----------------------------------------------------------------------------
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html
+  AddOutputFilterByType DEFLATE text/css
+  AddOutputFilterByType DEFLATE application/javascript
+  AddOutputFilterByType DEFLATE application/json
+  AddOutputFilterByType DEFLATE image/svg+xml
+  AddOutputFilterByType DEFLATE application/x-protobuf
+</IfModule>
+
+# -----------------------------------------------------------------------------
+# 6. Browser Caching
+# -----------------------------------------------------------------------------
+<IfModule mod_expires.c>
+  ExpiresActive On
+
+  # Hashed assets (Vite adds content hashes to filenames)
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+  ExpiresByType font/woff "access plus 1 year"
+
+  # Images
+  ExpiresByType image/png "access plus 1 month"
+  ExpiresByType image/jpeg "access plus 1 month"
+  ExpiresByType image/svg+xml "access plus 1 month"
+
+  # PMTiles — cache for 1 month (tiles don't change often)
+  ExpiresByType application/octet-stream "access plus 1 month"
+
+  # HTML — short cache so updates propagate quickly
+  ExpiresByType text/html "access plus 5 minutes"
+</IfModule>
+
+# -----------------------------------------------------------------------------
+# 7. Security Headers
+# -----------------------------------------------------------------------------
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "DENY"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# -----------------------------------------------------------------------------
+# 8. Prevent Directory Listing
+# -----------------------------------------------------------------------------
+Options -Indexes

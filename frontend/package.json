@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:static": "VITE_STATIC_MODE=true tsc -b && vite build --outDir dist-static",
+    "build:offline": "VITE_STATIC_MODE=true VITE_OFFLINE=true tsc -b && vite build --config vite.config.offline.ts --outDir dist-offline",
     "lint": "eslint .",
     "preview": "vite preview"
   },

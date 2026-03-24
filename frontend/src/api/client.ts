@@ -1,4 +1,5 @@
 import { apiBaseUrl } from '../utils/geoUtils';
+import { IS_STATIC } from '../utils/staticMode';
 
 class ApiClient {
   private baseUrl: string;
@@ -8,6 +9,12 @@ class ApiClient {
   }
 
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
+    if (IS_STATIC) {
+      // In static mode, backend API is unavailable — return empty defaults
+      // so the UI degrades gracefully instead of throwing network errors.
+      throw new ApiError(0, 'API unavailable in static mode', path);
+    }
+
     const url = `${this.baseUrl}${path}`;
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -54,6 +61,10 @@ class ApiClient {
   }
 
   async uploadFile<T>(path: string, formData: FormData): Promise<T> {
+    if (IS_STATIC) {
+      throw new ApiError(0, 'File upload unavailable in static mode', path);
+    }
+
     const url = `${this.baseUrl}${path}`;
     const response = await fetch(url, {
       method: 'POST',

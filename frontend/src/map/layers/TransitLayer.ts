@@ -1,6 +1,8 @@
 import type maplibregl from 'maplibre-gl';
 import type { LayerConfig } from '../../types/layer';
 import { CTA_LINE_COLORS } from '../../utils/colorSchemes';
+import { IS_STATIC } from '../../utils/staticMode';
+import { martinTileUrl } from '../../utils/geoUtils';
 
 const LINES_SOURCE_ID = 'transit-lines-source';
 const STATIONS_SOURCE_ID = 'transit-stations-source';
@@ -14,12 +16,20 @@ function lineColorExpression(): unknown {
 }
 
 export function addTransitLayer(map: maplibregl.Map, config: LayerConfig): void {
-  const martinBase = import.meta.env.VITE_MARTIN_URL || 'http://localhost:3030';
+  if (IS_STATIC) {
+    // Static mode: transit data not yet available as embedded GeoJSON.
+    // Skip adding sources/layers — will be populated when GeoJSON conversion is done.
+    return;
+  }
+
+  // Dev mode: use Martin tile server
+  const linesUrl = config.sourceUrl || martinTileUrl('transit_lines');
+  const stationsUrl = martinTileUrl('transit_stations');
 
   if (!map.getSource(LINES_SOURCE_ID)) {
     map.addSource(LINES_SOURCE_ID, {
       type: 'vector',
-      tiles: [`${martinBase}/transit_lines/{z}/{x}/{y}`],
+      tiles: [linesUrl],
       minzoom: 0,
       maxzoom: 16,
     });
@@ -28,7 +38,7 @@ export function addTransitLayer(map: maplibregl.Map, config: LayerConfig): void 
   if (!map.getSource(STATIONS_SOURCE_ID)) {
     map.addSource(STATIONS_SOURCE_ID, {
       type: 'vector',
-      tiles: [`${martinBase}/transit_stations/{z}/{x}/{y}`],
+      tiles: [stationsUrl],
       minzoom: 0,
       maxzoom: 16,
     });

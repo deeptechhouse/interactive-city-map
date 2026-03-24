@@ -5,6 +5,7 @@ import { layers as protomapsLayers, namedTheme } from 'protomaps-themes-base';
 import { Protocol } from 'pmtiles';
 
 import { CHICAGO_CENTER, CHICAGO_ZOOM } from '../utils/geoUtils';
+import { IS_STATIC } from '../utils/staticMode';
 import type { LayerConfig, LayerState } from '../types/layer';
 import { getLayerSourceUrl } from './hooks/useMapLayers';
 import { useMapClick } from './hooks/useMapClick';
@@ -81,13 +82,19 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady, 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
+    const basemapUrl = IS_STATIC
+      ? 'pmtiles://./data/chicago-basemap.pmtiles'
+      : 'pmtiles://https://build.protomaps.com/20250313.pmtiles';
+
     const basemapStyle: maplibregl.StyleSpecification = {
       version: 8,
-      glyphs: 'https://cdn.protomaps.com/fonts/pbf/{fontstack}/{range}.pbf',
+      glyphs: IS_STATIC
+        ? './fonts/{fontstack}/{range}.pbf'
+        : 'https://cdn.protomaps.com/fonts/pbf/{fontstack}/{range}.pbf',
       sources: {
         protomaps: {
           type: 'vector',
-          url: 'pmtiles://https://build.protomaps.com/20250313.pmtiles',
+          url: basemapUrl,
           attribution:
             '<a href="https://protomaps.com">Protomaps</a> | <a href="https://openstreetmap.org">OSM</a>',
         },
@@ -136,8 +143,14 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady, 
       if (!registry) continue;
 
       const sourceUrl = getLayerSourceUrl(layer.id);
-      const geojsonLayers = new Set(['sanborn', 'police_districts', 'wards', 'gang_territory', 'federal_properties', 'railroad_row']);
-      if (!sourceUrl && !geojsonLayers.has(layer.id)) continue;
+      // Layers that use embedded GeoJSON or special sources (no Martin tile URL needed)
+      const nonTileLayers = new Set([
+        'sanborn', 'police_districts', 'wards', 'gang_territory',
+        'federal_properties', 'railroad_row',
+      ]);
+      // In static mode, medium layers (railroads, transit, waterways, etc.) also return ''
+      // because they will use embedded GeoJSON — allow them through
+      if (!sourceUrl && !nonTileLayers.has(layer.id) && !IS_STATIC) continue;
 
       // Only add if not already added
       const sublayerIds = registry.getIds(layer.id);

@@ -8,6 +8,7 @@ import { BuildingLegend } from './map/controls/BuildingLegend';
 import { POIListPanel } from './map/controls/POIListPanel';
 import { SubFilterPanel } from './map/controls/SubFilterPanel';
 import { POICategoryFilter } from './map/controls/POICategoryFilter';
+import { SanbornAdjust } from './map/controls/SanbornAdjust';
 import { useMapLayers } from './map/hooks/useMapLayers';
 import { BuildingDetail } from './panels/BuildingDetail';
 import { InteriorViewer } from './interior/InteriorViewer';
@@ -59,6 +60,10 @@ function App() {
       <POIListPanel mapInstance={mapInstance} />
       <SubFilterPanel map={mapInstance} layers={layerControls.layers} />
       <POICategoryFilter map={mapInstance} />
+      <SanbornAdjust
+        map={mapInstance}
+        visible={layerControls.layers.find(l => l.id === 'sanborn')?.visible ?? false}
+      />
 
       {/* Building detail side panel */}
       {selectedBuilding && !showInterior && (

@@ -18,6 +18,7 @@ import { addWaterwayLayer, getWaterwayLayerIds } from './layers/WaterwayLayer';
 import { addParkLayer, getParkLayerIds } from './layers/ParkLayer';
 import { addSanbornOverlay, getSanbornLayerIds, setSanbornYear, getSanbornYears } from './layers/SanbornOverlay';
 import { addMajorStreetsLayer, getMajorStreetsLayerIds } from './layers/MajorStreetsLayer';
+import { addZipCodeLayer, getZipCodeLayerIds } from './layers/ZipCodeLayer';
 import { addPoliceDistrictLayer, getPoliceDistrictLayerIds } from './layers/PoliceDistrictLayer';
 import { addWardLayer, getWardLayerIds } from './layers/WardLayer';
 import { DISTRICT_INFO } from './layers/data/policeDistrictsData';
@@ -25,6 +26,7 @@ import { WARD_INFO } from './layers/data/wardsData';
 import { addGangTerritoryLayer, getGangTerritoryLayerIds } from './layers/GangTerritoryLayer';
 import { GANG_INFO } from './layers/data/gangTerritoryData';
 import { addFederalPropertyLayer, getFederalPropertyLayerIds } from './layers/FederalPropertyLayer';
+import { addRailroadRowLayer, getRailroadRowLayerIds } from './layers/RailroadRowLayer';
 
 // Register PMTiles protocol once
 const protocol = new Protocol();
@@ -47,10 +49,12 @@ const LAYER_REGISTRY: Record<
   parks: { add: addParkLayer, getIds: getParkLayerIds },
   sanborn: { add: addSanbornOverlay, getIds: getSanbornLayerIds },
   major_streets: { add: addMajorStreetsLayer, getIds: getMajorStreetsLayerIds },
+  zip_codes: { add: addZipCodeLayer, getIds: getZipCodeLayerIds },
   police_districts: { add: addPoliceDistrictLayer, getIds: getPoliceDistrictLayerIds },
   wards: { add: addWardLayer, getIds: getWardLayerIds },
   gang_territory: { add: addGangTerritoryLayer, getIds: getGangTerritoryLayerIds },
   federal_properties: { add: addFederalPropertyLayer, getIds: getFederalPropertyLayerIds },
+  railroad_row: { add: addRailroadRowLayer, getIds: getRailroadRowLayerIds },
 };
 
 export interface ClickedBuildingInfo {
@@ -132,7 +136,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady, 
       if (!registry) continue;
 
       const sourceUrl = getLayerSourceUrl(layer.id);
-      const geojsonLayers = new Set(['sanborn', 'police_districts', 'wards', 'gang_territory', 'federal_properties']);
+      const geojsonLayers = new Set(['sanborn', 'police_districts', 'wards', 'gang_territory', 'federal_properties', 'railroad_row']);
       if (!sourceUrl && !geojsonLayers.has(layer.id)) continue;
 
       // Only add if not already added
@@ -228,6 +232,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady, 
       html = buildGangTerritoryPopup(props);
     } else if (clickInfo.featureType === 'federal_property') {
       html = buildFederalPropertyPopup(props);
+    } else if (clickInfo.featureType === 'railroad_row') {
+      html = buildRailroadRowPopup(props);
     } else {
       html = buildPOIPopup(props);
     }
@@ -554,5 +560,25 @@ function buildFederalPropertyPopup(p: Record<string, unknown>): string {
     ${row('Phone', p.phone)}
     ${row('Building', p.building_name)}
     ${row('Status', p.ownership)}
+  </div>`;
+}
+
+function buildRailroadRowPopup(p: Record<string, unknown>): string {
+  const pin = (p.pin as string) ?? '';
+  const address = (p.address as string) ?? '';
+  const assessorUrl = pin ? 'https://www.cookcountyassessor.com/pin/' + pin : '';
+
+  return `<div style="${popupStyles} max-width: 340px; padding: 8px;">
+    <div style="${headerStyle}">Railroad Right-of-Way</div>
+    <div style="margin-bottom: 8px;">
+      <span style="${badgeStyle('#fef3c7', '#92400e')}">Railroad Property</span>
+      <span style="${badgeStyle('#fef9c3', '#713f12')}">Class RR</span>
+    </div>
+    ${row('PIN', pin)}
+    ${row('Address', address || null)}
+    ${assessorUrl ? row('Assessor', '<a href="' + assessorUrl + '" target="_blank" style="color:#58a6ff">View on Cook County Assessor</a>') : ''}
+    <div style="margin-top: 6px; font-size: 11px; color: #8b949e;">
+      Toggle the Railroads layer to see line ownership info.
+    </div>
   </div>`;
 }

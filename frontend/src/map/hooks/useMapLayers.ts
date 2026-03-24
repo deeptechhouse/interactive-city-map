@@ -59,6 +59,14 @@ function createDefaultLayers(): LayerState[] {
       visible: true,
       opacity: 1,
     },
+    // Boundaries
+    {
+      id: 'zip_codes',
+      name: 'Zip Codes',
+      group: 'zoning',
+      visible: false,
+      opacity: 1,
+    },
     // Historical
     {
       id: 'sanborn',
@@ -105,6 +113,13 @@ function createDefaultLayers(): LayerState[] {
       visible: false,
       opacity: 1,
     },
+    {
+      id: 'railroad_row',
+      name: 'Railroad Right-of-Way',
+      group: 'infrastructure',
+      visible: false,
+      opacity: 1,
+    },
   ];
 }
 
@@ -118,12 +133,14 @@ export function getLayerSourceUrl(layerId: string): string {
     buildings: martinTileUrl('buildings'),
     pois: martinTileUrl('pois'),
     major_streets: martinTileUrl('major_streets'),
+    zip_codes: martinTileUrl('zip_codes'),
     sanborn: '', // PMTiles URL, configured separately
     parks: martinTileUrl('parcels'),
     police_districts: '', // GeoJSON embedded in layer data
     wards: '', // GeoJSON embedded in layer data
     gang_territory: '', // GeoJSON embedded in layer data
     federal_properties: '', // GeoJSON embedded in layer data
+    railroad_row: '', // GeoJSON embedded in layer data
   };
   return sourceMap[layerId] ?? '';
 }

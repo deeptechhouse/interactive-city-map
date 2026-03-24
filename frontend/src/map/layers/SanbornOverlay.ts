@@ -9,13 +9,13 @@ const LAYER_ID_PREFIX = 'sanborn';
 // Vol I (1950) covers Chicago Heights (south suburb) — not useful for central city
 const SANBORN_YEARS: Record<string, { url: string; label: string; coords: [[number,number],[number,number],[number,number],[number,number]] }> = {
   '1897': {
-    url: 'http://localhost:9000/citymap-tiles/sanborn/composite_1897_southside.jpg',
+    url: 'http://localhost:9000/citymap-tiles/sanborn/composite_1897_southside_rotated.jpg',
     label: '1897 — Near South Side',
     coords: [
-      [-87.640, 41.862],  // top-left
-      [-87.618, 41.862],  // top-right
-      [-87.618, 41.845],  // bottom-right
-      [-87.640, 41.845],  // bottom-left
+      [-87.645, 41.862],  // top-left (NW corner)
+      [-87.615, 41.862],  // top-right (NE corner)
+      [-87.615, 41.840],  // bottom-right (SE corner)
+      [-87.645, 41.840],  // bottom-left (SW corner)
     ],
   },
 };

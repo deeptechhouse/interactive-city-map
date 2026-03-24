@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interactive City Map — New City Implementation Guide</title>
+<style>
+  :root { --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --green: #3fb950; --orange: #d29922; --border: #30363d; --card: #161b22; --code: #1c2333; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace; background: var(--bg); color: var(--fg); max-width: 1000px; margin: 2rem auto; padding: 0 1.5rem; line-height: 1.7; }
+  h1 { color: var(--accent); border-bottom: 2px solid var(--border); padding-bottom: .5rem; font-size: 1.8rem; }
+  h2 { color: var(--green); margin-top: 2.5rem; border-bottom: 1px solid var(--border); padding-bottom: .3rem; }
+  h3 { color: var(--orange); margin-top: 1.5rem; }
+  h4 { color: var(--accent); }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .9rem; }
+  th, td { border: 1px solid var(--border); padding: .5rem .75rem; text-align: left; }
+  th { background: var(--card); color: var(--accent); }
+  code { background: var(--code); padding: 2px 6px; border-radius: 4px; font-size: .88em; color: var(--green); }
+  pre { background: var(--code); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; font-size: .85rem; line-height: 1.4; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+  .warn { border-left: 4px solid var(--orange); padding-left: 1rem; margin: 1rem 0; }
+  ul { padding-left: 1.5rem; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<h1>Interactive City Map — New City Implementation Guide</h1>
+<p>This document contains everything needed to create an interactive map for a new city using the Chicago map as a reference implementation. Give this entire document to Claude in a new conversation along with your target city name.</p>
+
+<hr>
+
+<h2>1. Reference Implementation Summary</h2>
+
+<div class="card">
+<p><strong>Project:</strong> <code>/Users/aaandy/_andy_ai_projects_2026/interactive-city-map/</code><br>
+<strong>GitHub:</strong> <code>https://github.com/deeptechhouse/interactive-city-map.git</code><br>
+<strong>Branch:</strong> <code>master</code> (fully merged, production-ready)</p>
+</div>
+
+<h3>Tech Stack</h3>
+<table>
+<tr><th>Component</th><th>Technology</th><th>Purpose</th></tr>
+<tr><td>Frontend</td><td>React 18 + TypeScript + Vite 5</td><td>UI + map rendering</td></tr>
+<tr><td>Map library</td><td>MapLibre GL JS 5.21</td><td>Vector tile map with layers</td></tr>
+<tr><td>Basemap</td><td>Protomaps (dark theme)</td><td>Background map tiles</td></tr>
+<tr><td>Backend</td><td>FastAPI 0.115 + SQLAlchemy 2.0 (async)</td><td>REST API</td></tr>
+<tr><td>Database</td><td>PostgreSQL 16 + PostGIS 3.4</td><td>Spatial data store</td></tr>
+<tr><td>Tile server</td><td>Martin v0.14.2</td><td>Vector tiles from PostGIS</td></tr>
+<tr><td>Object storage</td><td>MinIO (S3-compatible)</td><td>Images, Sanborn maps, floor plans</td></tr>
+<tr><td>Infrastructure</td><td>Docker Compose</td><td>Dev + prod deployment</td></tr>
+</table>
+
+<h3>Architecture Pattern</h3>
+<pre>
+Browser (React + MapLibre)
+    ↓ REST API calls          ↓ Vector tile requests
+FastAPI backend              Martin tile server
+    ↓                            ↓
+PostgreSQL + PostGIS (shared spatial database)
+    ↑
+Data import pipeline (Python scripts per data source)
+</pre>
+
+<h3>What the Chicago Map Has</h3>
+<ul>
+<li><strong>820,600 buildings</strong> — colored by zoning type, clickable with owner/business info</li>
+<li><strong>1,200+ POIs</strong> — 16 categories (churches, theaters, museums, venues, gyms, galleries, etc.)</li>
+<li><strong>14,500 railroad segments</strong> — by owner, status (active/abandoned/disused), ownership type</li>
+<li><strong>59 zip codes</strong> — boundary outlines with labels</li>
+<li><strong>Zoning districts</strong> — manufacturing/commercial/residential/mixed/special with sub-type filters</li>
+<li><strong>Police districts + city wards</strong> — boundary overlays</li>
+<li><strong>Parks</strong> — green fill + labels</li>
+<li><strong>Waterways</strong> — blue lines + labels (Chicago River, canals, etc.)</li>
+<li><strong>Major street labels</strong> — 25 labeled streets including diagonals</li>
+<li><strong>Transit lines</strong> — CTA "L" routes</li>
+<li><strong>Interior building maps</strong> — room layouts for 792 POI buildings</li>
+<li><strong>Sanborn historical maps</strong> — 1906 fire insurance map overlays</li>
+<li><strong>Building detail sidebar</strong> — click popup → "Open Details" → side panel → interior viewer</li>
+<li><strong>POI browse panel</strong> — full city-wide list by category (no zoom required)</li>
+<li><strong>Contact info</strong> — names, emails, phones scraped from venue websites</li>
+<li><strong>Occupancy data</strong> — IBC-estimated max occupancy per venue</li>
+<li><strong>Business licenses</strong> — matched to manufacturing zone buildings</li>
+</ul>
+
+<h2>2. Step-by-Step: Create a Map for a New City</h2>
+
+<h3>Step 0: Prerequisites</h3>
+<pre>
+# Clone the reference project
+git clone https://github.com/deeptechhouse/interactive-city-map.git my-city-map
+cd my-city-map
+
+# Start infrastructure
+docker compose up -d   # PostgreSQL+PostGIS, Martin, MinIO
+
+# Backend setup
+cd backend
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+alembic upgrade head
+
+# Frontend setup
+cd ../frontend
+npm install
+</pre>
+
+<h3>Step 1: Create City Configuration (YAML)</h3>
+<p>Create <code>backend/app/data_import/configs/YOUR_CITY.yaml</code>. This is the single file that defines all data sources.</p>
+
+<div class="card">
+<h4>Template: <code>backend/app/data_import/configs/dayton.yaml</code></h4>
+<pre>
+city:
+  name: Dayton
+  slug: dayton
+  state: OH
+  center: [-84.1916, 39.7589]    # [longitude, latitude]
+  default_zoom: 12
+  bounds: [[-84.35, 39.65], [-84.05, 39.85]]  # [[SW], [NE]]
+
+sources:
+  # REQUIRED: Find these URLs from your city/county open data portal
+  buildings:
+    url: "https://YOUR_CITY_OPEN_DATA_PORTAL/resource/BUILDING_DATASET_ID.geojson?$limit=50000"
+    # Alternate: OpenStreetMap buildings via Overpass API
+    osm_overpass_bbox: "39.65,-84.35,39.85,-84.05"  # south,west,north,east
+
+  zoning:
+    url: "https://YOUR_CITY_OPEN_DATA_PORTAL/resource/ZONING_DATASET_ID.geojson?$limit=50000"
+
+  # OPTIONAL but recommended:
+  transit_lines:
+    url: ""  # GTFS feed or local transit authority open data
+  transit_stations:
+    url: ""
+  waterways:
+    osm_overpass_bbox: "39.65,-84.35,39.85,-84.05"
+  parks:
+    url: "https://YOUR_CITY_OPEN_DATA_PORTAL/resource/PARKS_DATASET_ID.geojson?$limit=5000"
+  railroads:
+    osm_overpass_bbox: "39.65,-84.35,39.85,-84.05"
+  pois:
+    osm_overpass_bbox: "39.65,-84.35,39.85,-84.05"
+
+interior:
+  enabled: true
+  osm:
+    enabled: true
+    overpass_bbox: [39.65, -84.35, 39.85, -84.05]
+  county:
+    name: "Montgomery County"
+    assessor_api: ""  # URL if available
+  sanborn:
+    enabled: true
+    loc_query: "sanborn dayton ohio"
+  venue_scraping:
+    enabled: true
+    categories: ["church", "hotel_event", "theater", "museum", "community_center", "gymnasium", "music_venue", "gallery"]
+</pre>
+</div>
+
+<h3>Step 2: Find Data Sources</h3>
+
+<p>Every city needs data. Here's where to look:</p>
+
+<table>
+<tr><th>Data Type</th><th>Where to Find It</th><th>Fallback</th></tr>
+<tr><td><strong>Buildings</strong></td><td>City/county GIS portal, open data portal (Socrata, ArcGIS Hub)</td><td>OpenStreetMap via Overpass</td></tr>
+<tr><td><strong>Zoning</strong></td><td>City planning department, open data portal</td><td>Manual from zoning maps</td></tr>
+<tr><td><strong>Parcels</strong></td><td>County assessor/auditor GIS</td><td>County recorder website</td></tr>
+<tr><td><strong>Railroads</strong></td><td>OpenStreetMap (best source), FRA data</td><td>Already in OSM for most US cities</td></tr>
+<tr><td><strong>Transit</strong></td><td>Local transit authority GTFS feed</td><td>OpenStreetMap</td></tr>
+<tr><td><strong>Waterways</strong></td><td>OpenStreetMap, USGS NHD</td><td>Overpass query</td></tr>
+<tr><td><strong>Parks</strong></td><td>City parks dept, open data portal</td><td>OpenStreetMap</td></tr>
+<tr><td><strong>POIs</strong></td><td>OpenStreetMap (best), Foursquare API</td><td>Overpass query by amenity tags</td></tr>
+<tr><td><strong>Zip codes</strong></td><td>US Census TIGER/Line, city open data</td><td>Census Bureau API</td></tr>
+<tr><td><strong>Police districts</strong></td><td>City police department, open data</td><td>Manual from district maps</td></tr>
+<tr><td><strong>Wards/districts</strong></td><td>City council, board of elections</td><td>Manual from ward maps</td></tr>
+<tr><td><strong>Business licenses</strong></td><td>City clerk, open data portal</td><td>State business registry</td></tr>
+<tr><td><strong>Property owners</strong></td><td>County assessor/auditor API</td><td>County website scraping</td></tr>
+<tr><td><strong>Sanborn maps</strong></td><td>Library of Congress (<code>loc.gov/collections/sanborn-maps</code>)</td><td>Search by city name + state</td></tr>
+</table>
+
+<div class="warn">
+<strong>Key search terms for open data:</strong><br>
+<code>[city name] open data portal</code> · <code>[city name] GIS data</code> · <code>[county name] assessor parcel data</code> · <code>[city name] socrata</code> · <code>[city name] arcgis hub</code>
+</div>
+
+<h3>Step 3: Register the City in the Database</h3>
+<pre>
+# Run from backend/
+.venv/bin/python -c "
+from app.database import sync_session_factory
+from sqlalchemy import text
+import uuid
+
+with sync_session_factory() as s:
+    s.execute(text('''
+        INSERT INTO cities (id, name, slug, state, center, bounds, default_zoom)
+        VALUES (:id, :name, :slug, :state,
+                ST_SetSRID(ST_MakePoint(:lng, :lat), 4326),
+                ST_MakeEnvelope(:w, :s, :e, :n, 4326),
+                :zoom)
+    '''), {
+        'id': uuid.uuid4(),
+        'name': 'YOUR CITY NAME',
+        'slug': 'your-city-slug',
+        'state': 'ST',
+        'lng': -84.1916, 'lat': 39.7589,   # city center
+        'w': -84.35, 's': 39.65, 'e': -84.05, 'n': 39.85,  # bounds
+        'zoom': 12,
+    })
+    s.commit()
+    print('City registered')
+"
+</pre>
+
+<h3>Step 4: Run Data Imports</h3>
+<pre>
+# Import all data for your city
+cd backend
+.venv/bin/python -m app.data_import.run --city your-city-slug
+
+# Or import individual layers:
+.venv/bin/python -c "
+from app.data_import.import_buildings import BuildingsImporter
+# ... configure and run each importer
+"
+</pre>
+
+<h3>Step 5: Enrich Data (post-import)</h3>
+
+<p>After base data is imported, run these enrichment steps:</p>
+
+<pre>
+# 1. Spatial join: tag buildings with zoning codes
+UPDATE buildings b SET zoning_code = z.zone_code, zoning_desc = z.zone_name
+FROM zoning_districts z WHERE ST_Intersects(ST_Centroid(b.geom), z.geom)
+AND b.zoning_code IS NULL AND b.city_id = 'YOUR_CITY_UUID';
+
+# 2. Spatial join: link POIs to buildings
+UPDATE pois SET building_id = b.id
+FROM buildings b WHERE ST_Contains(b.geom, pois.geom)
+AND pois.building_id IS NULL AND pois.city_id = 'YOUR_CITY_UUID';
+
+# 3. Fetch business licenses (if your city has a Socrata portal)
+# Download from city open data, insert into business_licenses table,
+# then spatial match to buildings:
+UPDATE buildings b SET owner_name = l.legal_name, metadata = jsonb_build_object('businesses', ...)
+FROM business_licenses l WHERE ST_Contains(b.geom, l.geom)
+AND b.zoning_code NOT LIKE 'R%';
+
+# 4. Enrich addresses with full street names from building footprint data
+# (same approach as Chicago — download source data with coordinates,
+#  spatial match to buildings)
+
+# 5. Import waterways from OSM
+.venv/bin/python -c "
+from app.data_import.interior.osm_indoor import OSMIndoorImporter
+# ... or use Overpass for waterways
+"
+</pre>
+
+<h3>Step 6: Update Frontend for New City</h3>
+
+<pre>
+# In frontend/src/utils/geoUtils.ts, update default center:
+export const DEFAULT_CENTER: [number, number] = [-84.1916, 39.7589];
+export const DEFAULT_ZOOM = 12;
+
+# In frontend/src/map/hooks/useMapLayers.ts, update source URLs if needed
+
+# In frontend/src/map/controls/POIBrowsePanel.tsx, update city slug:
+fetch(`${base}/api/v1/cities/your-city-slug/pois?category=${selectedCategory}`)
+
+# Add major streets for your city in the major_streets table
+</pre>
+
+<h3>Step 7: Add Major Streets</h3>
+<pre>
+# Insert major streets with coordinates for your city
+INSERT INTO major_streets (id, city_id, name, geom) VALUES
+  (gen_random_uuid(), 'CITY_UUID', 'Main Street',
+   ST_SetSRID(ST_GeomFromGeoJSON('{"type":"LineString","coordinates":[[-84.20,39.75],[-84.18,39.76]]}'), 4326));
+# Repeat for each major street
+</pre>
+
+<h3>Step 8: Start the Map</h3>
+<pre>
+# Start everything
+docker compose up -d          # DB, Martin, MinIO
+cd backend && .venv/bin/uvicorn app.main:app --reload --port 8000
+cd frontend && npm run dev    # http://localhost:5173
+</pre>
+
+<h2>3. Database Schema Reference</h2>
+
+<h3>Core Tables (auto-created by Alembic migration 001)</h3>
+<table>
+<tr><th>Table</th><th>Key Columns</th><th>Geometry</th></tr>
+<tr><td><code>cities</code></td><td>id, name, slug, state, default_zoom</td><td>center (POINT), bounds (POLYGON)</td></tr>
+<tr><td><code>buildings</code></td><td>id, city_id, address, name, zoning_code, owner_name, owner_type, property_class, floors, sq_ft, year_built, has_interior, is_hidden, metadata</td><td>geom (POLYGON)</td></tr>
+<tr><td><code>zoning_districts</code></td><td>id, city_id, zone_code, zone_class, zone_name, description</td><td>geom (MULTIPOLYGON)</td></tr>
+<tr><td><code>pois</code></td><td>id, city_id, building_id, name, category, subcategory, address, phone, website, hours, metadata</td><td>geom (POINT)</td></tr>
+<tr><td><code>railroads</code></td><td>id, city_id, name, owner, status, owner_type, track_class, metadata</td><td>geom (GEOMETRY)</td></tr>
+<tr><td><code>waterways</code></td><td>id, city_id, name, waterway_type</td><td>geom (GEOMETRY)</td></tr>
+<tr><td><code>parcels</code></td><td>id, city_id, pin, owner_name, land_use</td><td>geom (GEOMETRY)</td></tr>
+<tr><td><code>transit_lines</code></td><td>id, city_id, name, route_type, color</td><td>geom (GEOMETRY)</td></tr>
+<tr><td><code>transit_stations</code></td><td>id, city_id, line_id, name, station_type</td><td>geom (POINT)</td></tr>
+</table>
+
+<h3>Interior Maps Tables (migration 002)</h3>
+<table>
+<tr><th>Table</th><th>Key Columns</th><th>Geometry</th></tr>
+<tr><td><code>interior_sources</code></td><td>id, building_id, city_id, source_type, raster_url, confidence, status</td><td>—</td></tr>
+<tr><td><code>interior_rooms</code></td><td>id, building_id, level, room_type, name, area_sqm, capacity</td><td>geom (POLYGON)</td></tr>
+<tr><td><code>interior_walls</code></td><td>id, building_id, level, wall_type, material</td><td>geom (LINESTRING)</td></tr>
+<tr><td><code>interior_features</code></td><td>id, building_id, level, feature_type, name</td><td>geom (GEOMETRY)</td></tr>
+<tr><td><code>scrape_targets</code></td><td>id, building_id, url, status</td><td>—</td></tr>
+</table>
+
+<h3>Additional Tables (created at runtime)</h3>
+<table>
+<tr><th>Table</th><th>Purpose</th></tr>
+<tr><td><code>major_streets</code></td><td>Labeled major street lines</td></tr>
+<tr><td><code>zip_codes</code></td><td>Zip code boundary polygons</td></tr>
+<tr><td><code>police_districts</code></td><td>Police district boundaries</td></tr>
+<tr><td><code>wards</code></td><td>City ward/council district boundaries</td></tr>
+<tr><td><code>business_licenses</code></td><td>Business license points (for spatial matching)</td></tr>
+</table>
+
+<h2>4. API Endpoints Reference</h2>
+
+<table>
+<tr><th>Method</th><th>Endpoint</th><th>Purpose</th></tr>
+<tr><td>GET</td><td><code>/health</code></td><td>Health check</td></tr>
+<tr><td>GET</td><td><code>/api/v1/cities/{slug}/buildings?bbox=w,s,e,n</code></td><td>Buildings in bounding box</td></tr>
+<tr><td>GET</td><td><code>/api/v1/buildings/{id}</code></td><td>Single building detail</td></tr>
+<tr><td>GET</td><td><code>/api/v1/cities/{slug}/pois?category=X</code></td><td>POIs by category</td></tr>
+<tr><td>GET</td><td><code>/api/v1/pois/{id}</code></td><td>Single POI detail</td></tr>
+<tr><td>GET</td><td><code>/api/v1/buildings/{id}/interior/summary</code></td><td>Interior data summary</td></tr>
+<tr><td>GET</td><td><code>/api/v1/buildings/{id}/interior/rooms?level=0</code></td><td>Interior rooms</td></tr>
+<tr><td>GET</td><td><code>/api/v1/buildings/{id}/interior/walls?level=0</code></td><td>Interior walls</td></tr>
+<tr><td>GET</td><td><code>/api/v1/buildings/{id}/interior/features?level=0</code></td><td>Interior features</td></tr>
+<tr><td>GET</td><td><code>/api/v1/buildings/{id}/interior/sources</code></td><td>Interior data sources</td></tr>
+<tr><td>POST</td><td><code>/api/v1/buildings/{id}/interior/rooms</code></td><td>Create room</td></tr>
+<tr><td>POST</td><td><code>/api/v1/interior/sources/{id}/extract</code></td><td>Trigger AI extraction</td></tr>
+</table>
+
+<h2>5. Frontend Layer Architecture</h2>
+
+<h3>Layer Registry Pattern</h3>
+<p>Each map layer follows the same pattern. Files live in <code>frontend/src/map/layers/</code>:</p>
+
+<pre>
+// ExampleLayer.ts
+import type maplibregl from 'maplibre-gl';
+import type { LayerConfig } from '../../types/layer';
+
+const SOURCE_ID = 'example-source';
+
+export function addExampleLayer(map: maplibregl.Map, config: LayerConfig): void {
+  if (map.getSource(SOURCE_ID)) return;  // idempotent
+
+  map.addSource(SOURCE_ID, {
+    type: 'vector',
+    tiles: [config.sourceUrl],  // Martin tile URL
+    minzoom: 0, maxzoom: 16,
+  });
+
+  map.addLayer({
+    id: `${config.id}-fill`,
+    type: 'fill',
+    source: SOURCE_ID,
+    'source-layer': 'TABLE_NAME',  // must match PostGIS table name
+    layout: { visibility: config.visible ? 'visible' : 'none' },
+    paint: { 'fill-color': '#color', 'fill-opacity': config.opacity * 0.3 },
+  });
+}
+
+export function getExampleLayerIds(configId: string): string[] {
+  return [`${configId}-fill`];
+}
+</pre>
+
+<h3>To add a new layer:</h3>
+<ol>
+<li>Create the PostGIS table and import data</li>
+<li>Restart Martin (<code>docker restart citymap-martin</code>) — it auto-discovers new tables</li>
+<li>Create <code>frontend/src/map/layers/YourLayer.ts</code> following the pattern above</li>
+<li>Register in <code>MapContainer.tsx</code> LAYER_REGISTRY</li>
+<li>Add to <code>useMapLayers.ts</code> createDefaultLayers() and getLayerSourceUrl()</li>
+</ol>
+
+<h2>6. Data Enrichment Recipes</h2>
+
+<h3>Scrape venue contacts</h3>
+<pre>
+from app.services.venue_scraper_service import VenueScraperService
+scraper = VenueScraperService()
+candidates = scraper.crawl("https://venue-website.com", max_pages=5)
+# Returns: [{"url": "...", "alt_text": "...", "score": 2.5}]
+</pre>
+
+<h3>Calculate occupancy from sq footage</h3>
+<pre>
+# IBC load factors: assembly standing=5sqft/person, tables=15, fixed seats=7, gym=50
+estimated_max = building_sqft / load_factor_for_category
+</pre>
+
+<h3>Match business licenses to buildings</h3>
+<pre>
+-- Spatial join: license point inside building polygon
+SELECT b.id, l.legal_name, l.license_type
+FROM buildings b
+JOIN business_licenses l ON ST_Contains(b.geom, l.geom)
+WHERE b.zoning_code LIKE 'M%';
+</pre>
+
+<h3>Import from OSM via Overpass</h3>
+<pre>
+import httpx
+query = """
+[out:json][timeout:60];
+(way["building"](SOUTH,WEST,NORTH,EAST););
+out body; >; out skel qt;
+"""
+resp = httpx.post("https://overpass-api.de/api/interpreter", data={"data": query})
+</pre>
+
+<h2>7. Common Issues &amp; Fixes</h2>
+
+<table>
+<tr><th>Issue</th><th>Cause</th><th>Fix</th></tr>
+<tr><td>500 error on building/POI detail</td><td><code>.metadata</code> returns SQLAlchemy MetaData object instead of column value</td><td>Use <code>.metadata_</code> (underscore) in route serialization</td></tr>
+<tr><td>Frontend can't reach API</td><td>API URL defaulting to wrong port</td><td>Set <code>VITE_API_URL=http://localhost:8000</code> or fix <code>geoUtils.ts</code></td></tr>
+<tr><td>CORS blocking requests</td><td>Frontend port not in CORS origins</td><td>Add port to <code>config.py</code> cors_origins</td></tr>
+<tr><td>Layers not showing</td><td>Martin doesn't know about new table</td><td><code>docker restart citymap-martin</code></td></tr>
+<tr><td>Vector tiles empty</td><td>No data in PostGIS table</td><td>Check: <code>SELECT count(*) FROM table_name</code></td></tr>
+<tr><td>Building addresses wrong</td><td>Matched by house number only</td><td>Must spatial match: <code>ST_Contains(building.geom, address_point.geom)</code></td></tr>
+<tr><td>Overpass API timeout</td><td>Bbox too large</td><td>Split into smaller sub-bboxes</td></tr>
+<tr><td>Popup text invisible</td><td>Dark text on dark popup background</td><td>Use light colors: headers=#e6edf3, labels=#8b949e, links=#58a6ff</td></tr>
+</table>
+
+<h2>8. Prompt for Claude — New City Map</h2>
+
+<div class="card">
+<p>Copy and paste this prompt into a new Claude conversation to start building a map for your target city:</p>
+<pre style="white-space: pre-wrap;">
+I want to create an interactive city map for [CITY NAME], [STATE] using the same architecture as the Chicago interactive city map project at:
+
+Repository: https://github.com/deeptechhouse/interactive-city-map.git
+Branch: master
+
+The Chicago map uses: React 18 + MapLibre GL JS frontend, FastAPI + SQLAlchemy backend, PostgreSQL + PostGIS, Martin vector tile server, MinIO storage, Docker Compose.
+
+It has these layers: buildings (colored by zoning), zoning districts, POIs (16 categories), railroads (by owner/status), waterways, parks, transit, major street labels, zip codes, police districts, wards, Sanborn historical maps, interior building maps.
+
+Please help me:
+1. Create a YAML config for [CITY NAME] with data source URLs from their open data portal
+2. Set up the database with the new city
+3. Import all available data layers
+4. Enrich buildings with zoning codes, addresses, and business data
+5. Add major streets specific to [CITY NAME]
+6. Configure the frontend for the new city's center coordinates and zoom
+
+The reference implementation guide is in the repo at docs/new_city_guide.html.
+
+Start by searching for [CITY NAME]'s open data portal and identifying available GIS datasets for: buildings, zoning, parcels, parks, waterways, transit, business licenses, police districts, and wards.
+</pre>
+</div>
+
+<h2>9. File Structure Quick Reference</h2>
+<pre>
+interactive-city-map/
+├── backend/
+│   ├── app/
+│   │   ├── main.py                    # FastAPI app + router registration
+│   │   ├── config.py                  # Settings (DB URL, CORS, S3, etc.)
+│   │   ├── database.py                # SQLAlchemy engine + session
+│   │   ├── models/                    # SQLAlchemy models (1 per table)
+│   │   ├── schemas/                   # Pydantic request/response schemas
+│   │   ├── routes/                    # FastAPI route handlers
+│   │   ├── services/                  # Business logic + AI extraction
+│   │   │   └── extractors/            # OpenCV floor plan extraction pipeline
+│   │   ├── adapters/                  # Storage (S3/MinIO), geocoder, POI fetcher
+│   │   └── data_import/
+│   │       ├── configs/               # Per-city YAML configs
+│   │       ├── import_buildings.py    # Building footprint importer
+│   │       ├── import_zoning.py       # Zoning district importer
+│   │       ├── import_pois.py         # POI importer (OSM Overpass)
+│   │       ├── import_railroads.py    # Railroad importer (OSM + FRA)
+│   │       └── interior/              # Interior map importers
+│   ├── alembic/versions/             # Database migrations
+│   └── tests/                        # pytest test suite
+├── frontend/
+│   └── src/
+│       ├── App.tsx                    # Root component with all panels
+│       ├── api/                       # Typed API client functions
+│       ├── map/
+│       │   ├── MapContainer.tsx       # MapLibre init + layer orchestration + popups
+│       │   ├── controls/              # UI panels (LayerPanel, filters, legend, etc.)
+│       │   ├── hooks/                 # useMapLayers, useMapClick, useSearch
+│       │   └── layers/               # One file per map layer (add/remove/getIds)
+│       ├── panels/                    # BuildingDetail, FloorPlanUpload, etc.
+│       ├── interior/                  # Interior viewer + editor components
+│       ├── types/                     # TypeScript interfaces
+│       └── utils/                     # Colors, geo utils, accessibility
+├── docker-compose.yml                 # Dev stack (PostgreSQL, Martin, MinIO)
+├── martin.yaml                        # Tile server config
+└── docs/                              # Documentation
+</pre>
+
+<hr>
+<footer style="margin-top: 2rem; color: #8b949e; font-size: .85rem;">
+<p>Interactive City Map — New City Guide v1.0 — 2026-03-24</p>
+<p>Reference: Chicago implementation on <code>master</code> branch</p>
+</footer>
+
+</body>
+</html>

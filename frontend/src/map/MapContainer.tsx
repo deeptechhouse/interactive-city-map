@@ -181,6 +181,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady, 
             map.setPaintProperty(sublayerId, 'line-opacity', layer.opacity);
           } else if (layerType === 'circle') {
             map.setPaintProperty(sublayerId, 'circle-opacity', layer.opacity);
+          } else if (layerType === 'symbol') {
+            map.setPaintProperty(sublayerId, 'text-opacity', layer.opacity);
           } else if (layerType === 'raster') {
             map.setPaintProperty(sublayerId, 'raster-opacity', layer.opacity * 0.7);
           }

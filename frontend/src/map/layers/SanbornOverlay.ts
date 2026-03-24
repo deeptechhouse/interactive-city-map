@@ -4,100 +4,76 @@ import type { LayerConfig } from '../../types/layer';
 const SOURCE_ID = 'sanborn-source';
 const LAYER_ID_PREFIX = 'sanborn';
 
-// Sanborn composite image overlays by year (all rotated 180°)
-// Vol E (1897) = Near South Side, 44 sheets for wider coverage
-// Benchmarks: Halsted St ≈ -87.6468, Ashland Ave ≈ -87.6668
-// The large composite covers roughly Halsted to State, 22nd to 35th
-const SANBORN_YEARS: Record<string, { url: string; label: string; sheets: number; coords: [[number,number],[number,number],[number,number],[number,number]] }> = {
-  '1897': {
-    url: 'http://localhost:9000/citymap-tiles/sanborn/composite_1897_all_180.jpg',
-    label: '1897',
-    sheets: 44,
-    coords: [
-      [-87.655, 41.870],
-      [-87.610, 41.870],
-      [-87.610, 41.825],
-      [-87.655, 41.825],
-    ],
-  },
-  '1911': {
-    url: 'http://localhost:9000/citymap-tiles/sanborn/composite_1911_all_180.jpg',
-    label: '1911',
-    sheets: 14,
-    coords: [
-      [-87.655, 41.870],
-      [-87.610, 41.870],
-      [-87.610, 41.825],
-      [-87.655, 41.825],
-    ],
-  },
-  '1946': {
-    url: 'http://localhost:9000/citymap-tiles/sanborn/composite_1946_all_180.jpg',
-    label: '1946',
-    sheets: 16,
-    coords: [
-      [-87.655, 41.870],
-      [-87.610, 41.870],
-      [-87.610, 41.825],
-      [-87.655, 41.825],
-    ],
-  },
-  '1949': {
-    url: 'http://localhost:9000/citymap-tiles/sanborn/composite_1949_all_180.jpg',
-    label: '1949',
-    sheets: 13,
-    coords: [
-      [-87.655, 41.870],
-      [-87.610, 41.870],
-      [-87.610, 41.825],
-      [-87.655, 41.825],
-    ],
-  },
-  '1950': {
-    url: 'http://localhost:9000/citymap-tiles/sanborn/composite_1950_all_180.jpg',
-    label: '1950',
-    sheets: 15,
-    coords: [
-      [-87.655, 41.870],
-      [-87.610, 41.870],
-      [-87.610, 41.825],
-      [-87.655, 41.825],
-    ],
-  },
-};
+// Individual Sanborn sheet overlays — downtown Chicago Vol. 1, 1906 N&W
+// Each sheet covers roughly 2-3 city blocks (~0.003° lng x 0.004° lat)
+// Default position: centered on The Loop, user adjusts with nudge/rotate controls
+const SHEET_BASE_URL = 'http://localhost:9000/citymap-tiles/sanborn/1906_downtown';
+const TOTAL_SHEETS = 59;
 
-// Track which year is currently displayed
-let currentYear = '1897';
+// Each sheet covers roughly this size (adjustable via scale)
+const SHEET_WIDTH_DEG = 0.006;  // ~660m
+const SHEET_HEIGHT_DEG = 0.008; // ~890m
+
+// Default center for sheet overlay (The Loop)
+const DEFAULT_CENTER: [number, number] = [-87.6298, 41.8819];
+
+const SANBORN_YEARS: Record<string, { url: string; label: string; sheets: number; coords: [[number,number],[number,number],[number,number],[number,number]] }> = {}
+
+// Build sheet entries dynamically
+for (let i = 1; i <= TOTAL_SHEETS; i++) {
+  const num = String(i).padStart(4, '0');
+  SANBORN_YEARS[`sheet-${i}`] = {
+    url: `${SHEET_BASE_URL}/sheet_${num}.jpg`,
+    label: `Sheet ${i}`,
+    sheets: 1,
+    coords: [
+      [DEFAULT_CENTER[0] - SHEET_WIDTH_DEG/2, DEFAULT_CENTER[1] + SHEET_HEIGHT_DEG/2],
+      [DEFAULT_CENTER[0] + SHEET_WIDTH_DEG/2, DEFAULT_CENTER[1] + SHEET_HEIGHT_DEG/2],
+      [DEFAULT_CENTER[0] + SHEET_WIDTH_DEG/2, DEFAULT_CENTER[1] - SHEET_HEIGHT_DEG/2],
+      [DEFAULT_CENTER[0] - SHEET_WIDTH_DEG/2, DEFAULT_CENTER[1] - SHEET_HEIGHT_DEG/2],
+    ],
+  };
+}
+
+// Track which sheet is currently displayed
+let currentYear = 'sheet-1';
 
 // Manual adjustment state
 let offsetLng = 0;
 let offsetLat = 0;
 let rotationDeg = 0;
+let scaleFactor = 1.0;
 
 function getAdjustedCoords(): [[number,number],[number,number],[number,number],[number,number]] {
   const yearData = SANBORN_YEARS[currentYear];
   if (!yearData) return [[0,0],[0,0],[0,0],[0,0]];
 
-  // Apply offset
-  const shifted = yearData.coords.map(([lng, lat]) =>
-    [lng + offsetLng, lat + offsetLat] as [number, number],
-  );
+  // Get center of the default coords
+  const cx0 = (yearData.coords[0][0] + yearData.coords[2][0]) / 2;
+  const cy0 = (yearData.coords[0][1] + yearData.coords[2][1]) / 2;
 
-  // Apply rotation around center
+  // Apply scale around center, then offset
+  const scaled = yearData.coords.map(([lng, lat]) => {
+    const dx = (lng - cx0) * scaleFactor;
+    const dy = (lat - cy0) * scaleFactor;
+    return [cx0 + dx + offsetLng, cy0 + dy + offsetLat] as [number, number];
+  });
+
+  // Apply rotation around center of scaled/offset coords
   if (rotationDeg !== 0) {
-    const cx = (shifted[0][0] + shifted[2][0]) / 2;
-    const cy = (shifted[0][1] + shifted[2][1]) / 2;
+    const cx = (scaled[0][0] + scaled[2][0]) / 2;
+    const cy = (scaled[0][1] + scaled[2][1]) / 2;
     const rad = (rotationDeg * Math.PI) / 180;
     const cos = Math.cos(rad);
     const sin = Math.sin(rad);
-    return shifted.map(([lng, lat]) => {
+    return scaled.map(([lng, lat]) => {
       const dx = lng - cx;
       const dy = lat - cy;
       return [cx + dx * cos - dy * sin, cy + dx * sin + dy * cos] as [number, number];
     }) as [[number,number],[number,number],[number,number],[number,number]];
   }
 
-  return shifted as [[number,number],[number,number],[number,number],[number,number]];
+  return scaled as [[number,number],[number,number],[number,number],[number,number]];
 }
 
 function applyAdjustment(map: maplibregl.Map): void {
@@ -126,10 +102,20 @@ export function getRotation(): number {
   return rotationDeg;
 }
 
+export function scaleSanborn(map: maplibregl.Map, factor: number): void {
+  scaleFactor *= factor;
+  applyAdjustment(map);
+}
+
+export function getScale(): number {
+  return scaleFactor;
+}
+
 export function resetSanbornOffset(): void {
   offsetLng = 0;
   offsetLat = 0;
   rotationDeg = 0;
+  scaleFactor = 1.0;
 }
 
 export function addSanbornOverlay(map: maplibregl.Map, config: LayerConfig): void {

@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import type maplibregl from 'maplibre-gl';
 import { THEME } from '../../utils/colorSchemes';
-import { setSanbornYear, getSanbornYears, nudgeSanborn, rotateSanborn, getRotation, resetSanbornOffset } from '../layers/SanbornOverlay';
+import { setSanbornYear, getSanbornYears, nudgeSanborn, rotateSanborn, getRotation, scaleSanborn, getScale, resetSanbornOffset } from '../layers/SanbornOverlay';
 
 interface SanbornAdjustProps {
   map: maplibregl.Map | null;
@@ -94,13 +94,17 @@ const styles = {
 } as const;
 
 export const SanbornAdjust: React.FC<SanbornAdjustProps> = ({ map, visible }) => {
-  const [activeYear, setActiveYear] = useState('1897');
+  const [sheetNum, setSheetNum] = useState(1);
+  const totalSheets = 59;
+
+  const handleSheetChange = useCallback((num: number) => {
+    if (!map || num < 1 || num > totalSheets) return;
+    setSheetNum(num);
+    setSanbornYear(map, `sheet-${num}`);
+  }, [map]);
 
   const handleYearChange = useCallback((year: string) => {
-    if (!map) return;
-    setActiveYear(year);
-    resetSanbornOffset();
-    setSanbornYear(map, year);
+    // kept for compatibility
   }, [map]);
 
   const handleNudge = useCallback((dlng: number, dlat: number) => {
@@ -109,6 +113,7 @@ export const SanbornAdjust: React.FC<SanbornAdjustProps> = ({ map, visible }) =>
   }, [map]);
 
   const [rotation, setRotation] = useState(0);
+  const [scale, setScaleState] = useState(1.0);
 
   const handleRotate = useCallback((deg: number) => {
     if (!map) return;
@@ -116,34 +121,40 @@ export const SanbornAdjust: React.FC<SanbornAdjustProps> = ({ map, visible }) =>
     setRotation(getRotation());
   }, [map]);
 
+  const handleScale = useCallback((factor: number) => {
+    if (!map) return;
+    scaleSanborn(map, factor);
+    setScaleState(getScale());
+  }, [map]);
+
   const handleReset = useCallback(() => {
     if (!map) return;
     resetSanbornOffset();
     setRotation(0);
-    setSanbornYear(map, activeYear);
-  }, [map, activeYear]);
+    setScaleState(1.0);
+    setSanbornYear(map, `sheet-${sheetNum}`);
+  }, [map, sheetNum]);
 
   if (!visible) return null;
-
-  const years = getSanbornYears();
 
   return (
     <div style={styles.panel}>
       <div style={styles.title}>Sanborn Map Controls</div>
 
       <div style={styles.section}>
-        <span style={styles.label}>Year / Edition</span>
-        <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-          {years.map(year => (
-            <button
-              key={year}
-              style={{ ...styles.yearBtn, ...(activeYear === year ? styles.yearBtnActive : {}) }}
-              onClick={() => handleYearChange(year)}
-            >
-              {year}
-            </button>
-          ))}
+        <span style={styles.label}>Sheet Browser (1906 Downtown)</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
+          <button style={styles.nudgeBtn} onClick={() => handleSheetChange(sheetNum - 1)} disabled={sheetNum <= 1}>◀</button>
+          <span style={{ color: THEME.text, fontWeight: 600, fontSize: '14px', minWidth: '80px', textAlign: 'center' as const }}>
+            Sheet {sheetNum} / {totalSheets}
+          </span>
+          <button style={styles.nudgeBtn} onClick={() => handleSheetChange(sheetNum + 1)} disabled={sheetNum >= totalSheets}>▶</button>
         </div>
+        <input
+          type="range" min="1" max={totalSheets} value={sheetNum}
+          onChange={(e) => handleSheetChange(parseInt(e.target.value))}
+          style={{ width: '100%', marginTop: '4px', accentColor: THEME.accent }}
+        />
       </div>
 
       <div style={styles.section}>
@@ -175,11 +186,20 @@ export const SanbornAdjust: React.FC<SanbornAdjustProps> = ({ map, visible }) =>
         </div>
       </div>
 
+      <div style={styles.section}>
+        <span style={styles.label}>Scale ({Math.round(scale * 100)}%)</span>
+        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+          <button style={styles.nudgeBtn} onClick={() => handleScale(0.9)} title="Shrink 10%">−</button>
+          <button style={styles.nudgeBtn} onClick={() => handleScale(0.95)} title="Shrink 5%">−5%</button>
+          <button style={styles.nudgeBtn} onClick={() => handleScale(1.05)} title="Grow 5%">+5%</button>
+          <button style={styles.nudgeBtn} onClick={() => handleScale(1.1)} title="Grow 10%">+</button>
+        </div>
+      </div>
+
       <button style={styles.resetBtn} onClick={handleReset}>Reset All</button>
 
       <div style={styles.hint}>
-        Nudge ~55m/click. Rotate to align streets.
-        Benchmarks: Halsted St, Ashland Ave.
+        Browse sheets with ◀▶ or slider. Nudge, rotate, scale to align with modern streets.
       </div>
     </div>
   );

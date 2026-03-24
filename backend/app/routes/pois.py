@@ -52,7 +52,7 @@ def _poi_to_dict(row) -> dict:
         "source": poi.source,
         "source_id": poi.source_id,
         "verified": poi.verified,
-        "metadata": poi.metadata,
+        "metadata": poi.metadata_,
         "geometry": json.loads(geom_geojson) if geom_geojson else None,
         "created_at": poi.created_at.isoformat() if poi.created_at else None,
         "updated_at": poi.updated_at.isoformat() if poi.updated_at else None,

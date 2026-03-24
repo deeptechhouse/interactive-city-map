@@ -20,7 +20,9 @@ export type LayerGroup =
   | 'zoning'
   | 'poi'
   | 'historical'
-  | 'parks';
+  | 'parks'
+  | 'government'
+  | 'safety';
 
 export const LAYER_GROUP_LABELS: Record<LayerGroup, string> = {
   infrastructure: 'Infrastructure',
@@ -28,4 +30,6 @@ export const LAYER_GROUP_LABELS: Record<LayerGroup, string> = {
   poi: 'Points of Interest',
   historical: 'Historical',
   parks: 'Parks',
+  government: 'Government',
+  safety: 'Public Safety',
 };

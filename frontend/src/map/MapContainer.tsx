@@ -18,6 +18,13 @@ import { addWaterwayLayer, getWaterwayLayerIds } from './layers/WaterwayLayer';
 import { addParkLayer, getParkLayerIds } from './layers/ParkLayer';
 import { addSanbornOverlay, getSanbornLayerIds, setSanbornYear, getSanbornYears } from './layers/SanbornOverlay';
 import { addMajorStreetsLayer, getMajorStreetsLayerIds } from './layers/MajorStreetsLayer';
+import { addPoliceDistrictLayer, getPoliceDistrictLayerIds } from './layers/PoliceDistrictLayer';
+import { addWardLayer, getWardLayerIds } from './layers/WardLayer';
+import { DISTRICT_INFO } from './layers/data/policeDistrictsData';
+import { WARD_INFO } from './layers/data/wardsData';
+import { addGangTerritoryLayer, getGangTerritoryLayerIds } from './layers/GangTerritoryLayer';
+import { GANG_INFO } from './layers/data/gangTerritoryData';
+import { addFederalPropertyLayer, getFederalPropertyLayerIds } from './layers/FederalPropertyLayer';
 
 // Register PMTiles protocol once
 const protocol = new Protocol();
@@ -40,6 +47,10 @@ const LAYER_REGISTRY: Record<
   parks: { add: addParkLayer, getIds: getParkLayerIds },
   sanborn: { add: addSanbornOverlay, getIds: getSanbornLayerIds },
   major_streets: { add: addMajorStreetsLayer, getIds: getMajorStreetsLayerIds },
+  police_districts: { add: addPoliceDistrictLayer, getIds: getPoliceDistrictLayerIds },
+  wards: { add: addWardLayer, getIds: getWardLayerIds },
+  gang_territory: { add: addGangTerritoryLayer, getIds: getGangTerritoryLayerIds },
+  federal_properties: { add: addFederalPropertyLayer, getIds: getFederalPropertyLayerIds },
 };
 
 export interface ClickedBuildingInfo {
@@ -121,7 +132,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady, 
       if (!registry) continue;
 
       const sourceUrl = getLayerSourceUrl(layer.id);
-      if (!sourceUrl && layer.id !== 'sanborn') continue;
+      const geojsonLayers = new Set(['sanborn', 'police_districts', 'wards', 'gang_territory', 'federal_properties']);
+      if (!sourceUrl && !geojsonLayers.has(layer.id)) continue;
 
       // Only add if not already added
       const sublayerIds = registry.getIds(layer.id);
@@ -208,6 +220,14 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady, 
       html = buildRailroadPopup(props);
     } else if (clickInfo.featureType === 'zoning') {
       html = buildZoningPopup(props);
+    } else if (clickInfo.featureType === 'police_district') {
+      html = buildPoliceDistrictPopup(props);
+    } else if (clickInfo.featureType === 'ward') {
+      html = buildWardPopup(props);
+    } else if (clickInfo.featureType === 'gang_territory') {
+      html = buildGangTerritoryPopup(props);
+    } else if (clickInfo.featureType === 'federal_property') {
+      html = buildFederalPropertyPopup(props);
     } else {
       html = buildPOIPopup(props);
     }
@@ -286,12 +306,41 @@ function buildBuildingPopup(p: Record<string, unknown>): string {
     ${row('Owner Type', p.owner_type)}
     ${row('Property Class', p.property_class)}
     ${row('Parcel PIN', p.parcel_pin)}
+    ${buildBusinessesSection(p)}
     <div style="margin-top: 10px; display: flex; gap: 6px;">
       <button data-action="open-details" style="flex:1; padding: 6px 12px; background: #58a6ff; color: #0d1117; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
         ${p.has_interior ? 'View Interior &amp; Details' : 'Open Details'}
       </button>
     </div>
   </div>`;
+}
+
+function buildBusinessesSection(p: Record<string, unknown>): string {
+  let metadata: Record<string, unknown> = {};
+  if (p.metadata) {
+    try {
+      metadata = typeof p.metadata === 'string' ? JSON.parse(p.metadata as string) : p.metadata as Record<string, unknown>;
+    } catch { /* ignore */ }
+  }
+  const businesses = Array.isArray(metadata.businesses) ? metadata.businesses as Array<Record<string, string>> : [];
+  if (businesses.length === 0) return '';
+
+  return `
+    <div style="margin-top: 8px; border-top: 1px solid #30363d; padding-top: 6px;">
+      <div style="font-size: 11px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+        Businesses at this location (${businesses.length})
+      </div>
+      ${businesses.slice(0, 5).map(b => `
+        <div style="padding: 4px 0; border-bottom: 1px solid #21262d;">
+          <div style="font-weight: 600; color: #e6edf3; font-size: 12px;">${b.name || b.legal_name || 'Unknown'}</div>
+          ${b.legal_name && b.legal_name !== b.name ? `<div style="color: #8b949e; font-size: 11px;">${b.legal_name}</div>` : ''}
+          ${b.license_type ? `<div style="color: #8b949e; font-size: 10px;">${b.license_type}</div>` : ''}
+          ${b.phone ? `<div><a href="tel:${b.phone}" style="color:#58a6ff;font-size:11px;">${b.phone}</a></div>` : ''}
+          ${b.email ? `<div><a href="mailto:${b.email}" style="color:#58a6ff;font-size:11px;">${b.email}</a></div>` : ''}
+          ${b.website ? `<div><a href="${b.website}" target="_blank" style="color:#58a6ff;font-size:11px;">${b.website}</a></div>` : ''}
+        </div>
+      `).join('')}
+    </div>`;
 }
 
 function formatOwnershipType(type: string | null | undefined): string | null {
@@ -402,5 +451,108 @@ function buildPOIPopup(p: Record<string, unknown>): string {
     ${row('Hours', typeof p.hours === 'string' ? p.hours : null)}
     ${occupancyHtml}
     ${contactsHtml}
+  </div>`;
+}
+
+function buildPoliceDistrictPopup(p: Record<string, unknown>): string {
+  const distNum = p.dist_num as number | undefined;
+  const stationName = p.name as string | undefined;
+
+  if (stationName && distNum) {
+    const info = DISTRICT_INFO[distNum];
+    return `<div style="${popupStyles} max-width: 340px; padding: 8px;">
+      <div style="${headerStyle}">\u2605 ${stationName}</div>
+      <div style="margin-bottom: 8px;">
+        <span style="${badgeStyle('#fef3c7', '#92400e')}">Police Station</span>
+      </div>
+      ${row('Address', p.address ?? info?.address)}
+      ${row('Commander', p.commander ?? info?.commander)}
+      ${row('Phone', p.phone ?? info?.phone)}
+      ${row('Non-Emergency', '311')}
+      ${row('Emergency', '911')}
+    </div>`;
+  }
+
+  const info = distNum ? DISTRICT_INFO[distNum] : undefined;
+  return `<div style="${popupStyles} max-width: 340px; padding: 8px;">
+    <div style="${headerStyle}">Police District ${distNum ?? '?'}</div>
+    <div style="margin-bottom: 8px;">
+      <span style="${badgeStyle('#dbeafe', '#1e40af')}">CPD District</span>
+    </div>
+    ${info ? row('Station', info.name) : ''}
+    ${info ? row('Address', info.address) : ''}
+    ${info ? row('Commander', info.commander) : ''}
+    ${info ? row('Phone', info.phone) : ''}
+    ${row('Non-Emergency', '311')}
+    ${row('Emergency', '911')}
+  </div>`;
+}
+
+function buildWardPopup(p: Record<string, unknown>): string {
+  const wardNum = p.ward as number | undefined;
+  const info = wardNum ? WARD_INFO[wardNum] : undefined;
+  const isOffice = Boolean(p.alderman);
+
+  const alderman = (p.alderman as string) ?? info?.alderman ?? '';
+  const title = isOffice ? `Ald. ${alderman}` : `Ward ${wardNum ?? '?'}`;
+  const badgeText = isOffice ? "Alderman's Office" : 'City Ward';
+  const [badgeBg, badgeFg] = isOffice ? ['#ede9fe', '#5b21b6'] as const : ['#e0e7ff', '#3730a3'] as const;
+
+  return `<div style="${popupStyles} max-width: 340px; padding: 8px;">
+    <div style="${headerStyle}">${title}</div>
+    <div style="margin-bottom: 8px;">
+      <span style="${badgeStyle(badgeBg, badgeFg)}">${badgeText}</span>
+      ${wardNum ? `<span style="${badgeStyle('#f0fdf4', '#166534')}">Ward ${wardNum}</span>` : ''}
+    </div>
+    ${row('Alderman', alderman)}
+    ${row('Ward Office', (p.address as string) ?? info?.address)}
+    ${row('Ward Phone', (p.ward_phone as string) ?? info?.wardPhone)}
+    ${row('City Hall Phone', (p.hall_phone as string) ?? info?.hallPhone)}
+    ${row('City Hall Office', info?.hallOffice ? 'Room ' + info.hallOffice : null)}
+    ${row('Email', info?.email ? '<a href="mailto:' + info.email + '" style="color:#58a6ff">' + info.email + '</a>' : null)}
+    ${row('Staff', info?.staff || null)}
+  </div>`;
+}
+
+function buildGangTerritoryPopup(p: Record<string, unknown>): string {
+  const gangName = (p.gang_name as string) ?? 'Unknown';
+  const info = GANG_INFO[gangName];
+
+  return `<div style="${popupStyles} max-width: 340px; padding: 8px;">
+    <div style="${headerStyle}">${gangName}</div>
+    <div style="margin-bottom: 8px;">
+      ${info?.nation ? `<span style="${badgeStyle(info.nation === 'People' ? '#fef3c7' : '#dbeafe', info.nation === 'People' ? '#92400e' : '#1e40af')}">${info.nation} Nation</span>` : ''}
+    </div>
+    ${row('Alliance', info?.alliance || null)}
+    ${row('Source', 'CPD 2025 Gang Boundaries')}
+  </div>`;
+}
+
+function buildFederalPropertyPopup(p: Record<string, unknown>): string {
+  const name = (p.name as string) ?? 'Federal Property';
+  const category = (p.category as string) ?? '';
+  const categoryLabels: Record<string, [string, string, string]> = {
+    law_enforcement: ['Law Enforcement', '#fef2f2', '#991b1b'],
+    courts: ['Federal Courts', '#eff6ff', '#1e3a5f'],
+    regulatory: ['Regulatory Agency', '#f0fdf4', '#166534'],
+    revenue_services: ['Revenue & Services', '#fefce8', '#854d0e'],
+    postal: ['Postal Service', '#f5f3ff', '#5b21b6'],
+    military: ['Military', '#fdf2f8', '#9d174d'],
+    financial: ['Financial', '#ecfdf5', '#065f46'],
+    healthcare: ['Healthcare', '#f0f9ff', '#0c4a6e'],
+  };
+  const [catLabel, catBg, catFg] = categoryLabels[category] ?? ['Federal', '#f3f4f6', '#374151'];
+
+  return `<div style="${popupStyles} max-width: 360px; padding: 8px;">
+    <div style="${headerStyle}">${name}</div>
+    <div style="margin-bottom: 8px;">
+      <span style="${badgeStyle(catBg, catFg)}">${catLabel}</span>
+      <span style="${badgeStyle('#dbeafe', '#1e40af')}">U.S. Government</span>
+    </div>
+    ${row('Agency', p.agency)}
+    ${row('Address', p.address)}
+    ${row('Phone', p.phone)}
+    ${row('Building', p.building_name)}
+    ${row('Status', p.ownership)}
   </div>`;
 }

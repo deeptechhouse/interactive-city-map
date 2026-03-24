@@ -3,7 +3,7 @@ import type maplibregl from 'maplibre-gl';
 
 export interface ClickedFeatureInfo {
   clickedFeature: GeoJSON.Feature | null;
-  featureType: 'building' | 'poi' | 'zoning' | 'railroad' | null;
+  featureType: 'building' | 'poi' | 'zoning' | 'railroad' | 'police_district' | 'ward' | 'gang_territory' | 'federal_property' | null;
   position: { x: number; y: number } | null;
 }
 
@@ -18,6 +18,12 @@ const INTERACTIVE_LAYERS = [
   'railroads-spur',
   'railroads-razed',
   'zoning-fill',
+  'police_districts-fill',
+  'police_districts-stations',
+  'wards-fill',
+  'wards-offices',
+  'gang_territory-fill',
+  'federal_properties-markers',
 ];
 
 export function useMapClick(map: maplibregl.Map | null): ClickedFeatureInfo {
@@ -55,7 +61,7 @@ export function useMapClick(map: maplibregl.Map | null): ClickedFeatureInfo {
     if (features.length > 0) {
       const feature = features[0];
       const layerId = feature.layer?.id ?? '';
-      let featureType: 'building' | 'poi' | 'zoning' | 'railroad' | null = null;
+      let featureType: 'building' | 'poi' | 'zoning' | 'railroad' | 'police_district' | 'ward' | 'gang_territory' | 'federal_property' | null = null;
 
       if (layerId.startsWith('buildings')) {
         featureType = 'building';
@@ -65,6 +71,14 @@ export function useMapClick(map: maplibregl.Map | null): ClickedFeatureInfo {
         featureType = 'railroad';
       } else if (layerId.startsWith('zoning')) {
         featureType = 'zoning';
+      } else if (layerId.startsWith('police_districts')) {
+        featureType = 'police_district';
+      } else if (layerId.startsWith('wards')) {
+        featureType = 'ward';
+      } else if (layerId.startsWith('gang_territory')) {
+        featureType = 'gang_territory';
+      } else if (layerId.startsWith('federal_properties')) {
+        featureType = 'federal_property';
       }
 
       setClickInfo({

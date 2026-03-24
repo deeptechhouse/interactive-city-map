@@ -23,6 +23,8 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({ layerControls }) => {
     'infrastructure',
     'zoning',
     'poi',
+    'government',
+    'safety',
     'historical',
     'parks',
   ];

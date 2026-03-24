@@ -75,6 +75,36 @@ function createDefaultLayers(): LayerState[] {
       visible: true,
       opacity: 1,
     },
+    // Government
+    {
+      id: 'police_districts',
+      name: 'Police Districts',
+      group: 'government',
+      visible: false,
+      opacity: 1,
+    },
+    {
+      id: 'wards',
+      name: 'City Wards',
+      group: 'government',
+      visible: false,
+      opacity: 1,
+    },
+    // Public Safety
+    {
+      id: 'gang_territory',
+      name: 'Gang Territory (CPD 2025)',
+      group: 'safety',
+      visible: false,
+      opacity: 1,
+    },
+    {
+      id: 'federal_properties',
+      name: 'Federal Properties',
+      group: 'government',
+      visible: false,
+      opacity: 1,
+    },
   ];
 }
 
@@ -90,6 +120,10 @@ export function getLayerSourceUrl(layerId: string): string {
     major_streets: martinTileUrl('major_streets'),
     sanborn: '', // PMTiles URL, configured separately
     parks: martinTileUrl('parcels'),
+    police_districts: '', // GeoJSON embedded in layer data
+    wards: '', // GeoJSON embedded in layer data
+    gang_territory: '', // GeoJSON embedded in layer data
+    federal_properties: '', // GeoJSON embedded in layer data
   };
   return sourceMap[layerId] ?? '';
 }
@@ -135,6 +169,8 @@ export function useMapLayers(): UseMapLayersReturn {
       poi: [],
       historical: [],
       parks: [],
+      government: [],
+      safety: [],
     };
     for (const layer of layers) {
       groups[layer.group].push(layer);

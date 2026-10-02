@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import type maplibregl from 'maplibre-gl';
 import { THEME } from '../../utils/colorSchemes';
+import { setSection } from '../../presets/searchState';
+import { useSearchSection } from '../../presets/SearchStateContext';
 
 const LEGEND_ITEMS = [
   { label: 'Residential', color: '#22c55e', key: 'R', zonePrefix: 'R' },
@@ -83,6 +85,9 @@ interface BuildingLegendProps {
   map?: maplibregl.Map | null;
 }
 
+// Saved in presets — the key is persisted, never rename it. Value = HIDDEN type keys.
+const HIDDEN_TYPES_SECTION = setSection('buildings.hiddenTypes', LEGEND_ITEMS.map((i) => i.key), 'none');
+
 const BUILDING_LAYER_IDS = [
   'buildings-fill', 'buildings-stroke', 'buildings-interior-stroke',
   'buildings-highlight', 'buildings-label',
@@ -90,7 +95,7 @@ const BUILDING_LAYER_IDS = [
 
 export const BuildingLegend: React.FC<BuildingLegendProps> = ({ map }) => {
   const [collapsed, setCollapsed] = useState(false);
-  const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
+  const [hiddenTypes, setHiddenTypes] = useSearchSection(HIDDEN_TYPES_SECTION);
 
   const toggleType = useCallback((key: string) => {
     setHiddenTypes(prev => {
@@ -99,7 +104,7 @@ export const BuildingLegend: React.FC<BuildingLegendProps> = ({ map }) => {
       else next.add(key);
       return next;
     });
-  }, []);
+  }, [setHiddenTypes]);
 
   // Apply building filter when hidden types change
   useEffect(() => {

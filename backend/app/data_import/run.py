@@ -25,6 +25,9 @@ from app.data_import.import_streets import StreetsImporter
 from app.data_import.import_transit import TransitImporter
 from app.data_import.import_waterways import WaterwaysImporter
 from app.data_import.import_zoning import ZoningImporter
+from app.data_import.import_neighborhoods import NeighborhoodsImporter
+from app.data_import.import_dlba import DLBAImporter
+from app.data_import.import_blight import BlightImporter
 
 logger = structlog.get_logger(__name__)
 
@@ -41,6 +44,9 @@ IMPORTER_ORDER = [
     "waterways",
     "pois",
     "streets",
+    "neighborhoods",
+    "dlba_properties",
+    "blight_violations",
 ]
 
 IMPORTER_CLASSES = {
@@ -52,6 +58,9 @@ IMPORTER_CLASSES = {
     "waterways": WaterwaysImporter,
     "pois": POIsImporter,
     "streets": StreetsImporter,
+    "neighborhoods": NeighborhoodsImporter,
+    "dlba_properties": DLBAImporter,
+    "blight_violations": BlightImporter,
 }
 
 

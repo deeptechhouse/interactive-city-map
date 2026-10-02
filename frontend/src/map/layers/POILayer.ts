@@ -1,6 +1,8 @@
 import type maplibregl from 'maplibre-gl';
 import type { LayerConfig } from '../../types/layer';
 import { POI_COLORS } from '../../utils/colorSchemes';
+import { addDualModeSource, sourceLayerProp } from '../../utils/layerSourceHelper';
+import { STATIC_POIS } from './data/static_pois';
 
 const SOURCE_ID = 'pois-source';
 
@@ -13,20 +15,14 @@ function poiColorExpression(): unknown {
 }
 
 export function addPOILayer(map: maplibregl.Map, config: LayerConfig): void {
-  if (map.getSource(SOURCE_ID)) return;
-
-  map.addSource(SOURCE_ID, {
-    type: 'vector',
-    tiles: [config.sourceUrl],
-    minzoom: 0,
-    maxzoom: 16,
-  });
+  const { isGeoJson } = addDualModeSource(map, SOURCE_ID, config.sourceUrl, 'pois', STATIC_POIS);
+  const slp = sourceLayerProp('pois', isGeoJson);
 
   map.addLayer({
     id: config.id,
     type: 'circle',
     source: SOURCE_ID,
-    'source-layer': 'pois',
+    ...slp,
     minzoom: 14,
     layout: {
       visibility: config.visible ? 'visible' : 'none',

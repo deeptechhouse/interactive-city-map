@@ -1,150 +1,89 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { LayerGroup, LayerState } from '../../types/layer';
 import { LAYER_GROUP_LABELS } from '../../types/layer';
 import { martinTileUrl } from '../../utils/geoUtils';
 import { IS_STATIC } from '../../utils/staticMode';
 
-/** Default layer definitions */
-function createDefaultLayers(): LayerState[] {
-  return [
+/** Chicago-specific layers (not available in other cities) */
+const CHICAGO_ONLY_LAYERS = new Set([
+  'gang_territory', 'federal_properties', 'railroad_row',
+]);
+
+/** Detroit-specific layers (not available in other cities) */
+const DETROIT_ONLY_LAYERS = new Set([
+  'neighborhoods', 'council_districts', 'dlba_properties',
+]);
+
+/** Default layer definitions — shared across all cities */
+function createDefaultLayers(citySlug: string): LayerState[] {
+  const base: LayerState[] = [
     // Infrastructure
-    {
-      id: 'railroads',
-      name: 'Railroads',
-      group: 'infrastructure',
-      visible: true,
-      opacity: 1,
-    },
+    { id: 'railroads', name: 'Railroads', group: 'infrastructure', visible: true, opacity: 1 },
     {
       id: 'transit',
-      name: 'CTA Transit',
+      name: citySlug === 'detroit' ? 'Transit (DDOT/SMART/QLine/PM)' : 'CTA Transit',
       group: 'infrastructure',
       visible: true,
       opacity: 1,
     },
-    {
-      id: 'waterways',
-      name: 'Waterways',
-      group: 'infrastructure',
-      visible: true,
-      opacity: 1,
-    },
+    { id: 'waterways', name: 'Waterways', group: 'infrastructure', visible: true, opacity: 1 },
     // Zoning
-    {
-      id: 'zoning',
-      name: 'Zoning Districts',
-      group: 'zoning',
-      visible: false,
-      opacity: 1,
-    },
-    {
-      id: 'buildings',
-      name: 'Buildings',
-      group: 'zoning',
-      visible: true,
-      opacity: 1,
-    },
+    { id: 'zoning', name: 'Zoning Districts', group: 'zoning', visible: false, opacity: 1 },
+    { id: 'buildings', name: 'Buildings', group: 'zoning', visible: true, opacity: 1 },
     // Points of Interest
-    {
-      id: 'pois',
-      name: 'Points of Interest',
-      group: 'poi',
-      visible: true,
-      opacity: 1,
-    },
+    { id: 'pois', name: 'Points of Interest', group: 'poi', visible: true, opacity: 1 },
     // Streets
-    {
-      id: 'major_streets',
-      name: 'Major Street Labels',
-      group: 'infrastructure',
-      visible: true,
-      opacity: 1,
-    },
+    { id: 'major_streets', name: 'Major Street Labels', group: 'infrastructure', visible: true, opacity: 1 },
     // Boundaries
-    {
-      id: 'zip_codes',
-      name: 'Zip Codes',
-      group: 'zoning',
-      visible: false,
-      opacity: 1,
-    },
+    { id: 'zip_codes', name: 'Zip Codes', group: 'zoning', visible: false, opacity: 1 },
     // Historical
-    {
-      id: 'sanborn',
-      name: 'Sanborn Maps',
-      group: 'historical',
-      visible: false,
-      opacity: 0.7,
-    },
+    { id: 'sanborn', name: 'Sanborn Maps', group: 'historical', visible: false, opacity: 0.7 },
     // Parks
-    {
-      id: 'parks',
-      name: 'Parks & Green Space',
-      group: 'parks',
-      visible: true,
-      opacity: 1,
-    },
-    // Government
-    {
-      id: 'police_districts',
-      name: 'Police Districts',
-      group: 'government',
-      visible: false,
-      opacity: 1,
-    },
-    {
-      id: 'wards',
-      name: 'City Wards',
-      group: 'government',
-      visible: false,
-      opacity: 1,
-    },
-    // Public Safety
-    {
-      id: 'gang_territory',
-      name: 'Gang Territory (CPD 2025)',
-      group: 'safety',
-      visible: false,
-      opacity: 1,
-    },
-    {
-      id: 'federal_properties',
-      name: 'Federal Properties',
-      group: 'government',
-      visible: false,
-      opacity: 1,
-    },
-    {
-      id: 'railroad_row',
-      name: 'Railroad Right-of-Way',
-      group: 'infrastructure',
-      visible: false,
-      opacity: 1,
-    },
+    { id: 'parks', name: 'Parks & Green Space', group: 'parks', visible: true, opacity: 1 },
+    // Government — shared
+    { id: 'police_districts', name: 'Police Districts', group: 'government', visible: false, opacity: 1 },
   ];
+
+  // Chicago-specific layers
+  if (citySlug === 'chicago') {
+    base.push(
+      { id: 'wards', name: 'City Wards', group: 'government', visible: false, opacity: 1 },
+      { id: 'gang_territory', name: 'Gang Territory (CPD 2025)', group: 'safety', visible: false, opacity: 1 },
+      { id: 'federal_properties', name: 'Federal Properties', group: 'government', visible: false, opacity: 1 },
+      { id: 'railroad_row', name: 'Railroad Right-of-Way', group: 'infrastructure', visible: false, opacity: 1 },
+    );
+  }
+
+  // Detroit-specific layers
+  if (citySlug === 'detroit') {
+    base.push(
+      { id: 'neighborhoods', name: 'Neighborhoods', group: 'government', visible: false, opacity: 1 },
+      { id: 'council_districts', name: 'Council Districts', group: 'government', visible: false, opacity: 1 },
+      { id: 'dlba_properties', name: 'DLBA Land Bank', group: 'government', visible: false, opacity: 1 },
+      { id: 'abandoned_blight', name: 'Abandoned & Blight', group: 'safety', visible: false, opacity: 1 },
+    );
+  }
+
+  return base;
 }
 
 /** Map layer IDs to their Martin tile source URLs (dev mode) or PMTiles/empty (static mode) */
 export function getLayerSourceUrl(layerId: string): string {
   if (IS_STATIC) {
-    // Static mode: large layers served as local PMTiles files
     const staticPmtiles: Record<string, string> = {
       buildings: 'pmtiles://./data/buildings.pmtiles',
       zoning: 'pmtiles://./data/zoning_districts.pmtiles',
       parks: 'pmtiles://./data/parcels.pmtiles',
+      railroads: 'pmtiles://./data/railroads.pmtiles',
     };
     if (staticPmtiles[layerId]) return staticPmtiles[layerId];
 
-    // Medium layers will be embedded as GeoJSON (handled in individual layer files)
-    // Return empty string so MapContainer skips the Martin tile source
     const staticGeojsonLayers = new Set([
-      'railroads', 'transit', 'waterways', 'major_streets',
+      'transit', 'waterways', 'major_streets',
       'zip_codes', 'pois',
     ]);
     if (staticGeojsonLayers.has(layerId)) return '';
 
-    // Sanborn, police_districts, wards, gang_territory, federal_properties, railroad_row
-    // already return '' in dev mode — same in static mode
     return '';
   }
 
@@ -158,15 +97,52 @@ export function getLayerSourceUrl(layerId: string): string {
     pois: martinTileUrl('pois'),
     major_streets: martinTileUrl('major_streets'),
     zip_codes: martinTileUrl('zip_codes'),
-    sanborn: '', // PMTiles URL, configured separately
+    sanborn: '',
     parks: martinTileUrl('parcels'),
-    police_districts: '', // GeoJSON embedded in layer data
-    wards: '', // GeoJSON embedded in layer data
-    gang_territory: '', // GeoJSON embedded in layer data
-    federal_properties: '', // GeoJSON embedded in layer data
-    railroad_row: '', // GeoJSON embedded in layer data
+    police_districts: '',
+    wards: '',
+    gang_territory: '',
+    federal_properties: '',
+    railroad_row: '',
+    // Detroit layers — Martin auto-discovers PostGIS tables
+    neighborhoods: martinTileUrl('neighborhoods'),
+    council_districts: '',  // Static GeoJSON (embedded in layer file)
+    dlba_properties: martinTileUrl('dlba_properties'),
+    abandoned_blight: martinTileUrl('blight_violations'),
   };
   return sourceMap[layerId] ?? '';
+}
+
+/** Per-layer visibility + opacity as saved in a preset (section key 'layers'). */
+export type LayerSnapshot = Record<string, { visible: boolean; opacity: number }>;
+
+/** Capture the layer list for a preset. O(n) — n = layers. */
+export function toLayerSnapshot(layers: readonly LayerState[]): LayerSnapshot {
+  const out: LayerSnapshot = {};
+  for (const l of layers) out[l.id] = { visible: l.visible, opacity: l.opacity };
+  return out;
+}
+
+/**
+ * Apply an UNTRUSTED preset snapshot onto the current layer list. Only known layer ids
+ * are touched; a layer missing from the snapshot (added after the preset was saved) keeps
+ * its current state. Opacity is clamped to 0–1. O(n) — n = layers.
+ */
+export function applyLayerSnapshot(layers: readonly LayerState[], raw: unknown): LayerState[] {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return [...layers];
+  const snap = raw as Record<string, unknown>;
+  return layers.map((l) => {
+    const entry = snap[l.id];
+    if (!entry || typeof entry !== 'object') return l;
+    const { visible, opacity } = entry as Record<string, unknown>;
+    return {
+      ...l,
+      visible: typeof visible === 'boolean' ? visible : l.visible,
+      opacity: typeof opacity === 'number' && Number.isFinite(opacity)
+        ? Math.min(1, Math.max(0, opacity))
+        : l.opacity,
+    };
+  });
 }
 
 export interface UseMapLayersReturn {
@@ -176,10 +152,17 @@ export interface UseMapLayersReturn {
   toggleGroup: (group: LayerGroup) => void;
   getLayersByGroup: () => Record<LayerGroup, LayerState[]>;
   groupLabels: Record<LayerGroup, string>;
+  /** Restore visibility/opacity from a saved preset (see applyLayerSnapshot). */
+  applySnapshot: (raw: unknown) => void;
 }
 
-export function useMapLayers(): UseMapLayersReturn {
-  const [layers, setLayers] = useState<LayerState[]>(createDefaultLayers);
+export function useMapLayers(citySlug: string = 'chicago'): UseMapLayersReturn {
+  const [layers, setLayers] = useState<LayerState[]>(() => createDefaultLayers(citySlug));
+
+  // Recreate layer list when city changes
+  useEffect(() => {
+    setLayers(createDefaultLayers(citySlug));
+  }, [citySlug]);
 
   const toggleLayer = useCallback((id: string) => {
     setLayers((prev) =>
@@ -221,6 +204,10 @@ export function useMapLayers(): UseMapLayersReturn {
 
   const groupLabels = useMemo(() => LAYER_GROUP_LABELS, []);
 
+  const applySnapshot = useCallback((raw: unknown) => {
+    setLayers((prev) => applyLayerSnapshot(prev, raw));
+  }, []);
+
   return {
     layers,
     toggleLayer,
@@ -228,5 +215,6 @@ export function useMapLayers(): UseMapLayersReturn {
     toggleGroup,
     getLayersByGroup,
     groupLabels,
+    applySnapshot,
   };
 }

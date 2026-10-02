@@ -23,9 +23,23 @@ export function apiBaseUrl(): string {
   return import.meta.env.VITE_API_URL || 'http://localhost:8000';
 }
 
-/** Chicago default center and zoom */
+/** City center coordinates and default zoom levels */
 export const CHICAGO_CENTER: [number, number] = [-87.6298, 41.8781];
 export const CHICAGO_ZOOM = 11;
+
+export const DETROIT_CENTER: [number, number] = [-83.0458, 42.3314];
+export const DETROIT_ZOOM = 11;
+
+/** Per-city center and zoom configs (fallback when API data isn't loaded yet) */
+export const CITY_DEFAULTS: Record<string, { center: [number, number]; zoom: number }> = {
+  chicago: { center: CHICAGO_CENTER, zoom: CHICAGO_ZOOM },
+  detroit: { center: DETROIT_CENTER, zoom: DETROIT_ZOOM },
+};
+
+/** Get city center/zoom by slug, defaulting to Chicago */
+export function getCityDefaults(slug: string): { center: [number, number]; zoom: number } {
+  return CITY_DEFAULTS[slug] ?? { center: CHICAGO_CENTER, zoom: CHICAGO_ZOOM };
+}
 
 /** Darken a hex color by a factor (0-1) */
 export function darkenColor(hex: string, factor: number): string {

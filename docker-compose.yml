@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: citymap
       POSTGRES_DB: citymap
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/scripts/init_extensions.sql:/docker-entrypoint-initdb.d/01-extensions.sql
@@ -21,7 +21,7 @@ services:
     image: ghcr.io/maplibre/martin:v0.14.2
     container_name: citymap-martin
     ports:
-      - "3030:3000"
+      - "127.0.0.1:3030:3000"
     environment:
       - DATABASE_URL=postgresql://citymap:citymap@postgres:5432/citymap
     depends_on:
@@ -35,8 +35,8 @@ services:
     image: minio/minio:latest
     container_name: citymap-minio
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin

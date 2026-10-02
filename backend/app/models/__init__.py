@@ -12,6 +12,9 @@ from app.models.interior_room import InteriorRoom
 from app.models.interior_wall import InteriorWall
 from app.models.interior_feature import InteriorFeature
 from app.models.scrape_target import ScrapeTarget
+from app.models.neighborhood import Neighborhood
+from app.models.dlba_property import DLBAProperty
+from app.models.blight_violation import BlightViolation
 
 __all__ = [
     "City",
@@ -29,4 +32,7 @@ __all__ = [
     "InteriorWall",
     "InteriorFeature",
     "ScrapeTarget",
+    "Neighborhood",
+    "DLBAProperty",
+    "BlightViolation",
 ]

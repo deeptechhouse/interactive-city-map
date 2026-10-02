@@ -24,7 +24,7 @@ async def health():
 
 
 from app.routes import cities, buildings, pois, search, floor_plans, railroads, interior
-from app.routes import interior_contributions
+from app.routes import interior_contributions, contacts, exports
 
 app.include_router(cities.router, prefix="/api/v1")
 app.include_router(buildings.router, prefix="/api/v1")
@@ -34,3 +34,5 @@ app.include_router(floor_plans.router, prefix="/api/v1")
 app.include_router(railroads.router, prefix="/api/v1")
 app.include_router(interior.router, prefix="/api/v1")
 app.include_router(interior_contributions.router, prefix="/api/v1")
+app.include_router(contacts.router, prefix="/api/v1")
+app.include_router(exports.router, prefix="/api/v1")

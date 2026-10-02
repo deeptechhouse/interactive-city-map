@@ -3,12 +3,15 @@ import type maplibregl from 'maplibre-gl';
 
 export interface ClickedFeatureInfo {
   clickedFeature: GeoJSON.Feature | null;
-  featureType: 'building' | 'poi' | 'zoning' | 'railroad' | 'police_district' | 'ward' | 'gang_territory' | 'federal_property' | 'railroad_row' | null;
+  featureType: 'candidate' | 'building' | 'poi' | 'zoning' | 'railroad' | 'police_district' | 'ward' | 'gang_territory' | 'federal_property' | 'railroad_row' | null;
   position: { x: number; y: number } | null;
 }
 
 /** Layers to query on click, ordered by priority */
 const INTERACTIVE_LAYERS = [
+  // Discovery markers first: a click on one removes it from the curated set (CandidatesLayer.ts).
+  'discovery-candidates-dot',
+  'discovery-candidates-halo',
   'pois',
   'buildings-fill',
   'buildings-highlight',
@@ -62,9 +65,11 @@ export function useMapClick(map: maplibregl.Map | null): ClickedFeatureInfo {
     if (features.length > 0) {
       const feature = features[0];
       const layerId = feature.layer?.id ?? '';
-      let featureType: 'building' | 'poi' | 'zoning' | 'railroad' | 'police_district' | 'ward' | 'gang_territory' | 'federal_property' | 'railroad_row' | null = null;
+      let featureType: 'candidate' | 'building' | 'poi' | 'zoning' | 'railroad' | 'police_district' | 'ward' | 'gang_territory' | 'federal_property' | 'railroad_row' | null = null;
 
-      if (layerId.startsWith('buildings')) {
+      if (layerId.startsWith('discovery-candidates')) {
+        featureType = 'candidate';
+      } else if (layerId.startsWith('buildings')) {
         featureType = 'building';
       } else if (layerId.startsWith('pois')) {
         featureType = 'poi';

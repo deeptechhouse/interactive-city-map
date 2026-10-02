@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Detroit Parity TDD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f4ef;--panel:#fff;--ink:#1d2430;--muted:#5b6474;--line:#ddd8cc;--accent:#b4531f;--accent2:#1f5f8b;--ok:#2f7d4a;--part:#a86b00;--bad:#b42318;--na:#6b7280;--code:#f1ede4}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#13171d;--panel:#1b2129;--ink:#e6e8ec;--muted:#9aa3b2;--line:#2c3440;--accent:#e08a4f;--accent2:#6fb1de;--ok:#5cc28a;--part:#e0a83a;--bad:#f07a6e;--na:#9aa3b2;--code:#222a34}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 "IBM Plex Sans",system-ui,sans-serif}
+header{background:linear-gradient(120deg,#1d2430,#2b3a4d);color:#f4efe6;padding:40px 16px 28px;border-bottom:6px solid var(--accent)}
+header .wrap,main{max-width:1080px;margin:0 auto}main{padding:8px 16px 64px}
+h1{font:600 30px/1.2 "IBM Plex Sans Condensed","IBM Plex Sans",sans-serif;margin:0 0 6px;letter-spacing:.2px}header p{margin:0;color:#c9cfd8}
+h2{font:600 21px/1.3 "IBM Plex Sans Condensed",sans-serif;margin:40px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--line)}h2 .n{color:var(--accent);margin-right:8px}
+h3{font-size:16px;margin:24px 0 6px}
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);font-size:13.5px;margin:10px 0}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{background:var(--code);font-weight:600}
+.scroll{overflow-x:auto}
+code,pre{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12.5px;background:var(--code);border-radius:4px}code{padding:1px 5px}pre{padding:12px 14px;overflow-x:auto;border:1px solid var(--line)}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600;color:#fff;white-space:nowrap}
+.ok{background:var(--ok)}.part{background:var(--part)}.bad{background:var(--bad)}.na{background:var(--na)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent2);padding:12px 14px;border-radius:6px}.card b{display:block;font-size:26px;line-height:1.1}.card span{color:var(--muted);font-size:13px}
+.callout{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--bad);padding:10px 14px;border-radius:6px;margin:12px 0}.callout.info{border-left-color:var(--accent2)}
+.muted{color:var(--muted)}ul,ol{padding-left:22px}li{margin:3px 0}
+nav.toc{background:var(--panel);border:1px solid var(--line);padding:10px 16px;border-radius:6px;margin-top:20px;font-size:14px}nav.toc a{color:var(--accent2)}
+a{color:var(--accent2)}
+</style></head><body>
+<header><div class="wrap">
+<h1>Detroit Parity — Technical Design Document</h1>
+<p>Interactive City Map · city-profile architecture and the Detroit data pipeline · 2026-10-02 · plan: <a style="color:#f0b07f" href="detroit_parity_plan.html">detroit_parity_plan.html</a></p>
+</div></header>
+<main>
+<nav class="toc"><b>Contents</b> — <a href="#scope">1 Scope</a> · <a href="#context">2 Context</a> · <a href="#arch">3 Architecture</a> · <a href="#data">4 Data model</a> · <a href="#fe">5 Frontend</a> · <a href="#be">6 Backend pipeline</a> · <a href="#api">7 API</a> · <a href="#deps">8 Dependencies</a> · <a href="#deploy">9 Deployment</a> · <a href="#skeleton">10 Skeleton</a> · <a href="#test">11 Testing</a> · <a href="#sec">12 Security</a></nav>
+
+<h2 id="scope"><span class="n">1</span>Scope</h2>
+<p><b>In scope:</b> bring Detroit to Chicago's feature level in both run modes (static and dev), and introduce a city-profile seam so the work goes into new files instead of edits to Chicago code.</p>
+<p><b>Out of scope:</b> new features Chicago doesn't have; Dayton and Cincinnati (although the seam makes them cheap); the interior editor and ML work listed in the earlier interior roadmap.</p>
+<p><b>Non-negotiable constraint:</b> Chicago's output stays identical. Every shared-file change is a seam pinned by a snapshot test taken beforehand.</p>
+
+<h2 id="context"><span class="n">2</span>Current state (summary)</h2>
+<p>Detroit has a config (<code>detroit.yaml</code>, 16 sources), three Detroit-only tables, importers and layers (neighborhoods, DLBA, blight), and a GTFS transit path. It has no imported data, no static assets, and no Detroit-aware vocabularies, popups, focus areas or contacts. Several shared paths leak Chicago data into Detroit. The full matrix and defect list are in the <a href="detroit_parity_plan.html#matrix">plan §2–3</a>.</p>
+
+<h2 id="arch"><span class="n">3</span>Architecture</h2>
+<svg viewBox="0 0 1040 330" role="img" aria-label="City profile architecture" style="width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:6px">
+<style>.b{fill:var(--code);stroke:var(--line)}.h{fill:none;stroke:var(--accent);stroke-width:2}.t{fill:var(--ink);font:13px 'IBM Plex Sans',sans-serif}.s{fill:var(--muted);font:11.5px 'IBM Plex Mono',monospace}.a{stroke:var(--muted);stroke-width:1.5;fill:none;marker-end:url(#ar)}</style>
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="var(--muted)"/></marker></defs>
+<text class="t" x="20" y="28" style="font-weight:600">Frontend (React + MapLibre)</text>
+<rect class="b" x="20" y="40" width="230" height="110" rx="6"/><text class="t" x="32" y="62">Shared consumers</text><text class="s" x="32" y="82">useMapLayers · MapContainer</text><text class="s" x="32" y="98">useMapClick · ZoningFilter</text><text class="s" x="32" y="114">RailroadFilter · TransitLayer</text><text class="s" x="32" y="130">useFocusArea · ContactResolver</text>
+<rect class="h" x="290" y="60" width="170" height="70" rx="6"/><text class="t" x="304" y="84">registry.ts</text><text class="s" x="304" y="104">getCityProfile(slug)</text><text class="s" x="304" y="119">→ CityProfile | null</text>
+<rect class="b" x="500" y="40" width="200" height="45" rx="6"/><text class="t" x="512" y="67">chicago/ profile (P4)</text>
+<rect class="b" x="500" y="100" width="200" height="45" rx="6"/><text class="t" x="512" y="127">detroit/ profile (skeleton)</text>
+<path class="a" d="M250,95 L288,95"/><path class="a" d="M460,85 L498,64"/><path class="a" d="M460,105 L498,122"/>
+<text class="t" x="20" y="198" style="font-weight:600">Backend import pipeline (Python)</text>
+<rect class="b" x="20" y="210" width="150" height="60" rx="6"/><text class="t" x="32" y="236">run.py</text><text class="s" x="32" y="254">--city detroit</text>
+<rect class="h" x="210" y="210" width="180" height="60" rx="6"/><text class="t" x="222" y="236">city_registry.py</text><text class="s" x="222" y="254">importers_for(slug)</text>
+<rect class="b" x="430" y="200" width="200" height="38" rx="6"/><text class="s" x="442" y="224">shared importers (Chicago)</text>
+<rect class="b" x="430" y="246" width="200" height="38" rx="6"/><text class="s" x="442" y="270">detroit/* overrides + enrich</text>
+<rect class="b" x="670" y="220" width="150" height="56" rx="6"/><text class="t" x="682" y="244">PostGIS</text><text class="s" x="682" y="262">tables by city_id</text>
+<rect class="b" x="860" y="170" width="160" height="50" rx="6"/><text class="t" x="872" y="192">Martin (dev)</text><text class="s" x="872" y="209">auto_publish</text>
+<rect class="b" x="860" y="250" width="160" height="56" rx="6"/><text class="t" x="872" y="272">export_city_static</text><text class="s" x="872" y="290">data/detroit/*.pmtiles</text>
+<path class="a" d="M170,240 L208,240"/><path class="a" d="M390,232 L428,220"/><path class="a" d="M390,248 L428,264"/><path class="a" d="M630,222 L668,240"/><path class="a" d="M630,264 L668,256"/><path class="a" d="M820,238 L858,200"/><path class="a" d="M820,256 L858,274"/>
+<path class="a" d="M940,170 C940,130 760,100 702,100"/>
+</svg>
+<p class="muted">Orange outline = new seam. Arrows show the direction of calls and data. Static mode reads <code>public/data/&lt;slug&gt;/</code> directly; dev mode reads Martin.</p>
+<h3>Design principles applied</h3>
+<ul>
+<li><b>Open/Closed:</b> a city is added as new profile and importer files. Shared code is extended through ports, never by adding a city branch.</li>
+<li><b>Dependency inversion:</b> shared consumers depend on <code>CityProfile</code>, <code>OwnerSource</code>/<code>BusinessSource</code> and <code>BaseImporter</code>, never on a concrete city.</li>
+<li><b>Fail closed:</b> an unknown slug returns <code>null</code>, not Chicago. A feature a city lacks (<code>focus: null</code>, <code>contacts: null</code>) shows a "not available" note instead of another city's data.</li>
+<li><b>Single source of truth:</b> upstream field names live in <code>field_maps.py</code>, and generated vocabularies (POI counts, GTFS colours) come from the exporter, never hand-typed.</li>
+</ul>
+
+<h2 id="data"><span class="n">4</span>Data model</h2>
+<p>All tables use <code>id uuid PK</code>, <code>city_id → cities.id</code>, <code>geom</code> in SRID 4326, <code>metadata JSONB</code>, a GIST index on geom and a btree index on city_id. Migration 005 is drafted at <code>backend/alembic/drafts/005_city_parity_tables.py</code>.</p>
+<div class="scroll"><table>
+<tr><th>Table</th><th>Status</th><th>Geometry</th><th>Columns the frontend reads</th><th>Detroit source</th></tr>
+<tr><td>buildings</td><td>exists</td><td>POLYGON</td><td>address, zoning_code, owner_name, …</td><td>SEMCOG Building_Footprints__2020 / 60 (EPSG:2898)</td></tr>
+<tr><td>parcels</td><td>exists</td><td>MULTIPOLYGON</td><td>pin, owner_name, property_class</td><td>parcel_file_current (378K)</td></tr>
+<tr><td>zoning_districts</td><td>exists</td><td>MULTIPOLYGON</td><td>zone_code, zone_class</td><td>Zoning_1</td></tr>
+<tr><td>railroads / transit_* / waterways / pois</td><td>exist</td><td>—</td><td>unchanged</td><td>OSM; GTFS ×4; USGS NHD; OSM</td></tr>
+<tr><td>neighborhoods / dlba_properties / blight_violations</td><td>exist (003/004)</td><td>—</td><td>name / status, address / source, address</td><td>Detroit ArcGIS Hub</td></tr>
+<tr><td><b>council_districts</b></td><td>new</td><td>MULTIPOLYGON</td><td><code>district_number</code> (already read by CouncilDistrictLayer)</td><td>city_council_districts_2026</td></tr>
+<tr><td><b>police_precincts</b></td><td>new</td><td>MULTIPOLYGON</td><td>precinct, name</td><td>DPD_Precincts_Reid2</td></tr>
+<tr><td><b>zip_codes</b></td><td>formalised*</td><td>MULTIPOLYGON</td><td><code>zip_code</code></td><td>Census TIGERweb ZCTA (fallback_url)</td></tr>
+<tr><td><b>major_streets</b></td><td>formalised*</td><td>LINESTRING</td><td><code>name</code></td><td>OSM named arterials</td></tr>
+<tr><td><b>parks</b></td><td>new</td><td>MULTIPOLYGON</td><td>name, park_type</td><td>D3 Parks_Landmarks</td></tr>
+<tr><td><b>business_licenses</b></td><td>new</td><td>POINT</td><td>legal_name, dba_name, license_type, address, building_id</td><td>bseed_active_business_licenses</td></tr>
+</table></div>
+<p class="muted">* These tables exist in the Chicago dev DB, created by hand with no migration. Migration 005 uses <code>CREATE TABLE IF NOT EXISTS</code>/<code>ALTER</code> and must never DROP them. Its downgrade removes only the tables it created.</p>
+<p><b>Derived layer:</b> <code>railroad_row</code> is built from Detroit parcels whose owner matches a railroad (CSX, NS, CN/Grand Trunk, CPKC/Soo, Conrail, Detroit Connecting). The owner strings are unproven; review them by hand.</p>
+
+<h2 id="fe"><span class="n">5</span>Frontend design</h2>
+<h3>5.1 The CityProfile port (verbatim from the skeleton)</h3>
+<pre>interface CityProfile {
+  slug, name, state, county: string;  center; defaultZoom; bounds;
+  layers(): LayerState[];                         // replaces createDefaultLayers branches
+  devSources(): Record&lt;layerId, martinUrl | ''&gt;;
+  staticAssets: { basemapPmtiles: string; layerPmtiles: Record&lt;layerId, string&gt; };
+  popups: Record&lt;layerId, PopupBuilder&gt;;          // merged into useMapClick
+  zoning: readonly ZoneClass[];                   // same shape as utils/zoningTypes
+  railroadOwners, railroadOwnershipTypes: readonly TaxonomyEntry[];
+  transitColors: Record&lt;lineName, hex&gt;;
+  poiCategoryCounts: Record&lt;category, number&gt;;
+  focus: FocusConfig | null;                      // null → panel hidden with a note
+  contacts: ContactSources | null;                // null → "not available for this city"
+}</pre>
+<h3>5.2 Detroit layer map</h3>
+<div class="scroll"><table>
+<tr><th>Layer id</th><th>Dev (Martin)</th><th>Static</th><th>Renderer</th><th>Popup</th></tr>
+<tr><td>buildings, zoning, railroads, transit, waterways, pois, zip_codes, major_streets</td><td>shared tables</td><td>data/detroit/*.pmtiles or bundled TS</td><td>shared add*Layer, Detroit vocab</td><td>shared</td></tr>
+<tr><td>parks</td><td><code>parks</code></td><td>data/detroit/parks.pmtiles</td><td><b>addDetroitParkLayer</b> (source-layer <code>parks</code>)</td><td>shared</td></tr>
+<tr><td>police_precincts</td><td><code>police_precincts</code></td><td>bundled TS</td><td><b>addPolicePrecinctLayer</b></td><td>policePrecinctPopup</td></tr>
+<tr><td>council_districts</td><td><code>council_districts</code></td><td>bundled TS</td><td>existing CouncilDistrictLayer</td><td>councilDistrictPopup</td></tr>
+<tr><td>neighborhoods, dlba_properties, abandoned_blight</td><td>existing tables</td><td>data/detroit/*.pmtiles</td><td>existing layers</td><td>new Detroit popups</td></tr>
+<tr><td>railroad_row</td><td><code>railroad_row</code></td><td>data/detroit/railroad_row.pmtiles</td><td>existing RailroadRowLayer (source swap)</td><td>shared; assessor link → Detroit</td></tr>
+<tr><td>sanborn</td><td colspan="2">hidden until P7, then Detroit sheets</td><td>SanbornOverlay with sheets from the profile</td><td>—</td></tr>
+<tr><td>police_districts, wards, gang_territory</td><td colspan="4">never offered for Detroit</td></tr>
+</table></div>
+<h3>5.3 City switch lifecycle</h3>
+<p>The current code only ever adds layers. The new flow: <code>prevProfile.layers()</code> → <code>removeCityLayers(map, ids)</code>, which removes the style layers and then their sources. Then the new profile's basemap and layers are added, and visibility is re-synced. <code>POIBrowsePanel</code> adds <code>citySlug</code> to its effect deps.</p>
+<h3>5.4 Focus areas</h3>
+<p>Detroit reuses the three <code>FocusKind</code> slots: zip → ZCTA, police → DPD precinct, ward → council district (labelled "Council districts"). Boundaries are bundled TS loaded with dynamic <code>import()</code>, so Chicago users never download them. <code>focusGeometry.ts</code> is unchanged.</p>
+<h3>5.5 Zoning</h3>
+<p><code>DETROIT_ZONE_CLASSES</code> uses the same ZoneClass/ZoneType shape. <code>buildZoningFilter(active, classes = ZONE_CLASSES)</code> keeps Chicago's catalogue as the default. The Detroit catalogue is filled from the distinct imported codes, not from memory: expected R1–R6, B1–B6, M1–M5, W1, TM, PD, PC, PCA, PR, P1, SD1–SD5, MKT (unverified). Class keys must equal what the backend's <code>DetroitZoningImporter</code> emits.</p>
+<h3>5.6 Contacts</h3>
+<table>
+<tr><th>Port</th><th>Chicago adapter</th><th>Detroit adapter</th></tr>
+<tr><td>OwnerSource</td><td>CookCountyOwnerSource (Socrata 3723-97qp)</td><td>DetroitParcelOwnerSource (ArcGIS parcel_file_current, taxpayer fields)</td></tr>
+<tr><td>BusinessSource</td><td>ChicagoLicenseSource (Socrata uupf-x98q)</td><td>DetroitBusinessLicenseSource (ArcGIS BSEED licences)</td></tr>
+<tr><td>Corporation link</td><td>IL Secretary of State</td><td>Michigan LARA entity search</td></tr>
+<tr><td>Postal defaults</td><td>CHICAGO, IL</td><td>DETROIT, MI</td></tr>
+</table>
+
+<h2 id="be"><span class="n">6</span>Backend import pipeline</h2>
+<p><b>Flow:</b> <code>run.py --city detroit</code> → <code>_ensure_city_record</code> → <code>importers_for('detroit')</code> → each <code>Importer(db_url, city_id, cfg).run()</code> (download → transform → load) → <code>detroit.enrich.run_all()</code>.</p>
+<table>
+<tr><th>Order</th><th>Layer</th><th>Class</th><th>Notes</th></tr>
+<tr><td>1</td><td>parcels</td><td>DetroitParcelsImporter</td><td>~190 pages × 2000; cached</td></tr>
+<tr><td>2</td><td>buildings</td><td>DetroitBuildingsImporter(BuildingsImporter)</td><td>EPSG:2898 → 4326; split multipart; clip to city limit</td></tr>
+<tr><td>3</td><td>zoning</td><td>DetroitZoningImporter(ZoningImporter)</td><td>Detroit code → class</td></tr>
+<tr><td>4</td><td>boundaries</td><td>DetroitBoundariesImporter</td><td>precincts, council districts (2026), ZCTAs</td></tr>
+<tr><td>5–7</td><td>parks, business_licenses, major_streets</td><td>Detroit*Importer</td><td>new tables</td></tr>
+<tr><td>8–11</td><td>railroads, transit, waterways, pois</td><td>shared (waterways via NHD field map)</td><td>transit = 4 GTFS feeds</td></tr>
+<tr><td>12–14</td><td>neighborhoods, dlba_properties, blight_violations</td><td>existing</td><td>blight URLs move into config; geolocated <code>where</code></td></tr>
+<tr><td>15</td><td>railroad_row</td><td>DetroitRailroadRowImporter</td><td>derived from parcels</td></tr>
+<tr><td>16</td><td>enrichment</td><td>detroit.enrich (functions)</td><td>set-based spatial UPDATEs, all filtered by city_id</td></tr>
+</table>
+<p><b>Chicago's plan</b> is today's order minus neighborhoods, DLBA and blight. A snapshot test pins it.</p>
+<p><b>Idempotency:</b> each <code>load()</code> deletes that city's rows for its table before inserting, so a re-run never duplicates rows and never touches another city's.</p>
+<p><b>Complexity:</b> enrichment uses GIST-indexed joins, O(n log m) in the database, with no Python nested loops (§41).</p>
+
+<h2 id="api"><span class="n">7</span>API design</h2>
+<table>
+<tr><th>Surface</th><th>Change</th><th>Compatibility</th></tr>
+<tr><td><code>POST /api/v1/contacts/owner/batch</code></td><td><code>BatchItem</code> gains <code>city: str = "Chicago"</code> and <code>state: str = "IL"</code>, used in place of the hard-coded values</td><td>Backward compatible; old clients unchanged</td></tr>
+<tr><td><code>GET /api/v1/contacts/phone</code></td><td>None. The frontend sends the Detroit locality/region from the profile</td><td>—</td></tr>
+<tr><td><code>GET /api/v1/cities/detroit</code></td><td>None. The row is created by <code>run.py</code>. <code>layer_config</code> stays null; the frontend profile is authoritative</td><td>—</td></tr>
+<tr><td>Martin</td><td>New tables auto-published: <code>/council_districts</code>, <code>/police_precincts</code>, <code>/parks</code>, <code>/business_licenses</code>, <code>/railroad_row</code></td><td>Additive</td></tr>
+<tr><td>Config</td><td><code>PHONE_LOOKUP_PROVIDERS_BY_CITY=chicago=google,foursquare;detroit=google,foursquare</code></td><td>Additive</td></tr>
+</table>
+
+<h2 id="deps"><span class="n">8</span>Service dependencies</h2>
+<div class="scroll"><table>
+<tr><th>Dependency</th><th>Used for</th><th>Cost</th><th>Swappable via</th></tr>
+<tr><td>City of Detroit ArcGIS Hub (org qvkbeam7Wirps6zC)</td><td>zoning, parcels, precincts, council, neighborhoods, licences, DLBA, blight</td><td>free</td><td>field_maps + importer subclass</td></tr>
+<tr><td>SEMCOG ArcGIS</td><td>building footprints</td><td>free</td><td>DetroitBuildingsImporter (OSM fallback)</td></tr>
+<tr><td>Data Driven Detroit</td><td>parks</td><td>free</td><td>DetroitParksImporter (OSM fallback)</td></tr>
+<tr><td>USGS NHD, Census TIGERweb</td><td>waterways, ZCTAs</td><td>free</td><td>config URL</td></tr>
+<tr><td>DDOT, SMART, QLine, DPM GTFS</td><td>transit</td><td>free</td><td>config URLs</td></tr>
+<tr><td>OSM Overpass</td><td>railroads, POIs, major streets, indoor</td><td>free (ODbL)</td><td>config bbox</td></tr>
+<tr><td>Library of Congress</td><td>Sanborn sheets</td><td>free (public domain)</td><td>—</td></tr>
+<tr><td>Google Places · Foursquare · Tracerfy</td><td>phones · owner skip trace</td><td>existing paid accounts</td><td>PhoneLookupAdapter / OwnerLookupAdapter</td></tr>
+<tr><td>tippecanoe · GDAL · pmtiles CLI</td><td>static export</td><td>free (BSD/MIT)</td><td>—</td></tr>
+</table></div>
+
+<h2 id="deploy"><span class="n">9</span>Deployment</h2>
+<ul>
+<li><b>Static mode</b> (primary): <code>export_city_static.py --city detroit</code> writes <code>frontend/public/data/detroit/</code> and <code>src/cities/detroit/data/</code>. <code>./start_map.sh</code> and <code>build:static</code> need no changes. Chicago's existing un-prefixed files stay; moving them is a separate optional PR.</li>
+<li><b>Dev mode:</b> <code>docker compose up -d</code> → <code>alembic upgrade head</code> → <code>python -m app.data_import.run --city detroit</code>. Martin picks up the new tables automatically.</li>
+<li><b>Size budget:</b> Detroit's total static assets should stay under ~120 MB (buildings ≤ 70 MB). Users download only their city's files.</li>
+</ul>
+
+<h2 id="skeleton"><span class="n">10</span>Skeleton index</h2>
+<p>All files below are new and stubbed: functions <code>throw</code>/<code>raise NotImplementedError</code>. No existing file imports them, and no existing file was edited.</p>
+<p>Verified on 2026-10-02:</p>
+<ul>
+<li><code>tsc -p tsconfig.app.json</code> shows 0 errors in <code>src/cities</code>.</li>
+<li>ESLint is clean.</li>
+<li>vitest reports 14 todo tests.</li>
+<li><code>py_compile</code> passes and bigo-lint is clean.</li>
+<li>The tracked-file diff is unchanged.</li>
+</ul>
+<div class="scroll"><table>
+<tr><th>File</th><th>Role</th><th>Filled in</th></tr>
+<tr><td>frontend/src/cities/CityProfile.ts</td><td>Port + <code>notImplemented</code> helper</td><td>P4</td></tr>
+<tr><td>frontend/src/cities/registry.ts</td><td>slug → profile, fail-closed</td><td>P4</td></tr>
+<tr><td>frontend/src/cities/detroit/index.ts</td><td>DETROIT_PROFILE assembly</td><td>P4–P6</td></tr>
+<tr><td>frontend/src/cities/detroit/layers.ts</td><td>layer list, dev and static sources</td><td>P4</td></tr>
+<tr><td>frontend/src/cities/detroit/mapLayers.ts</td><td>park, precinct layers; removeCityLayers</td><td>P4</td></tr>
+<tr><td>frontend/src/cities/detroit/popups.ts</td><td>5 popup builders</td><td>P4</td></tr>
+<tr><td>frontend/src/cities/detroit/zoning.ts</td><td>Detroit zoning catalogue</td><td>P5</td></tr>
+<tr><td>frontend/src/cities/detroit/taxonomies.ts</td><td>transit colours, railroad vocab, POI counts</td><td>P5</td></tr>
+<tr><td>frontend/src/cities/detroit/focus.ts</td><td>focus config</td><td>P5</td></tr>
+<tr><td>frontend/src/cities/detroit/contacts.ts</td><td>owner and business sources, LARA link</td><td>P6</td></tr>
+<tr><td>frontend/src/cities/detroit/__tests__/detroitProfile.test.ts</td><td>acceptance todos</td><td>P4–P6</td></tr>
+<tr><td>backend/app/data_import/city_registry.py</td><td>importers_for(slug)</td><td>P2</td></tr>
+<tr><td>backend/app/data_import/detroit/field_maps.py</td><td>upstream field names (unverified)</td><td>P2.1</td></tr>
+<tr><td>backend/app/data_import/detroit/import_*.py (9)</td><td>Detroit importers</td><td>P2, P8</td></tr>
+<tr><td>backend/app/data_import/detroit/enrich.py</td><td>spatial joins</td><td>P2</td></tr>
+<tr><td>backend/app/models/{council_district, police_precinct, zip_code, major_street, park, business_license}.py</td><td>ORM models (not yet in <code>__init__</code>)</td><td>P1</td></tr>
+<tr><td>backend/alembic/drafts/005_city_parity_tables.py</td><td>draft migration (Alembic ignores <code>drafts/</code>)</td><td>P1</td></tr>
+<tr><td>backend/scripts/export_city_static.py</td><td>per-city PMTiles and bundled exports</td><td>P3</td></tr>
+<tr><td>backend/tests/test_detroit_parity.py</td><td>8 skipped acceptance tests</td><td>P2, P6</td></tr>
+</table></div>
+
+<h2 id="test"><span class="n">11</span>Testing strategy</h2>
+<ul>
+<li><b>Chicago pins (P0):</b> snapshots of the layer list, the importer plan, the zoning filter and the contact wiring. Any diff fails the build.</li>
+<li><b>Unit:</b>
+<ul>
+<li>field-map <code>pick()</code></li>
+<li>Detroit zoning classifier</li>
+<li>multipart split</li>
+<li>owner/licence adapters (with an injected <code>FetchJson</code>)</li>
+<li>popup escaping</li>
+</ul></li>
+<li><b>Integration:</b> run the importers against recorded ArcGIS fixtures (no live network in CI). Enrichment runs against a two-city test DB and asserts Chicago rows are untouched.</li>
+<li><b>E2E (Playwright):</b> Detroit static mode loads with a basemap; switching Chicago → Detroit → Chicago leaves no stray layers; a building click opens the detail panel; the contact list resolves a known Detroit address (mocked).</li>
+<li><b>Coverage:</b> ≥90% lines on new modules (§22). Ask before merging to main whether to target 98%.</li>
+</ul>
+
+<h2 id="sec"><span class="n">12</span>Security</h2>
+<ul>
+<li><b>Query injection:</b> addresses taken from tiles go into ArcGIS <code>where</code> clauses. Reuse <code>normaliseAddress</code> (allow-listed characters) and quote doubling, and never pass raw tile properties into a query.</li>
+<li><b>XSS:</b> all popup values are open data, so treat them as untrusted and HTML-escape them in the Detroit popup builders.</li>
+<li><b>Paid-API spend:</b> the hard-coded Chicago/IL owner batch was a credit-wasting defect. Validate <code>city</code>/<code>state</code> in <code>BatchItem</code> (2-letter state, bounded length). The existing per-IP rate limits apply.</li>
+<li><b>Secrets:</b> no new keys. The Detroit open-data endpoints are keyless, and the Google, Foursquare and Tracerfy keys stay server-side.</li>
+<li><b>Internet-facing (§27):</b> no new public endpoints. The <code>BatchItem</code> change sits behind the existing local-only and rate-limited routes.</li>
+</ul>
+</main>
+</body></html>

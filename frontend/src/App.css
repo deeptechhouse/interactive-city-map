@@ -75,9 +75,11 @@
 
 .layer-panel__toggle-btn {
   position: fixed;
-  top: 12px;
+  /* Below the city selector (fixed top-left, z-index 20). At top:12px it sat UNDER that
+     box, so a closed Layers panel had no visible way back (2026-10-02). */
+  top: 64px;
   left: 12px;
-  z-index: 10;
+  z-index: 30;
   background: #161b22;
   color: #c9d1d9;
   border: 1px solid #30363d;
@@ -301,4 +303,423 @@
 .maplibregl-popup-close-button:hover {
   color: #c9d1d9;
   background: transparent;
+}
+
+/* ===========================
+   Tools Panel (right sidebar: focus areas + contact list)
+   Mirrors .layer-panel; colors are the THEME tokens from utils/colorSchemes.ts.
+   =========================== */
+.tools-panel {
+  width: 340px;
+  min-width: 340px;
+  height: 100vh;
+  background: #161b22;
+  border-left: 1px solid #30363d;
+  display: flex;
+  flex-direction: column;
+  z-index: 15; /* above the fixed POI list panel (bottom-right) */
+  overflow: hidden;
+}
+
+.tools-panel__content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.tools-panel__toggle-btn {
+  position: fixed;
+  /* Below "Browse All POIs" (fixed top-right, z-index 15), which hid this button when
+     it sat at top:12px — a closed Tools panel couldn't be reopened (2026-10-02). */
+  top: 64px;
+  right: 12px;
+  z-index: 30;
+  background: #161b22;
+  color: #c9d1d9;
+  border: 1px solid #30363d;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tools-panel__toggle-btn:hover {
+  background: #21262d;
+  border-color: #58a6ff;
+}
+
+.tools-section {
+  padding: 12px 14px 14px;
+  border-bottom: 1px solid #30363d;
+}
+
+.tools-section__title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #c9d1d9;
+}
+
+.tools-section__group {
+  border-top: 1px solid #21262d;
+  padding: 6px 0;
+}
+
+.tools-section__summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: #c9d1d9;
+  padding: 2px 0;
+}
+
+.tools-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: #1f6feb;
+  color: #ffffff;
+  font-size: 10px;
+  line-height: 16px;
+}
+
+.tools-hint {
+  margin: 4px 0;
+  font-size: 11px;
+  color: #8b949e;
+}
+
+.tools-warning {
+  margin: 6px 0;
+  font-size: 11px;
+  color: #d29922;
+}
+
+.tools-mode {
+  border: none;
+  margin: 6px 0;
+  padding: 0;
+}
+
+.tools-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 4px 0;
+  padding: 5px 8px;
+  background: #0d1117;
+  color: #c9d1d9;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.tools-input:focus {
+  outline: 2px solid #58a6ff;
+  outline-offset: -1px;
+}
+
+.tools-input--inline {
+  margin: 2px 0;
+  padding: 3px 6px;
+  font-size: 11px;
+}
+
+.tools-links {
+  display: flex;
+  gap: 10px;
+}
+
+.tools-link {
+  background: none;
+  border: none;
+  padding: 2px 0;
+  color: #58a6ff;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.tools-link:hover,
+.tools-link:focus-visible {
+  text-decoration: underline;
+}
+
+.tools-link--danger {
+  color: #f85149;
+}
+
+.tools-checklist {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.tools-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: 12px;
+  color: #c9d1d9;
+  cursor: pointer;
+}
+
+.tools-check input {
+  accent-color: #58a6ff;
+  cursor: pointer;
+}
+
+.tools-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.tools-btn {
+  flex: 1;
+  padding: 6px 10px;
+  background: #58a6ff;
+  color: #0d1117;
+  border: 1px solid #58a6ff;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tools-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tools-btn--ghost {
+  background: transparent;
+  color: #c9d1d9;
+  border-color: #30363d;
+}
+
+.tools-btn--block {
+  width: 100%;
+  margin: 6px 0;
+  background: #21262d;
+  color: #f0b429;
+  border-color: #f0b429;
+}
+
+.tools-btn--active {
+  background: #f0b429;
+  color: #0d1117;
+}
+
+.tools-btn:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Saved searches (presets) — src/presets/SavedSearchesPanel.tsx */
+.saved-searches {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.saved-searches__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-top: 1px solid #21262d;
+}
+
+.saved-searches__apply {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 5px 4px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.saved-searches__apply:hover,
+.saved-searches__apply:focus-visible {
+  background: #21262d;
+  outline: none;
+}
+
+.saved-searches__apply:focus-visible {
+  box-shadow: 0 0 0 2px #58a6ff;
+}
+
+.saved-searches__name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: #c9d1d9;
+}
+
+.saved-searches__meta {
+  font-size: 10px;
+  color: #8b949e;
+}
+
+.saved-searches__confirm {
+  display: flex;
+  gap: 8px;
+}
+
+.contact-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.contact-card {
+  padding: 8px;
+  margin-bottom: 8px;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-left: 3px solid #f0b429;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.contact-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  color: #e6edf3;
+}
+
+.contact-card__actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.contact-card__section {
+  margin-top: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #8b949e;
+}
+
+.contact-row {
+  padding: 4px 0;
+  border-bottom: 1px solid #21262d;
+}
+
+.contact-row__name {
+  color: #e6edf3;
+  font-weight: 500;
+}
+
+.contact-row__meta {
+  display: block;
+  font-size: 10px;
+  color: #8b949e;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.contact-address-row {
+  display: grid;
+  grid-template-columns: 1fr 44px 64px;
+  gap: 4px;
+}
+
+.contact-letter {
+  margin: 4px 0;
+}
+
+.contact-letter .tools-check {
+  font-size: 11px;
+  align-items: flex-start;
+}
+
+.contact-dnc {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: #f85149;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.tools-link:disabled {
+  color: #8b949e;
+  cursor: wait;
+}
+
+.contact-batch {
+  margin: 4px 0 8px;
+}
+
+.contact-dnc-unchecked {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 3px;
+  border: 1px solid #d29922;
+  color: #d29922;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+/* Closed Layers panel stays mounted (its filters keep their state) — just not shown.
+   Needed because .layer-panel sets display:flex, which beats the [hidden] attribute. */
+.layer-panel[hidden] {
+  display: none;
+}
+
+/* Business-type discovery list (Tools → Business types) */
+.discovery-types {
+  max-height: 240px;
+}
+
+.discovery-type__name {
+  flex: 1;
+}
+
+.discovery-type__count {
+  color: #8b949e;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.discovery-lookup {
+  /* Magenta = the discovery markers on the map */
+  color: #e040fb;
+  border-color: #e040fb;
+}
+
+.discovery-confirm {
+  margin: 6px 0;
+  padding: 8px;
+  border: 1px solid #e040fb;
+  border-radius: 6px;
 }

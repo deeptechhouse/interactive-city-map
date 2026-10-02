@@ -1,6 +1,9 @@
-"""Import building footprints from Chicago Open Data (Socrata GeoJSON API).
+"""Import building footprints from Socrata GeoJSON API or ArcGIS FeatureServer.
 
-Supports pagination via $offset for APIs that cap at 50 000 rows per request.
+Supports two pagination modes:
+1. Socrata: $offset/$limit (Chicago)
+2. ArcGIS FeatureServer: resultOffset/resultRecordCount with optional
+   coordinate reprojection (Detroit/SEMCOG in EPSG:2898)
 """
 
 import json
@@ -27,6 +30,20 @@ class BuildingsImporter(BaseImporter):
         if not url:
             raise ValueError("No buildings URL configured")
 
+        # Use ArcGIS FeatureServer client if configured (e.g., SEMCOG for Detroit)
+        if self._config.get("arcgis_featureserver"):
+            from app.data_import.arcgis_helper import ArcGISFeatureServerClient
+            source_srid = self._config.get("source_srid", 4326)
+            page_size = self._config.get("page_size", 2000)
+            output_format = self._config.get("output_format", "geojson")
+            client = ArcGISFeatureServerClient(
+                url, source_srid=source_srid, page_size=page_size,
+                output_format=output_format,
+            )
+            collection = client.download_all()
+            return self._save_json_cache(collection)
+
+        # Socrata pagination (Chicago default)
         all_features: list[dict] = []
         offset = 0
         while True:

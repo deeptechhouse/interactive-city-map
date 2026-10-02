@@ -3,6 +3,8 @@ import type maplibregl from 'maplibre-gl';
 import { THEME } from '../../utils/colorSchemes';
 import { setSection } from '../../presets/searchState';
 import { useSearchSection } from '../../presets/SearchStateContext';
+import { INTERIORS_AVAILABLE } from '../../utils/staticMode';
+import { buildingBaseFilter, type BuildingSublayer } from '../layers/BuildingLayer';
 
 // Legend key → the normalised zone_class the multi-city exporter writes on buildings.
 // Chicago's tiles have no zone_class, so for Chicago the zoning_code prefix rule applies.
@@ -15,8 +17,8 @@ const ZONE_CLASS_FOR_KEY: Readonly<Record<string, string>> = {
 };
 
 /**
- * "Hide this zoning category": use zone_class when the building has one, else the
- * Chicago zoning_code prefix condition.
+ * "Hide this zoning category": use zone_class when the building has one (Detroit,
+ * Dayton), else the Chicago zoning_code prefix condition.
  * O(1) time, O(1) space — n = 1 expression.
  */
 function hideZoning(key: string, prefixCondition: unknown[]): unknown[] {
@@ -25,7 +27,7 @@ function hideZoning(key: string, prefixCondition: unknown[]): unknown[] {
   return ['case', ['has', 'zone_class'], ['!=', ['get', 'zone_class'], zoneClass], prefixCondition];
 }
 
-const LEGEND_ITEMS = [
+const ALL_LEGEND_ITEMS = [
   { label: 'Residential', color: '#22c55e', key: 'R', zonePrefix: 'R' },
   { label: 'Commercial / Business', color: '#ef4444', key: 'C/B', zonePrefix: 'C' },
   { label: 'Manufacturing / Industrial', color: '#f59e0b', key: 'M', zonePrefix: 'M' },
@@ -35,6 +37,10 @@ const LEGEND_ITEMS = [
   { label: 'Has Interior Map', color: '#0d9488', key: 'INT', zonePrefix: null },
   { label: 'Other / Unknown', color: '#334155', key: '—', zonePrefix: null },
 ];
+
+// "Has Interior Map" only means something when interiors can load (staticMode.ts).
+// O(i) time, O(i) space — i = legend items (8).
+const LEGEND_ITEMS = ALL_LEGEND_ITEMS.filter((item) => item.key !== 'INT' || INTERIORS_AVAILABLE);
 
 const styles = {
   container: {
@@ -107,15 +113,21 @@ interface BuildingLegendProps {
 }
 
 // Saved in presets — the key is persisted, never rename it. Value = HIDDEN type keys.
-// O(k) time, O(k) space — k = legend items (fixed list)
+// O(i) time, O(i) space — i = legend items.
 const HIDDEN_TYPES_SECTION = setSection('buildings.hiddenTypes', LEGEND_ITEMS.map((i) => i.key), 'none');
 
-const BUILDING_LAYER_IDS = [
-  'buildings-fill', 'buildings-stroke', 'buildings-interior-stroke',
-  'buildings-highlight', 'buildings-label',
+// Map layer id → which building sublayer it is (its base filter comes from BuildingLayer).
+const BUILDING_LAYERS: [string, BuildingSublayer][] = [
+  ['buildings-fill', 'fill'],
+  ['buildings-stroke', 'stroke'],
+  ['buildings-interior-stroke', 'interior-stroke'],
+  ['buildings-highlight', 'highlight'],
+  ['buildings-label', 'label'],
 ];
 
-// O(k) time, O(k) space — k = legend items (fixed list, the filter effect repeats it for 5 fixed layer ids)
+// bigo-allow: l and i are fixed (5 sublayers × 8 legend items) — at most 40 steps.
+/** Legend + building-type filter.
+ * O(l * i) time, O(i) space — l = building sublayers, i = legend items. */
 export const BuildingLegend: React.FC<BuildingLegendProps> = ({ map }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [hiddenTypes, setHiddenTypes] = useSearchSection(HIDDEN_TYPES_SECTION);
@@ -133,19 +145,22 @@ export const BuildingLegend: React.FC<BuildingLegendProps> = ({ map }) => {
   useEffect(() => {
     if (!map) return;
 
-    // O(d·k) time, O(k) space — d = 5 building layer ids (fixed); k = legend items (fixed)
-    for (const layerId of BUILDING_LAYER_IDS) {
+    // bigo-allow: l (5 sublayers) and i (8 legend items) are fixed sizes — 40 steps at most.
+    // O(l * i) time, O(i) space — l = building sublayers, i = legend items.
+    for (const [layerId, sublayer] of BUILDING_LAYERS) {
       try {
         if (!map.getLayer(layerId)) continue;
+        // Each sublayer keeps its own filter (interior split, label rule); types only narrow it.
+        const base = buildingBaseFilter(sublayer);
 
         if (hiddenTypes.size === 0) {
-          // Show all — just the is_hidden filter
-          map.setFilter(layerId, ['==', ['get', 'is_hidden'], false]);
+          map.setFilter(layerId, base);
         } else {
           // Build exclusion filter based on zoning_code prefix
-          const conditions: unknown[] = [['==', ['get', 'is_hidden'], false]];
+          const conditions: unknown[] = [base];
 
-          // O(k) time, O(k) space — k = legend items (fixed, one Set lookup each)
+          // bigo-lint: disable=BIGO006 — runs once per sublayer; l × i is the fixed 5 × 8 bound above.
+          // O(i) time, O(1) space — i = legend items.
           for (const item of LEGEND_ITEMS) {
             if (!hiddenTypes.has(item.key)) continue;
 
@@ -179,18 +194,18 @@ export const BuildingLegend: React.FC<BuildingLegendProps> = ({ map }) => {
     );
   }
 
-  // O(k) time, O(k) space — k = legend items (Set lookups per row)
+  // O(i) time, O(i) space — i = legend items.
   const legendRows = LEGEND_ITEMS.map((item) => (
-    <label key={item.key} style={{ ...styles.row, cursor: 'pointer' }}>
-      <input
-        type="checkbox"
-        checked={!hiddenTypes.has(item.key)}
-        onChange={() => toggleType(item.key)}
-        style={{ accentColor: item.color, width: '11px', height: '11px', cursor: 'pointer' }}
-      />
-      <div style={{ ...styles.swatch, background: item.color, opacity: hiddenTypes.has(item.key) ? 0.3 : 1 }} />
-      <span style={{ ...styles.label, opacity: hiddenTypes.has(item.key) ? 0.4 : 1 }}>{item.label}</span>
-    </label>
+        <label key={item.key} style={{ ...styles.row, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={!hiddenTypes.has(item.key)}
+            onChange={() => toggleType(item.key)}
+            style={{ accentColor: item.color, width: '11px', height: '11px', cursor: 'pointer' }}
+          />
+          <div style={{ ...styles.swatch, background: item.color, opacity: hiddenTypes.has(item.key) ? 0.3 : 1 }} />
+          <span style={{ ...styles.label, opacity: hiddenTypes.has(item.key) ? 0.4 : 1 }}>{item.label}</span>
+        </label>
   ));
 
   return (

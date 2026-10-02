@@ -10,10 +10,11 @@
  *                             talks to the lightweight server (backend/app/phone_app.py)
  *                             — no Docker needed. ./start_map.sh sets it.
  *   static mode, no URL     → none: lookups answer 'unavailable'; the user can type numbers.
- *   otherwise               → the full backend via apiClient.
+ *   otherwise               → the full backend at <VITE_API_URL>/api/v1.
  * ownerLookup.ts uses the same getter for the paid owner skip trace.
  */
 import { apiClient, ApiError } from '../api/client';
+import { apiBaseUrl } from '../utils/geoUtils';
 import { IS_STATIC } from '../utils/staticMode';
 import { getCityProfile } from '../cities/registry';
 
@@ -80,17 +81,28 @@ export function postJsonTo(baseUrl: string): PostJson {
 const PHONE_API_URL: string = import.meta.env.VITE_PHONE_API_URL ?? '';
 
 /** The GET function for paid lookups, or null when no server is reachable (see header). */
-// O(1) time, O(1) space — k = 1 getter chosen, no I/O
+/**
+ * Base URL of the lookup API ("…/api/v1"), or null when no server is reachable.
+ * apiClient's base is an ORIGIN (geoUtils.apiBaseUrl), so the full-backend case adds
+ * "/api/v1" here — without it, lookup paths like "/contacts/phone" would 404.
+ * O(1) time, O(1) space — n = 1 URL.
+ */
+export function lookupApiBase(phoneApiUrl: string = PHONE_API_URL): string | null {
+  if (phoneApiUrl) return phoneApiUrl.replace(/\/$/, '');
+  return IS_STATIC ? null : `${apiBaseUrl()}/api/v1`;
+}
+
+/** O(1) time, O(1) space — n = 1 function. */
 export function backendGetter(phoneApiUrl: string = PHONE_API_URL): GetJson | null {
-  if (phoneApiUrl) return getJsonFrom(phoneApiUrl);
-  return IS_STATIC ? null : (path) => apiClient.get(path);
+  const base = lookupApiBase(phoneApiUrl);
+  return base === null ? null : getJsonFrom(base);
 }
 
 /** POST twin of backendGetter. */
 // O(1) time, O(1) space — k = 1 poster chosen, no I/O
 export function backendPoster(phoneApiUrl: string = PHONE_API_URL): PostJson | null {
-  if (phoneApiUrl) return postJsonTo(phoneApiUrl);
-  return IS_STATIC ? null : (path, body) => apiClient.post(path, body);
+  const base = lookupApiBase(phoneApiUrl);
+  return base === null ? null : postJsonTo(base);
 }
 
 export const NO_SERVER_REASON = 'Phone/owner lookup needs the lookup server — start the map with ./start_map.sh';
@@ -125,7 +137,7 @@ export class BackendPhoneLookup implements PhoneLookup {
   constructor(
     private readonly city: string,
     // O(1) time, O(1) space — k = 1 delegated apiClient call (network, counted as constant work)
-    private readonly get: GetJson = (path) => apiClient.get(path),
+    private readonly get: GetJson = (path) => apiClient.get(`/api/v1${path}`),
     private readonly sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
   ) {}
 

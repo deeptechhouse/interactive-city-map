@@ -9,6 +9,7 @@ nothing heavier than Python. It serves:
                       requirements-server.txt for why the starlette version matters)
     /api/v1/contacts/* phone + owner lookups (paid providers; keys stay on this server)
     /api/v1/contacts/export  save CSV to this machine's Desktop (local callers only)
+    /api/v1/presets   saved searches, shared by every browser using this server
     /health           which lookup providers have keys
 
 What is deliberately NOT here: the PostGIS-backed endpoints (buildings, POIs, floor plans,
@@ -30,7 +31,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.routes import contacts, exports
+from app.routes import contacts, exports, presets
 
 app = FastAPI(title="City Map", version="0.2.0")
 
@@ -39,7 +40,7 @@ app = FastAPI(title="City Map", version="0.2.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins.split(","),
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -57,6 +58,7 @@ async def health():
 
 app.include_router(contacts.router, prefix="/api/v1")
 app.include_router(exports.router, prefix="/api/v1")
+app.include_router(presets.router, prefix="/api/v1")
 
 
 # O(1) time, O(1) space — n = 1 path check.

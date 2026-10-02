@@ -5,7 +5,7 @@ import { layers as protomapsLayers, namedTheme } from 'protomaps-themes-base';
 import { Protocol } from 'pmtiles';
 
 import { CHICAGO_CENTER, CHICAGO_ZOOM } from '../utils/geoUtils';
-import { IS_STATIC } from '../utils/staticMode';
+import { INTERIORS_AVAILABLE, IS_STATIC } from '../utils/staticMode';
 import type { LayerConfig, LayerState } from '../types/layer';
 import { getLayerSourceUrl } from './hooks/useMapLayers';
 import { useMapClick } from './hooks/useMapClick';
@@ -444,7 +444,8 @@ function row(label: string, value: unknown): string {
 function buildBuildingPopup(p: Record<string, unknown>): string {
   const name = p.name ?? p.address ?? 'Building';
   const badges: string[] = [];
-  if (p.has_interior) badges.push(`<span style="${badgeStyle('#dcfce7', '#166534')}">Interior Map</span>`);
+  const hasInterior = Boolean(p.has_interior) && INTERIORS_AVAILABLE; // see staticMode.ts
+  if (hasInterior) badges.push(`<span style="${badgeStyle('#dcfce7', '#166534')}">Interior Map</span>`);
   if (p.zoning_code) badges.push(`<span style="${badgeStyle('#dbeafe', '#1e40af')}">${p.zoning_code}</span>`);
   if (p.property_class) badges.push(`<span style="${badgeStyle('#fef3c7', '#92400e')}">${p.property_class}</span>`);
 
@@ -463,7 +464,7 @@ function buildBuildingPopup(p: Record<string, unknown>): string {
     ${buildBusinessesSection(p)}
     <div style="margin-top: 10px; display: flex; gap: 6px;">
       <button data-action="open-details" style="flex:1; padding: 6px 12px; background: #58a6ff; color: #0d1117; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
-        ${p.has_interior ? 'View Interior &amp; Details' : 'Open Details'}
+        ${hasInterior ? 'View Interior &amp; Details' : 'Open Details'}
       </button>
       <button data-action="add-to-list" style="flex:1; padding: 6px 12px; background: #21262d; color: #f0b429; border: 1px solid #f0b429; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
         + Contact list

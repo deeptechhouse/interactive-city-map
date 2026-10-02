@@ -11,14 +11,16 @@
  *                "Neighborhoods" and the user never sees the word "ward".
  *   focusGeometry.ts (pure, tested, shared with Chicago) stays untouched.
  *
- * DATA: the static exporter writes real polygons (not tiles) next to the PMTiles:
- *   public/data/dayton/{zip_codes,police_precincts,neighborhoods}.geojson. They are
- *   fetched lazily on first use, so other cities' users never download them. The id
+ * DATA: real polygons (not tiles). boundarySource.ts picks the URL — the static exporter's
+ *   public/data/dayton/{zip_codes,police_precincts,neighborhoods}.geojson in static mode,
+ *   the backend's /cities/dayton/boundaries/<layer> in database mode. They are fetched
+ *   lazily on first use, so other cities' users never download them. The id
  *   properties are zip_code / precinct / name (backend static_plan keep tuples).
  */
 import { indexBoundaries, type BoundaryIndex, type FocusKind } from '../../focus/focusGeometry';
 import type { AreaOption } from '../../focus/focusAreas';
 import type { FocusConfig } from '../CityProfile';
+import { boundaryUrl } from '../boundarySource';
 
 export const DAYTON_KIND_LABELS: Readonly<Record<FocusKind, string>> = {
   zip: 'Zip codes',
@@ -26,11 +28,11 @@ export const DAYTON_KIND_LABELS: Readonly<Record<FocusKind, string>> = {
   ward: 'Neighborhoods',
 };
 
-/** Boundary file + id property per focus kind. */
+/** Boundary source URL (static file or backend — see boundarySource.ts) + id property per focus kind. */
 export const DAYTON_BOUNDARY_FILES: Readonly<Record<FocusKind, { url: string; idProp: string }>> = {
-  zip: { url: './data/dayton/zip_codes.geojson', idProp: 'zip_code' },
-  police: { url: './data/dayton/police_precincts.geojson', idProp: 'precinct' },
-  ward: { url: './data/dayton/neighborhoods.geojson', idProp: 'name' },
+  zip: { url: boundaryUrl('dayton', 'zip_codes'), idProp: 'zip_code' },
+  police: { url: boundaryUrl('dayton', 'police_precincts'), idProp: 'precinct' },
+  ward: { url: boundaryUrl('dayton', 'neighborhoods'), idProp: 'name' },
 };
 
 /** Loads one GeoJSON file — injectable so tests never touch the network. */

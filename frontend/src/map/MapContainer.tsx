@@ -135,15 +135,16 @@ export const MapContainer: React.FC<MapContainerProps> = ({
 
     const staticBasemap = getCityProfile(citySlug ?? 'chicago')?.staticAssets.basemapPmtiles
       ?? CHICAGO_STATIC_BASEMAP;
-    const basemapUrl = IS_STATIC
-      ? `pmtiles://${staticBasemap}`
-      : 'pmtiles://https://build.protomaps.com/20250313.pmtiles';
+    // The basemap (streets, labels — background only) is each city's local clipped
+    // PMTiles in BOTH modes; database mode serves the data layers from PostGIS, not this.
+    // TRAP (fixed 2026-10-02): database mode used to point at a dated planet build,
+    // build.protomaps.com/20250313.pmtiles — Protomaps prunes those after ~a week, so
+    // the background was blank in database mode. Fonts are local for the same reason.
+    const basemapUrl = `pmtiles://${staticBasemap}`;
 
     const basemapStyle: maplibregl.StyleSpecification = {
       version: 8,
-      glyphs: IS_STATIC
-        ? './fonts/{fontstack}/{range}.pbf'
-        : 'https://cdn.protomaps.com/fonts/pbf/{fontstack}/{range}.pbf',
+      glyphs: './fonts/{fontstack}/{range}.pbf',
       sources: {
         protomaps: {
           type: 'vector',
@@ -199,10 +200,10 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     map.flyTo({ center: cityCenter, zoom: cityZoom ?? 11, duration: 1500 });
   }, [cityCenter?.[0], cityCenter?.[1], cityZoom]);
 
-  // Static mode: each city ships its own clipped basemap — swap it on city switch.
+  // Each city ships its own clipped basemap (both modes) — swap it on city switch.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapLoaded || !IS_STATIC) return;
+    if (!map || !mapLoaded) return;
     const path = getCityProfile(citySlug ?? 'chicago')?.staticAssets.basemapPmtiles
       ?? CHICAGO_STATIC_BASEMAP;
     const source = map.getSource('protomaps') as maplibregl.VectorTileSource | undefined;

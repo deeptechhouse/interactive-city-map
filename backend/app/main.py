@@ -24,7 +24,7 @@ async def health():
 
 
 from app.routes import cities, buildings, pois, search, floor_plans, railroads, interior
-from app.routes import interior_contributions, contacts, exports
+from app.routes import interior_contributions, contacts, exports, presets
 
 app.include_router(cities.router, prefix="/api/v1")
 app.include_router(buildings.router, prefix="/api/v1")
@@ -36,3 +36,6 @@ app.include_router(interior.router, prefix="/api/v1")
 app.include_router(interior_contributions.router, prefix="/api/v1")
 app.include_router(contacts.router, prefix="/api/v1")
 app.include_router(exports.router, prefix="/api/v1")
+# Saved searches live on the server in every mode (they "disappeared" when they were
+# browser-only — see routes/presets.py). Same router the static map server mounts.
+app.include_router(presets.router, prefix="/api/v1")

@@ -6,6 +6,7 @@
  * the hand-written catalogue covers it. O(1) per test except where noted.
  */
 import { existsSync } from 'node:fs';
+import { boundaryUrl } from '../../boundarySource';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { ZoneType } from '../../../utils/zoningTypes';
@@ -76,7 +77,9 @@ describe('Detroit profile — layers', () => {
   });
 
   const dataDir = resolve(__dirname, '../../../../public/data/detroit');
-  it.skipIf(!existsSync(dataDir))('every static layer file is on disk (local build present)', () => {
+  // "A static build is present" = a layer archive exists, not just the folder: a
+  // database-mode checkout keeps only basemap.pmtiles there (the data comes from PostGIS).
+  it.skipIf(!existsSync(`${dataDir}/buildings.pmtiles`))('every static layer file is on disk (local build present)', () => {
     // O(l) time, O(1) space — l = static layers
     for (const id of DETROIT_STATIC_LAYER_IDS) expect(existsSync(`${dataDir}/${id}.pmtiles`), id).toBe(true);
   });
@@ -167,14 +170,15 @@ describe('Detroit focus areas', () => {
     const urls: string[] = [];
     const index = await loadDetroitBoundaries(async (url) => {
       urls.push(url);
-      if (url.endsWith('zip_codes.geojson')) return fc('zip_code', ['48226', '48201']);
-      if (url.endsWith('police_precincts.geojson')) return fc('precinct', ['10', '2', '9']);
+      if (url.includes('zip_codes')) return fc('zip_code', ['48226', '48201']);
+      if (url.includes('police_precincts')) return fc('precinct', ['10', '2', '9']);
       return fc('district_number', ['7', '1']);
     });
+    // Static file or backend URL, whichever mode the tests run in (boundarySource.ts).
     expect(urls.sort()).toEqual([
-      './data/detroit/council_districts.geojson',
-      './data/detroit/police_precincts.geojson',
-      './data/detroit/zip_codes.geojson',
+      boundaryUrl('detroit', 'council_districts'),
+      boundaryUrl('detroit', 'police_precincts'),
+      boundaryUrl('detroit', 'zip_codes'),
     ]);
     const options = detroitAreaOptions(index);
     expect(options.police.map((o) => o.label)).toEqual(['Precinct 2', 'Precinct 9', 'Precinct 10']);

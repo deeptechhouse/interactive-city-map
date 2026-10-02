@@ -52,7 +52,9 @@ export function chicagoDevSources(): Record<string, string> {
     transit: martinTileUrl('transit_lines'),
     waterways: martinTileUrl('waterways'),
     zoning: martinTileUrl('zoning_districts'),
-    buildings: martinTileUrl('buildings'),
+    // Martin FUNCTION source with level of detail (migration 006): the raw table sent every
+    // footprint at every zoom — 30 s+ tiles. Its MVT layer is still named 'buildings'.
+    buildings: martinTileUrl('buildings_lod'),
     pois: martinTileUrl('pois'),
     major_streets: martinTileUrl('major_streets'),
     zip_codes: martinTileUrl('zip_codes'),

@@ -68,7 +68,9 @@ const DEV_TABLES: Readonly<Record<string, string>> = {
   transit: 'transit_lines',
   waterways: 'waterways',
   zoning: 'zoning_districts',
-  buildings: 'buildings',
+  // Martin FUNCTION source with level of detail (migration 006): the raw table sent every
+  // footprint at every zoom — 30 s+ tiles. Its MVT layer is still named 'buildings'.
+  buildings: 'buildings_lod',
   pois: 'pois',
   major_streets: 'major_streets',
   zip_codes: 'zip_codes',

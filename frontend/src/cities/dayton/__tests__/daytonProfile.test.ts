@@ -7,6 +7,7 @@
  * importer side.
  */
 import { describe, expect, it } from 'vitest';
+import { boundaryUrl } from '../../boundarySource';
 import { DAYTON_PROFILE } from '../index';
 import { DAYTON_LAYER_IDS, DAYTON_STATIC_LAYER_IDS, daytonDevSources, daytonLayerStates, daytonStaticSources } from '../layers';
 import { DAYTON_POPUPS } from '../popups';
@@ -128,9 +129,9 @@ describe('Dayton focus', () => {
 
   it('indexes zip_code / precinct / name and labels without "ward"', async () => {
     const files: Record<string, GeoJSON.FeatureCollection> = {
-      './data/dayton/zip_codes.geojson': fc([square(0, { zip_code: '45410' }), square(1, { zip_code: '45402' })]),
-      './data/dayton/police_precincts.geojson': fc([square(0, { precinct: 'Central', name: 'Central District' })]),
-      './data/dayton/neighborhoods.geojson': fc([square(0, { name: 'Oregon' })]),
+      [boundaryUrl('dayton', 'zip_codes')]: fc([square(0, { zip_code: '45410' }), square(1, { zip_code: '45402' })]),
+      [boundaryUrl('dayton', 'police_precincts')]: fc([square(0, { precinct: 'Central', name: 'Central District' })]),
+      [boundaryUrl('dayton', 'neighborhoods')]: fc([square(0, { name: 'Oregon' })]),
     };
     const index = await loadDaytonBoundaries(async (url) => files[url]);
     const options = daytonAreaOptions(index);

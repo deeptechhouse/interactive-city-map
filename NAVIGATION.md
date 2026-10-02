@@ -41,7 +41,9 @@ Layered architecture: React + MapLibre GL frontend communicates with a FastAPI b
 | `frontend/src/cities/` | City Profiles | One `CityProfile` per city (`chicago/`, `detroit/`, `dayton/`) + `registry.ts` — shared code asks the profile, never "which city?" |
 | `frontend/src/map/cityLayerLifecycle.ts` | Map Engine | Removes the previous city's layers + sources on city switch |
 | `backend/app/data_import/detroit/`, `dayton/` | Pipeline | City importers (live-verified field maps) + `static_plan.py` (what goes in each PMTiles) |
-| `backend/app/data_import/static_build.py` | Pipeline | Runs a city's importers without a database → `frontend/public/data/<city>/*.pmtiles` |
+| `backend/app/data_import/static_build.py` | Pipeline | Runs a city's importers without a database → `frontend/public/data/<city>/*.pmtiles` (`collect_rows()` is shared with `db_load.py`) |
+| `backend/app/data_import/db_load.py` | Pipeline | Writes a city's StaticPlan rows into PostGIS for database mode (Detroit, Dayton) — CLI `backend/scripts/load_city_db.py` |
+| `backend/app/data_import/city_registry.py` | Pipeline | What `run.py` imports per city: Chicago's pinned order; Detroit/Dayton refused (they use `load_city_db`) |
 | `docs/` | Documentation | Guides and references (Sanborn georeferencing guide) |
 | `.github/workflows/` | CI/CD | GitHub Actions pipeline |
 
@@ -54,8 +56,9 @@ Layered architecture: React + MapLibre GL frontend communicates with a FastAPI b
 - **Backend config:** `backend/app/config.py` — Pydantic settings loaded from environment / `.env`
 - **Database models:** `backend/app/models/__init__.py` — all SQLAlchemy model imports
 - **API routes:** `backend/app/routes/` — each file registers a FastAPI `APIRouter`
-- **Data import CLI:** `python -m app.data_import.run --city chicago` (run from `backend/`)
+- **Data import CLI:** `python -m app.data_import.run --city chicago` (run from `backend/`); Detroit/Dayton: `.venv-db/bin/python -m scripts.load_city_db --city detroit`
 - **Contact-list phone API:** `backend/app/routes/contacts.py` → `services/phone_lookup_service.py` (cache, rate limit, per-city provider order) → `adapters/phone_lookup.py`
+- **Run the map from the database (all 3 cities):** `./run-db.sh` → Docker postgres/martin/minio + `backend/app/db_map_server.py` serving `frontend/dist-db` (`npm run build:db`), the full API, and `/tiles` + `/sanborn` proxies on :8100. Smoke test: `node frontend/scripts/smoke-db.mjs`
 - **Run the map (no Docker, one process):** `./setup.sh` once, then `./run.sh` → `backend/app/map_server.py` serves `frontend/dist-local` + `/api/v1`. Mac mini: `scripts/copy-to.sh`, `scripts/macmini/install-autostart.sh` (launchd + `tailscale serve`)
 - **Development:** `./start_map.sh` (Vite :5173 + map server API :8000). `backend/app/phone_app.py` is an alias of the map server
 - **Offline assets:** `frontend/public/fonts/` (from `frontend/scripts/fetch-fonts.mjs`); boundary refresh `frontend/scripts/refresh-boundaries.mjs`
@@ -74,7 +77,7 @@ Layered architecture: React + MapLibre GL frontend communicates with a FastAPI b
 - **Alembic migrations:** `backend/alembic.ini` + `backend/alembic/versions/`
 - **Frontend start:** `frontend/src/main.tsx` — React entry point
 - **Map container:** `frontend/src/map/MapContainer.tsx` — MapLibre GL initialization and layer orchestration
-- **Martin config:** `martin.yaml` — vector tile server configuration (auto-publishes PostGIS tables)
+- **Martin config:** `martin.yaml` — vector tile server configuration (auto-publishes PostGIS tables and functions, e.g. `buildings_lod` from migration 006)
 - **Docker (dev):** `docker-compose.yml` — PostgreSQL + PostGIS, Martin, MinIO
 - **Docker (prod):** `docker-compose.prod.yml` — full stack including backend and frontend containers
 - **CI pipeline:** `.github/workflows/ci.yml` — lint, type-check, test, build

@@ -13,10 +13,23 @@ export function bboxToParam(bbox: [number, number, number, number]): string {
   return bbox.join(',');
 }
 
-/** Get Martin tile URL for a given table. O(1) time, O(1) space — n = 1 URL. */
-export function martinTileUrl(tableName: string): string {
-  const base = import.meta.env.VITE_MARTIN_URL || 'http://localhost:3030';
-  return `${base}/${tableName}/{z}/{x}/{y}`;
+/**
+ * Martin vector-tile URL for one PostGIS table (database mode).
+ *
+ * VITE_MARTIN_URL:
+ *   "http://host:3030" → Martin directly (dev with `npm run dev`).
+ *   "/tiles"           → a path on THIS server: the database map server proxies it to
+ *                        Martin (backend/app/db_map_server.py), so the map also works from
+ *                        another device over Tailscale, where "localhost:3030" would mean
+ *                        that device. Made absolute here because MapLibre fetches tiles
+ *                        from a worker, which can't resolve page-relative URLs.
+ *   unset              → http://localhost:3030.
+ * O(1) time, O(1) space — n = 1 URL.
+ */
+export function martinTileUrl(tableName: string, origin: string = globalThis.location?.origin ?? ''): string {
+  const configured: string = import.meta.env.VITE_MARTIN_URL || 'http://localhost:3030';
+  const base = configured.startsWith('/') ? `${origin}${configured}` : configured;
+  return `${base.replace(/\/$/, '')}/${tableName}/{z}/{x}/{y}`;
 }
 
 /** Get the API base URL */

@@ -79,3 +79,4 @@ backend/data/
 
 # Built map served by the map server (npm run build:local) — regenerate, never commit.
 frontend/dist-local/
+frontend/dist-db/

@@ -9,10 +9,10 @@
  *                districts" via kindLabels, so the user never sees the word "ward".
  *   focusGeometry.ts (pure, tested, shared with Chicago) stays untouched.
  *
- * DATA: <id>.geojson files written next to the PMTiles by the static build
- *   (StaticLayer.geojson_copy) in public/data/detroit/. Fetched lazily, only when Detroit
- *   is selected, so Chicago users never download Detroit polygons. Property keys:
- *   zip_code / precinct / district_number (all strings).
+ * DATA: boundarySource.ts picks the URL — public/data/detroit/<layer>.geojson in static
+ *   mode (the static build's geojson_copy), the backend's /cities/detroit/boundaries/<layer>
+ *   in database mode. Fetched lazily, only when Detroit is selected, so Chicago users never
+ *   download Detroit polygons. Property keys: zip_code / precinct / district_number (strings).
  *
  * FAILURE MODE: if a file is missing the promise rejects; the shared focus hook reports
  *   it. Nothing here falls back to another city's boundaries.
@@ -20,15 +20,13 @@
 import { indexBoundaries, type BoundaryIndex, type FocusKind } from '../../focus/focusGeometry';
 import type { AreaOption } from '../../focus/focusAreas';
 import type { FocusConfig } from '../CityProfile';
+import { boundaryUrl } from '../boundarySource';
 
 export const DETROIT_KIND_LABELS: Readonly<Record<FocusKind, string>> = {
   zip: 'Zip codes',
   police: 'Police precincts',
   ward: 'Council districts',
 };
-
-/** Relative to the page, like every static asset (works under any base path). */
-const DATA_DIR = './data/detroit';
 
 /** Fetch function signature — injectable so tests never touch the network. */
 export type FetchGeoJson = (url: string) => Promise<GeoJSON.FeatureCollection>;
@@ -51,9 +49,9 @@ export async function loadDetroitBoundaries(
   fetchGeoJson: FetchGeoJson = defaultFetchGeoJson,
 ): Promise<BoundaryIndex> {
   const [zips, precincts, districts] = await Promise.all([
-    fetchGeoJson(`${DATA_DIR}/zip_codes.geojson`),
-    fetchGeoJson(`${DATA_DIR}/police_precincts.geojson`),
-    fetchGeoJson(`${DATA_DIR}/council_districts.geojson`),
+    fetchGeoJson(boundaryUrl('detroit', 'zip_codes')),
+    fetchGeoJson(boundaryUrl('detroit', 'police_precincts')),
+    fetchGeoJson(boundaryUrl('detroit', 'council_districts')),
   ]);
   return {
     zip: indexBoundaries(zips, 'zip_code'),

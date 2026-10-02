@@ -1,5 +1,6 @@
 import type maplibregl from 'maplibre-gl';
 import type { LayerConfig } from '../../types/layer';
+import { vectorSourceSpec } from '../../utils/layerSourceHelper';
 
 const SOURCE_ID = 'council-districts-source';
 
@@ -14,8 +15,10 @@ const DISTRICT_COLORS: Record<number, string> = {
   7: '#ec4899',  // pink
 };
 
+// O(k) time, O(k) space — k = entries in the colour table
 function districtColorExpression(): unknown {
   const pairs: (string | number)[] = [];
+  // O(k) time, O(k) space — k = entries in the colour table
   for (const [district, color] of Object.entries(DISTRICT_COLORS)) {
     pairs.push(Number(district), color);
   }
@@ -27,6 +30,7 @@ function districtColorExpression(): unknown {
  * Uses embedded GeoJSON (static data, changes rarely).
  * Will be populated when static data file is created;
  * for now falls back to Martin vector tiles if available.
+ * O(1) time, O(1) space — n = 1 source + a fixed set of style layers
  */
 export function addCouncilDistrictLayer(map: maplibregl.Map, config: LayerConfig): void {
   if (map.getSource(SOURCE_ID)) return;
@@ -35,7 +39,7 @@ export function addCouncilDistrictLayer(map: maplibregl.Map, config: LayerConfig
   if (config.sourceUrl) {
     map.addSource(SOURCE_ID, {
       type: 'vector',
-      tiles: [config.sourceUrl],
+      ...vectorSourceSpec(config.sourceUrl),
       minzoom: 0,
       maxzoom: 16,
     });
@@ -101,6 +105,7 @@ export function addCouncilDistrictLayer(map: maplibregl.Map, config: LayerConfig
   } as maplibregl.AddLayerObject);
 }
 
+// O(1) time, O(1) space — n = fixed list of style layer ids
 export function getCouncilDistrictLayerIds(configId: string): string[] {
   return [`${configId}-fill`, `${configId}-stroke`, `${configId}-label`];
 }

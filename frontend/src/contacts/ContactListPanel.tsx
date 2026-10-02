@@ -405,7 +405,7 @@ export const ContactListPanel: React.FC<ContactListPanelProps> = ({
         {selectionMode ? '✓ Selecting buildings — click map to add/remove' : 'Select buildings on map'}
       </button>
       {!lookupAvailable && (
-        <p className="tools-hint">Automatic owner/business lookup is only available for Chicago.</p>
+        <p className="tools-hint">Automatic owner/business lookup isn't available for this city yet.</p>
       )}
       {lookupAvailable && buildings.length > 0 && <BatchBar runner={batchRunner} batch={batch} candidates={candidates} />}
       {buildings.length === 0 ? (

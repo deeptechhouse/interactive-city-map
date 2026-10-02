@@ -21,6 +21,22 @@ function buildingFillColorExpression(): unknown {
     // Color by property_class if available
     ['has', 'property_class'],
     ['match', ['get', 'property_class'], ...pairs, BUILDING_DEFAULT_COLOR],
+    // Multi-city: buildings exported by the static builder carry a normalised zone_class
+    // (Dayton's codes — SF, MF, GC… — don't follow Chicago's first-letter scheme).
+    // Chicago's tiles have no zone_class field, so Chicago never reaches this branch.
+    ['has', 'zone_class'],
+    [
+      'match',
+      ['get', 'zone_class'],
+      'residential', '#22c55e',
+      'commercial', '#ef4444',
+      'manufacturing', '#f59e0b',
+      'mixed', '#a855f7',
+      'special', '#3b82f6',
+      'transportation', '#06b6d4',
+      'waterfront', '#0ea5e9',
+      BUILDING_DEFAULT_COLOR,
+    ],
     // Fallback: color by zoning_code prefix if available
     ['has', 'zoning_code'],
     [

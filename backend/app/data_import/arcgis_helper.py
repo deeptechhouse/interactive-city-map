@@ -30,6 +30,8 @@ import structlog
 from shapely.geometry import shape, mapping
 from shapely.ops import transform
 
+from app.data_import.base_importer import HTTP_HEADERS
+
 logger = structlog.get_logger(__name__)
 
 try:  # optional: see REPROJECTION in the module docstring
@@ -119,7 +121,7 @@ class ArcGISFeatureServerClient:
         dict
             A GeoJSON FeatureCollection with all features reprojected to EPSG:4326.
         """
-        with httpx.Client(timeout=self._timeout, follow_redirects=True) as client:
+        with httpx.Client(timeout=self._timeout, follow_redirects=True, headers=HTTP_HEADERS) as client:
             try:
                 return self._download_by_offset(client)
             except _PaginationUnsupported:

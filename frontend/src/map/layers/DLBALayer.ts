@@ -1,5 +1,6 @@
 import type maplibregl from 'maplibre-gl';
 import type { LayerConfig } from '../../types/layer';
+import { vectorSourceSpec } from '../../utils/layerSourceHelper';
 
 const SOURCE_ID = 'dlba-source';
 
@@ -14,8 +15,10 @@ const STATUS_COLORS: Record<string, string> = {
   sold: '#8b949e',
 };
 
+// O(k) time, O(k) space — k = entries in the colour table
 function statusColorExpression(): unknown {
   const pairs: (string | string)[] = [];
+  // O(k) time, O(k) space — k = entries in the colour table
   for (const [status, color] of Object.entries(STATUS_COLORS)) {
     pairs.push(status.toLowerCase(), color);
   }
@@ -26,13 +29,14 @@ function statusColorExpression(): unknown {
  * Detroit Land Bank Authority (DLBA) properties layer.
  * Uses Martin vector tiles from PostGIS `dlba_properties` table.
  * Points/polygons colored by property status.
+ * O(1) time, O(1) space — n = 1 source + a fixed set of style layers
  */
 export function addDLBALayer(map: maplibregl.Map, config: LayerConfig): void {
   if (map.getSource(SOURCE_ID)) return;
 
   map.addSource(SOURCE_ID, {
     type: 'vector',
-    tiles: [config.sourceUrl],
+    ...vectorSourceSpec(config.sourceUrl),
     minzoom: 0,
     maxzoom: 16,
   });
@@ -93,6 +97,7 @@ export function addDLBALayer(map: maplibregl.Map, config: LayerConfig): void {
   } as maplibregl.AddLayerObject);
 }
 
+// O(1) time, O(1) space — n = fixed list of style layer ids
 export function getDLBALayerIds(configId: string): string[] {
   return [`${configId}-fill`, `${configId}-stroke`, `${configId}-label`];
 }

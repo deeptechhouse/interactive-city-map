@@ -9,6 +9,7 @@ import { loadJson, saveJson } from '../../utils/safeStorage';
 import { setSelectedBuildings } from '../SelectedBuildingsLayer';
 import { FOCUS_MASK_LAYER, setFocusMask } from '../../focus/FocusMaskLayer';
 import { useFocusArea } from '../../focus/useFocusArea';
+import { CHICAGO_PROFILE } from '../../cities/chicago';
 import { FocusAreaPanel } from '../../focus/FocusAreaPanel';
 import { ContactListPanel } from '../ContactListPanel';
 import { ContactListStore } from '../ContactListStore';
@@ -205,9 +206,10 @@ describe('phone lookup client', () => {
 // ---------------------------------------------------------------------------
 
 describe('useFocusArea + FocusAreaPanel', () => {
-  it('selecting a ward masks the map, persists, zooms and clears', () => {
+  it('selecting a ward masks the map, persists, zooms and clears', async () => {
     const map = fakeMap();
-    const { result } = renderHook(() => useFocusArea(asMap(map), true));
+    const { result } = renderHook(() => useFocusArea(asMap(map), CHICAGO_PROFILE.focus));
+    await act(async () => {}); // boundaries load asynchronously (city profiles are lazy)
     const { rerender } = render(<FocusAreaPanel focus={result.current} />);
     const rerenderPanel = () => rerender(<FocusAreaPanel focus={result.current} />);
 
@@ -234,9 +236,10 @@ describe('useFocusArea + FocusAreaPanel', () => {
     expect(outline.setData.mock.calls.at(-1)![0].features).toHaveLength(0);
   });
 
-  it('select-all/none per kind and the no-overlap warning', () => {
+  it('select-all/none per kind and the no-overlap warning', async () => {
     const map = fakeMap();
-    const { result } = renderHook(() => useFocusArea(asMap(map), true));
+    const { result } = renderHook(() => useFocusArea(asMap(map), CHICAGO_PROFILE.focus));
+    await act(async () => {}); // boundaries load asynchronously
     const { rerender } = render(<FocusAreaPanel focus={result.current} />);
     const again = () => rerender(<FocusAreaPanel focus={result.current} />);
 
@@ -262,7 +265,7 @@ describe('useFocusArea + FocusAreaPanel', () => {
   it('disabled (non-Chicago) never shows a mask', () => {
     saveJson('citymap.focusSelection.v1', { ward: ['1'] });
     const map = fakeMap();
-    renderHook(() => useFocusArea(asMap(map), false));
+    renderHook(() => useFocusArea(asMap(map), null));
     expect(map.sources.get('focus-mask-source')!.setData).toHaveBeenLastCalledWith({ type: 'FeatureCollection', features: [] });
   });
 });
@@ -305,7 +308,7 @@ describe('useContactList + ContactListPanel', () => {
     expect(screen.getByText('IL Secretary of State lookup ↗').getAttribute('target')).toBe('_blank');
     expect(screen.getByText('via google')).toBeTruthy();
     expect(screen.getByText('PEGABLO LLC')).toBeTruthy();
-    expect(screen.getByText(/only available for Chicago/)).toBeTruthy();
+    expect(screen.getByText(/isn't available for this city yet/)).toBeTruthy();
     expect(screen.getByText('No owner record found.')).toBeTruthy();
     expect(screen.getByText('Retry')).toBeTruthy();
 

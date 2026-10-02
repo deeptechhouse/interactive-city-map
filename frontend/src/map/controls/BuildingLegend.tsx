@@ -4,6 +4,27 @@ import { THEME } from '../../utils/colorSchemes';
 import { setSection } from '../../presets/searchState';
 import { useSearchSection } from '../../presets/SearchStateContext';
 
+// Legend key → the normalised zone_class the multi-city exporter writes on buildings.
+// Chicago's tiles have no zone_class, so for Chicago the zoning_code prefix rule applies.
+const ZONE_CLASS_FOR_KEY: Readonly<Record<string, string>> = {
+  R: 'residential',
+  'C/B': 'commercial',
+  M: 'manufacturing',
+  D: 'mixed',
+  P: 'special',
+};
+
+/**
+ * "Hide this zoning category": use zone_class when the building has one, else the
+ * Chicago zoning_code prefix condition.
+ * O(1) time, O(1) space — n = 1 expression.
+ */
+function hideZoning(key: string, prefixCondition: unknown[]): unknown[] {
+  const zoneClass = ZONE_CLASS_FOR_KEY[key];
+  if (!zoneClass) return prefixCondition;
+  return ['case', ['has', 'zone_class'], ['!=', ['get', 'zone_class'], zoneClass], prefixCondition];
+}
+
 const LEGEND_ITEMS = [
   { label: 'Residential', color: '#22c55e', key: 'R', zonePrefix: 'R' },
   { label: 'Commercial / Business', color: '#ef4444', key: 'C/B', zonePrefix: 'C' },
@@ -131,12 +152,12 @@ export const BuildingLegend: React.FC<BuildingLegendProps> = ({ map }) => {
             } else if (item.key === '—') {
               // Can't easily filter "other" — skip
             } else if (item.key === 'C/B') {
-              conditions.push(['!', ['any',
+              conditions.push(hideZoning(item.key, ['!', ['any',
                 ['==', ['slice', ['get', 'zoning_code'], 0, 1], 'C'],
                 ['==', ['slice', ['get', 'zoning_code'], 0, 1], 'B'],
-              ]]);
+              ]]));
             } else if (item.zonePrefix) {
-              conditions.push(['!=', ['slice', ['get', 'zoning_code'], 0, 1], item.zonePrefix]);
+              conditions.push(hideZoning(item.key, ['!=', ['slice', ['get', 'zoning_code'], 0, 1], item.zonePrefix]));
             }
           }
 

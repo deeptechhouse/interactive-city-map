@@ -1,5 +1,6 @@
 import type maplibregl from 'maplibre-gl';
 import type { LayerConfig } from '../../types/layer';
+import { vectorSourceSpec } from '../../utils/layerSourceHelper';
 
 const SOURCE_ID = 'neighborhoods-source';
 
@@ -7,13 +8,14 @@ const SOURCE_ID = 'neighborhoods-source';
  * Detroit neighborhoods layer — 205 neighborhoods from Dept. of Neighborhoods.
  * Uses Martin vector tiles from the PostGIS `neighborhoods` table.
  * Renders as fill polygons with name labels.
+ * O(1) time, O(1) space — n = 1 source + a fixed set of style layers
  */
 export function addNeighborhoodLayer(map: maplibregl.Map, config: LayerConfig): void {
   if (map.getSource(SOURCE_ID)) return;
 
   map.addSource(SOURCE_ID, {
     type: 'vector',
-    tiles: [config.sourceUrl],
+    ...vectorSourceSpec(config.sourceUrl),
     minzoom: 0,
     maxzoom: 16,
   });
@@ -83,6 +85,7 @@ export function addNeighborhoodLayer(map: maplibregl.Map, config: LayerConfig): 
   } as maplibregl.AddLayerObject);
 }
 
+// O(1) time, O(1) space — n = fixed list of style layer ids
 export function getNeighborhoodLayerIds(configId: string): string[] {
   return [`${configId}-fill`, `${configId}-stroke`, `${configId}-label`];
 }

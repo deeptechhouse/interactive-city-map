@@ -18,12 +18,8 @@
  * A failure in one source is recorded in ``note`` and the others still fill in — a
  * county API outage shouldn't hide the businesses.
  */
-import {
-  ChicagoLicenseSource,
-  CookCountyOwnerSource,
-  type BusinessSource,
-  type OwnerSource,
-} from './publicRecords';
+import type { BusinessSource, OwnerSource } from './publicRecords';
+import { getCityProfile } from '../cities/registry';
 import { createPhoneLookup, type PhoneLookup } from './phoneLookup';
 import { createOwnerLookup, UnavailableOwnerLookup, type OwnerAnswer, type OwnerLookup } from './ownerLookup';
 import {
@@ -44,22 +40,40 @@ type Looked<T> = { contact: T; unavailableReason?: string };
 // little gain. Others can still be looked up by hand.
 export const MAX_COMPANY_LOOKUPS = 3;
 
+/** Where the buildings are — fills phone-lookup locality and CSV city/state. */
+export interface ResolverPlace {
+  /** Locality as a search engine expects it ("Chicago"). */
+  readonly locality: string;
+  /** Two-letter state ("IL"). */
+  readonly region: string;
+}
+
+const CHICAGO_PLACE: ResolverPlace = { locality: 'Chicago', region: 'IL' };
+
 export class ContactResolver {
   constructor(
     private readonly owners: OwnerSource,
     private readonly businesses: BusinessSource,
     private readonly phones: PhoneLookup,
     private readonly ownerLookup: OwnerLookup = new UnavailableOwnerLookup(),
+    private readonly place: ResolverPlace = CHICAGO_PLACE,
   ) {}
 
-  /** Factory for a city. Only Chicago has sources today; others get a clear note. */
+  /**
+   * Factory for a city, from its CityProfile's contact sources. A city without sources
+   * (profile.contacts === null) gets null, and the panel shows a clear note instead of
+   * looking up another city's records.
+   * O(1) time, O(1) space — n = 1 resolver.
+   */
   static forCity(city: string): ContactResolver | null {
-    if (city !== 'chicago') return null;
+    const profile = getCityProfile(city);
+    if (!profile?.contacts) return null;
     return new ContactResolver(
-      new CookCountyOwnerSource(),
-      new ChicagoLicenseSource(),
+      profile.contacts.owners,
+      profile.contacts.businesses,
       createPhoneLookup(city),
       createOwnerLookup(),
+      { locality: profile.name, region: profile.state },
     );
   }
 
@@ -76,9 +90,14 @@ export class ContactResolver {
       this.businesses.findBusinesses(pick.address, pick.lngLat),
     ]);
     let owners = ownerResult.status === 'fulfilled' ? ownerResult.value : [];
-    if (ownerResult.status === 'rejected') notes.push('Owner records unavailable (Cook County data portal error).');
-    let businesses = bizResult.status === 'fulfilled' ? bizResult.value : [];
-    if (bizResult.status === 'rejected') notes.push('Business licences unavailable (Chicago data portal error).');
+    if (ownerResult.status === 'rejected') notes.push('Owner records unavailable (county data portal error).');
+    // Stamp the city so the CSV writes DETROIT, MI for a Detroit business (it used to
+    // write CHICAGO, IL for every row).
+    let businesses: BusinessContact[] = bizResult.status === 'fulfilled'
+      // O(b) time, O(b) space — b = businesses found
+      ? bizResult.value.map((b) => ({ ...b, city: b.city || this.place.locality.toUpperCase(), state: b.state || this.place.region }))
+      : [];
+    if (bizResult.status === 'rejected') notes.push('Business records unavailable (city data portal error).');
 
     const bothFailed = ownerResult.status === 'rejected' && bizResult.status === 'rejected';
     // Mark the owner companies we are about to search so the panel shows "searching…".
@@ -126,7 +145,9 @@ export class ContactResolver {
     b: BusinessContact,
     lngLat: [number, number],
   ): Promise<Looked<BusinessContact>> {
-    const answer = await this.phones.lookup({ name: b.name, address: b.address, lngLat });
+    const answer = await this.phones.lookup({
+      name: b.name, address: b.address, lngLat, locality: this.place.locality, region: this.place.region,
+    });
     switch (answer.status) {
       case 'found':
         return {
@@ -148,8 +169,8 @@ export class ContactResolver {
     const answer = await this.phones.lookup({
       name: o.name,
       address: addr.street,
-      locality: addr.city || 'Chicago',
-      region: addr.state || 'IL',
+      locality: addr.city || this.place.locality,
+      region: addr.state || this.place.region,
     });
     switch (answer.status) {
       case 'found':

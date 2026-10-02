@@ -3,6 +3,12 @@ import type { LayerConfig } from '../../types/layer';
 
 const SOURCE_ID = 'parks-source';
 
+/**
+ * Parks fill + outline + labels. Chicago's parks live in the 'parcels' source-layer (its
+ * parcels table holds only parks); other cities pass sourceLayer 'parks' via their
+ * profile, because their parcels tables hold every parcel.
+ * O(1) time, O(1) space — n = 1 source + 3 style layers.
+ */
 export function addParkLayer(map: maplibregl.Map, config: LayerConfig): void {
   if (map.getSource(SOURCE_ID)) return;
 
@@ -19,7 +25,7 @@ export function addParkLayer(map: maplibregl.Map, config: LayerConfig): void {
     id: `${config.id}-fill`,
     type: 'fill',
     source: SOURCE_ID,
-    'source-layer': 'parcels',
+    'source-layer': config.sourceLayer ?? 'parcels',
     layout: {
       visibility: config.visible ? 'visible' : 'none',
     },
@@ -39,7 +45,7 @@ export function addParkLayer(map: maplibregl.Map, config: LayerConfig): void {
     id: `${config.id}-stroke`,
     type: 'line',
     source: SOURCE_ID,
-    'source-layer': 'parcels',
+    'source-layer': config.sourceLayer ?? 'parcels',
     layout: {
       visibility: config.visible ? 'visible' : 'none',
     },
@@ -59,7 +65,7 @@ export function addParkLayer(map: maplibregl.Map, config: LayerConfig): void {
     id: `${config.id}-label`,
     type: 'symbol',
     source: SOURCE_ID,
-    'source-layer': 'parcels',
+    'source-layer': config.sourceLayer ?? 'parcels',
     minzoom: 13,
     layout: {
       visibility: config.visible ? 'visible' : 'none',
@@ -83,6 +89,7 @@ export function addParkLayer(map: maplibregl.Map, config: LayerConfig): void {
   } as maplibregl.AddLayerObject);
 }
 
+// O(1) time, O(1) space — n = 3 style layer ids
 export function getParkLayerIds(configId: string): string[] {
   return [`${configId}-fill`, `${configId}-stroke`, `${configId}-label`];
 }

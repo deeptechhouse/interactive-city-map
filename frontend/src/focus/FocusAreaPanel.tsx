@@ -4,7 +4,7 @@
  */
 import React, { useMemo, useState } from 'react';
 import { FOCUS_KINDS, type FocusKind } from './focusGeometry';
-import { AREA_OPTIONS, KIND_LABELS } from './focusAreas';
+import type { AreaOption } from './focusAreas';
 import type { UseFocusAreaReturn } from './useFocusArea';
 
 interface FocusAreaPanelProps {
@@ -13,36 +13,39 @@ interface FocusAreaPanelProps {
 
 interface KindListProps {
   kind: FocusKind;
+  /** This city's options and name for the kind (from the city profile via useFocusArea). */
+  options: readonly AreaOption[];
+  label: string;
   selected: readonly string[];
   onToggle: (kind: FocusKind, id: string) => void;
   onSetAll: (kind: FocusKind, ids: readonly string[]) => void;
 }
 
 /** One collapsible, searchable checkbox list (e.g. all 50 wards). */
-const KindList: React.FC<KindListProps> = ({ kind, selected, onToggle, onSetAll }) => {
+const KindList: React.FC<KindListProps> = ({ kind, options, label, selected, onToggle, onSetAll }) => {
   const [query, setQuery] = useState('');
   const selectedSet = useMemo(() => new Set(selected), [selected]); // O(s)
   // O(n) filter — n = options for this kind (≤ 59).
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return q ? AREA_OPTIONS[kind].filter((o) => o.label.toLowerCase().includes(q)) : AREA_OPTIONS[kind];
-  }, [kind, query]);
+    return q ? options.filter((o) => o.label.toLowerCase().includes(q)) : options;
+  }, [options, query]);
 
   const searchId = `focus-search-${kind}`;
   return (
     <details className="tools-section__group" open={selected.length > 0}>
       <summary className="tools-section__summary">
-        {KIND_LABELS[kind]}
+        {label}
         {selected.length > 0 && <span className="tools-badge">{selected.length}</span>}
       </summary>
       <label htmlFor={searchId} className="visually-hidden">
-        Search {KIND_LABELS[kind]}
+        Search {label}
       </label>
       <input
         id={searchId}
         className="tools-input"
         type="search"
-        placeholder={`Search ${KIND_LABELS[kind].toLowerCase()}…`}
+        placeholder={`Search ${label.toLowerCase()}…`}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
@@ -54,7 +57,7 @@ const KindList: React.FC<KindListProps> = ({ kind, selected, onToggle, onSetAll 
           None
         </button>
       </div>
-      <ul className="tools-checklist" aria-label={KIND_LABELS[kind]}>
+      <ul className="tools-checklist" aria-label={label}>
         {visible.map((opt) => (
           <li key={opt.id}>
             <label className="tools-check">
@@ -107,6 +110,8 @@ export const FocusAreaPanel: React.FC<FocusAreaPanelProps> = ({ focus }) => {
         <KindList
           key={kind}
           kind={kind}
+          options={focus.options[kind]}
+          label={focus.kindLabels[kind]}
           selected={selection[kind]}
           onToggle={toggle}
           onSetAll={setKindIds}

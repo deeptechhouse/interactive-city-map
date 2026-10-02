@@ -21,7 +21,7 @@ import httpx
 from shapely.geometry import shape, mapping, Point
 from shapely import LineString, MultiLineString
 
-from app.data_import.base_importer import BaseImporter
+from app.data_import.base_importer import HTTP_HEADERS, BaseImporter
 
 # Official CTA L line colors (Chicago)
 CTA_LINE_COLORS: dict[str, str] = {
@@ -104,9 +104,12 @@ class TransitImporter(BaseImporter):
     layer_name = "transit"
 
     def download(self) -> Path:
-        cached = self._load_json_cache()
+        # TRAP (fixed 2026-10-02): this read the default ".geojson" cache while download
+        # saves ".json", so the cache never hit — every run re-downloaded, and Overpass
+        # started answering 504 to the repeats.
+        cached = self._load_json_cache(suffix=".json")
         if cached:
-            return self._cache_path()
+            return self._cache_path(".json")
 
         if _is_gtfs_config(self._config):
             return self._download_gtfs()
@@ -174,7 +177,7 @@ class TransitImporter(BaseImporter):
         - stops.txt: stop_id, stop_name, stop_lat, stop_lon
         """
         # Download the ZIP file
-        with httpx.Client(timeout=120.0, follow_redirects=True) as client:
+        with httpx.Client(timeout=120.0, follow_redirects=True, headers=HTTP_HEADERS) as client:
             resp = client.get(url)
             resp.raise_for_status()
             zip_bytes = resp.content

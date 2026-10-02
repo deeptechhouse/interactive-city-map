@@ -1,34 +1,13 @@
 import React, { useCallback, useEffect } from 'react';
 import type maplibregl from 'maplibre-gl';
-import { THEME, RAILROAD_COLORS, RAILROAD_STATUS_STYLES } from '../../utils/colorSchemes';
+import { THEME } from '../../utils/colorSchemes';
 import { setSection } from '../../presets/searchState';
 import { useSearchSection } from '../../presets/SearchStateContext';
+import { CHICAGO_OWNERSHIP_TYPES as OWNERSHIP_TYPES, CHICAGO_RAILROAD_OWNERS as RAILROAD_OWNERS } from '../../utils/railroadTaxonomy';
 
 interface RailroadFilterProps {
   map: maplibregl.Map | null;
 }
-
-const RAILROAD_OWNERS = [
-  { key: 'BNSF', label: 'BNSF', color: RAILROAD_COLORS.BNSF },
-  { key: 'CP', label: 'CP/CPKC', color: RAILROAD_COLORS.CP },
-  { key: 'NS', label: 'Norfolk Southern', color: RAILROAD_COLORS.NS },
-  { key: 'CSX', label: 'CSX', color: RAILROAD_COLORS.CSX },
-  { key: 'CN', label: 'Canadian National', color: RAILROAD_COLORS.CN },
-  { key: 'CTA', label: 'CTA', color: RAILROAD_COLORS.CTA },
-  { key: '_other', label: 'Other', color: '#888888' },
-];
-
-const OWNERSHIP_TYPES = [
-  { key: 'government_transit', label: 'Public Transit (CTA/Metra/NICTD)', color: '#06b6d4' },
-  { key: 'government_passenger', label: 'Amtrak (Federal)', color: '#8b5cf6' },
-  { key: 'city_owned', label: 'City of Chicago', color: '#ec4899' },
-  { key: 'county_owned', label: 'Cook County', color: '#14b8a6' },
-  { key: 'private_class1', label: 'Private — Class I', color: '#ef4444' },
-  { key: 'private_terminal', label: 'Private — Terminal/Switching', color: '#f97316' },
-  { key: 'private_shortline', label: 'Private — Short Line', color: '#eab308' },
-  { key: 'private_industrial', label: 'Private — Industrial', color: '#78716c' },
-  { key: 'unknown', label: 'Unknown Ownership', color: '#6b7280' },
-];
 
 const RAILROAD_STATUSES = [
   { key: 'active', label: 'Active', style: '━━━', color: '#22c55e' },

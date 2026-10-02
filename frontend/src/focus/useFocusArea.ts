@@ -21,11 +21,26 @@ import {
   type FocusMode,
   type FocusSelection,
 } from './focusGeometry';
-import { CHICAGO_BOUNDARIES } from './focusAreas';
+import type { AreaOption } from './focusAreas';
+import type { BoundaryIndex } from './focusGeometry';
+import type { FocusConfig } from '../cities/CityProfile';
 import { setFocusMask } from './FocusMaskLayer';
 import { loadJson, saveJson } from '../utils/safeStorage';
 
 const STORAGE_KEY = 'citymap.focusSelection.v1';
+
+/**
+ * Saved selection per city. Chicago keeps the original key so selections saved before
+ * multi-city still load; other cities get their own key (a Detroit precinct id must
+ * never be applied to Chicago's districts).
+ * O(1) time, O(1) space — n = 1 key.
+ */
+export function focusStorageKey(citySlug: string): string {
+  return citySlug === 'chicago' ? STORAGE_KEY : `${STORAGE_KEY}.${citySlug}`;
+}
+
+const NO_OPTIONS: Record<FocusKind, readonly AreaOption[]> = { zip: [], police: [], ward: [] };
+const DEFAULT_LABELS: Record<FocusKind, string> = { zip: 'Zip codes', police: 'Police', ward: 'Wards' };
 
 /** Validate untrusted saved state; anything malformed becomes the empty selection. O(n). */
 export function parseSavedSelection(raw: unknown): FocusSelection {
@@ -48,21 +63,54 @@ export interface UseFocusAreaReturn {
   replace: (raw: unknown) => void;
   clear: () => void;
   zoomToFocus: () => void;
+  /** Checklist options per kind for the current city (empty until boundaries load). */
+  options: Record<FocusKind, readonly AreaOption[]>;
+  /** What each kind is called in this city ("Council districts", "Police areas"…). */
+  kindLabels: Readonly<Record<FocusKind, string>>;
 }
 
-export function useFocusArea(map: maplibregl.Map | null, enabled: boolean): UseFocusAreaReturn {
+/**
+ * Focus-area state for the current city. `config` null = the city offers no focus areas
+ * (the panel is hidden and the mask is cleared).
+ * O(1) per render; geometry work is memoised on selection/boundary changes.
+ */
+export function useFocusArea(
+  map: maplibregl.Map | null,
+  config: FocusConfig | null,
+  citySlug: string = 'chicago',
+): UseFocusAreaReturn {
+  const storageKey = focusStorageKey(citySlug);
   const [selection, setSelection] = useState<FocusSelection>(() =>
-    parseSavedSelection(loadJson(STORAGE_KEY)),
+    parseSavedSelection(loadJson(storageKey)),
   );
+  const [boundaries, setBoundaries] = useState<BoundaryIndex | null>(null);
 
-  useEffect(() => saveJson(STORAGE_KEY, selection), [selection]);
+  // City switch: load that city's saved selection and boundaries (lazy — another city's
+  // polygons are only fetched when the user picks that city).
+  useEffect(() => {
+    setSelection(parseSavedSelection(loadJson(storageKey)));
+    setBoundaries(null);
+    if (!config) return;
+    let cancelled = false;
+    config
+      .loadBoundaries()
+      .then((index) => { if (!cancelled) setBoundaries(index); })
+      .catch(() => { if (!cancelled) setBoundaries(null); });
+    return () => { cancelled = true; };
+  }, [config, storageKey]);
+
+  useEffect(() => saveJson(storageKey, selection), [storageKey, selection]);
 
   // Geometry is the expensive part (polygon clipping) — only recompute on selection change.
   const shape = useMemo(
-    () => (isEmptySelection(selection) ? null : buildFocusShape(selection, CHICAGO_BOUNDARIES)),
-    [selection],
+    () => (isEmptySelection(selection) || !boundaries ? null : buildFocusShape(selection, boundaries)),
+    [selection, boundaries],
   );
-  const active = enabled && !isEmptySelection(selection);
+  const options = useMemo(
+    () => (config && boundaries ? config.optionsFor(boundaries) : NO_OPTIONS),
+    [config, boundaries],
+  );
+  const active = config !== null && boundaries !== null && !isEmptySelection(selection);
   const mask = useMemo(() => (active ? buildMask(shape) : null), [active, shape]);
 
   useEffect(() => {
@@ -106,6 +154,8 @@ export function useFocusArea(map: maplibregl.Map | null, enabled: boolean): UseF
     replace,
     clear,
     zoomToFocus,
+    options,
+    kindLabels: config?.kindLabels ?? DEFAULT_LABELS,
   };
 }
 

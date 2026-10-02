@@ -69,6 +69,7 @@ credentials.json
 frontend/public/data/*.pmtiles
 # Per-city static packs (built by backend/scripts/export_city_static.py, never committed)
 frontend/public/data/*/*.pmtiles
+frontend/public/data/*/*.geojson
 frontend/dist-static/
 frontend/dist-offline/
 .venv-*/

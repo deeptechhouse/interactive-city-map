@@ -1,8 +1,8 @@
 import type maplibregl from 'maplibre-gl';
 import type { LayerConfig } from '../../types/layer';
+import { vectorSourceSpec } from '../../utils/layerSourceHelper';
 
 const BLIGHT_SOURCE = 'blight-violations-source';
-const DLBA_SOURCE = 'dlba-source';
 
 /**
  * Abandoned & Blight composite layer for Detroit.
@@ -24,13 +24,14 @@ const DLBA_SOURCE = 'dlba-source';
  *   - DLBA (auction): #22c55e (green)
  *   - DLBA (side lot): #eab308 (yellow)
  *   - DLBA (demolition): #ef4444 (red)
+ * O(1) time, O(1) space — n = 1 source + a fixed set of style layers
  */
 export function addBlightLayer(map: maplibregl.Map, config: LayerConfig): void {
   // --- Blight violations source (points from Martin) ---
   if (!map.getSource(BLIGHT_SOURCE)) {
     map.addSource(BLIGHT_SOURCE, {
       type: 'vector',
-      tiles: [config.sourceUrl],
+      ...vectorSourceSpec(config.sourceUrl),
       minzoom: 0,
       maxzoom: 16,
     });
@@ -131,6 +132,7 @@ export function addBlightLayer(map: maplibregl.Map, config: LayerConfig): void {
   } as maplibregl.AddLayerObject);
 }
 
+// O(1) time, O(1) space — n = fixed list of style layer ids
 export function getBlightLayerIds(configId: string): string[] {
   return [
     `${configId}-blight-points`,

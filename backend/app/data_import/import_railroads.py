@@ -41,9 +41,12 @@ class RailroadsImporter(BaseImporter):
     layer_name = "railroads"
 
     def download(self) -> Path:
-        cached = self._load_json_cache()
+        # TRAP (fixed 2026-10-02): this read the default ".geojson" cache while download
+        # saves ".json", so the cache never hit — every run re-downloaded, and Overpass
+        # started answering 504 to the repeats.
+        cached = self._load_json_cache(suffix=".json")
         if cached:
-            return self._cache_path()
+            return self._cache_path(".json")
 
         bbox = self._config.get("osm_overpass_bbox", "41.64,-87.94,42.02,-87.52")
         query = _build_overpass_query(bbox)

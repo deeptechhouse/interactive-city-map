@@ -3,9 +3,12 @@ import type maplibregl from 'maplibre-gl';
 import { THEME } from '../../utils/colorSchemes';
 import { setSection } from '../../presets/searchState';
 import { useSearchSection } from '../../presets/SearchStateContext';
+import { getCityProfile } from '../../cities/registry';
 
 interface POICategoryFilterProps {
   map: maplibregl.Map | null;
+  /** Current city — its profile supplies the per-category counts (default Chicago). */
+  citySlug?: string;
 }
 
 const POI_CATEGORIES = [
@@ -107,7 +110,11 @@ const styles = {
 // Saved in presets — the key is persisted, never rename it. Value = VISIBLE categories.
 const ACTIVE_CATEGORIES_SECTION = setSection('pois.activeCategories', POI_CATEGORIES.map((c) => c.key), 'all');
 
-export const POICategoryFilter: React.FC<POICategoryFilterProps> = ({ map }) => {
+export const POICategoryFilter: React.FC<POICategoryFilterProps> = ({ map, citySlug = 'chicago' }) => {
+  // Counts come from the city's export (cities/<slug>/taxonomies.ts). Chicago's profile has
+  // none, so Chicago keeps the counts in POI_CATEGORIES above.
+  const cityCounts = getCityProfile(citySlug)?.poiCategoryCounts ?? {};
+  const hasCityCounts = Object.keys(cityCounts).length > 0;
   const [collapsed, setCollapsed] = useState(true);
   const [activeCategories, setActiveCategories] = useSearchSection(ACTIVE_CATEGORIES_SECTION);
 
@@ -175,7 +182,7 @@ export const POICategoryFilter: React.FC<POICategoryFilterProps> = ({ map }) => 
           />
           <span style={{ ...styles.dot, background: cat.color }} />
           {cat.label}
-          <span style={styles.count}>{cat.count}</span>
+          <span style={styles.count}>{hasCityCounts ? (cityCounts[cat.key] ?? 0) : cat.count}</span>
         </label>
       ))}
     </div>

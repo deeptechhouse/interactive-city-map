@@ -22,6 +22,11 @@ import { useSearchSection } from '../../presets/SearchStateContext';
 
 interface ZoningFilterProps {
   map: maplibregl.Map | null;
+  /** City catalogue (defaults to Chicago's). Mount with key={citySlug} so switching city
+   *  remounts the panel with the new catalogue and section. */
+  classes?: readonly ZoneClass[];
+  /** City slug — selects the preset section; Chicago keeps the original key. */
+  citySlug?: string;
 }
 
 /** Layer IDs that belong to the zoning layer (see layers/ZoningLayer.ts). */
@@ -30,6 +35,24 @@ const ZONING_LAYER_IDS = ['zoning-fill', 'zoning-stroke', 'zoning-label'];
 // Saved in presets — the key is persisted, never rename it. Value = VISIBLE type keys.
 // Lives in the search store, not useState, because this panel unmounts while the layer is off.
 const ACTIVE_TYPES_SECTION = setSection('zoning.activeTypes', allTypeKeys(), 'all');
+
+// Other cities get their own section (a Detroit "R2" must never be applied to Chicago).
+// Section identity matters to the search store, so each is created once and cached.
+const CITY_SECTIONS = new Map<string, ReturnType<typeof setSection>>();
+
+/**
+ * Preset section for a city's zoning selection.
+ * O(t) time, O(t) space — t = that city's type keys (paid once per city, then cached).
+ */
+function zoningSection(citySlug: string, classes: readonly ZoneClass[]): ReturnType<typeof setSection> {
+  if (citySlug === 'chicago') return ACTIVE_TYPES_SECTION;
+  let section = CITY_SECTIONS.get(citySlug);
+  if (!section) {
+    section = setSection(`zoning.activeTypes.${citySlug}`, allTypeKeys(classes), 'all');
+    CITY_SECTIONS.set(citySlug, section);
+  }
+  return section;
+}
 
 const styles = {
   container: {
@@ -107,8 +130,9 @@ const TriStateCheckbox: React.FC<{
   );
 };
 
-export const ZoningFilter: React.FC<ZoningFilterProps> = ({ map }) => {
-  const [active, setActive] = useSearchSection(ACTIVE_TYPES_SECTION);
+// O(t) time per render, O(t) space — t = zoning types in the city's catalogue
+export const ZoningFilter: React.FC<ZoningFilterProps> = ({ map, classes = ZONE_CLASSES, citySlug = 'chicago' }) => {
+  const [active, setActive] = useSearchSection(zoningSection(citySlug, classes));
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
 
   // O(1) per toggle (Set copy is O(t), t ≈ 40 types).
@@ -125,8 +149,10 @@ export const ZoningFilter: React.FC<ZoningFilterProps> = ({ map }) => {
   const toggleClass = useCallback((cls: ZoneClass) => {
     setActive((prev) => {
       const keys = typeKeysOfClass(cls);
+      // O(t_c) time, O(1) space — t_c = types in the class
       const allOn = keys.every((k) => prev.has(k));
       const next = new Set(prev);
+      // O(t_c) time, O(1) space — t_c = types in the class
       for (const k of keys) {
         if (allOn) next.delete(k);
         else next.add(k);
@@ -147,7 +173,8 @@ export const ZoningFilter: React.FC<ZoningFilterProps> = ({ map }) => {
   // Apply the filter to every zoning sublayer. O(t) to build the expression.
   useEffect(() => {
     if (!map) return;
-    const filter = buildZoningFilter(active) as maplibregl.FilterSpecification | null;
+    const filter = buildZoningFilter(active, classes) as maplibregl.FilterSpecification | null;
+    // O(1) time, O(1) space — n = 3 zoning sublayers
     for (const layerId of ZONING_LAYER_IDS) {
       try {
         if (map.getLayer(layerId)) map.setFilter(layerId, filter);
@@ -155,57 +182,75 @@ export const ZoningFilter: React.FC<ZoningFilterProps> = ({ map }) => {
         /* layer removed between check and set — harmless */
       }
     }
-  }, [map, active]);
+  }, [map, active, classes]);
+
+  /**
+   * Checkbox rows for one class's types plus its "Other" bucket.
+   * O(t_c) time, O(t_c) space — t_c = types in the class.
+   */
+  const typeRows = (cls: ZoneClass) => {
+    const options = [
+      // O(t_c) time, O(t_c) space — t_c = types in the class
+      ...cls.types.map((t) => ({ key: t.key, label: t.label })),
+      { key: `${cls.key}${OTHER_SUFFIX}`, label: `Other ${cls.label.toLowerCase()}` },
+    ];
+    // O(t_c) time, O(t_c) space — t_c = options in the class
+    return options.map((t) => (
+      <label key={t.key} style={styles.typeRow}>
+        <input
+          type="checkbox"
+          checked={active.has(t.key)}
+          onChange={() => toggleType(t.key)}
+          style={styles.checkbox}
+        />
+        {t.label}
+      </label>
+    ));
+  };
+
+  // O(t) time, O(t) space — t = types across classes (each class handles only its own)
+  const classBlocks = classes.map((cls) => {
+    const keys = typeKeysOfClass(cls);
+    // bigo-lint: disable=BIGO006 — amortised: each class filters only its own keys (t)
+    // O(t_c) time, O(t_c) space — t_c = types in the class
+    const onCount = keys.filter((k) => active.has(k)).length;
+    const isOpen = expanded.has(cls.key);
+    return (
+      <div key={cls.key}>
+        <div style={styles.classRow}>
+          <TriStateCheckbox
+            checked={onCount === keys.length}
+            indeterminate={onCount > 0 && onCount < keys.length}
+            onChange={() => toggleClass(cls)}
+            label={`All ${cls.label} zoning`}
+          />
+          <span style={{ ...styles.colorDot, background: cls.color }} />
+          <span>{cls.label}</span>
+          {cls.types.length > 0 && (
+            <button
+              type="button"
+              style={styles.expand}
+              onClick={() => toggleExpanded(cls.key)}
+              aria-expanded={isOpen}
+              aria-label={`${isOpen ? 'Hide' : 'Show'} ${cls.label} types`}
+            >
+              {isOpen ? '▾' : '▸'} {onCount}/{keys.length}
+            </button>
+          )}
+        </div>
+        {isOpen && (
+          <div style={{ paddingLeft: '18px', borderLeft: `2px solid ${cls.color}`, margin: '2px 0 4px 4px' }}>
+            {typeRows(cls)}
+          </div>
+        )}
+      </div>
+    );
+  });
 
   return (
     <div style={styles.container}>
       <div style={styles.title}>Zoning types</div>
-      {ZONE_CLASSES.map((cls) => {
-        const keys = typeKeysOfClass(cls);
-        const onCount = keys.filter((k) => active.has(k)).length; // O(t_c)
-        const isOpen = expanded.has(cls.key);
-        return (
-          <div key={cls.key}>
-            <div style={styles.classRow}>
-              <TriStateCheckbox
-                checked={onCount === keys.length}
-                indeterminate={onCount > 0 && onCount < keys.length}
-                onChange={() => toggleClass(cls)}
-                label={`All ${cls.label} zoning`}
-              />
-              <span style={{ ...styles.colorDot, background: cls.color }} />
-              <span>{cls.label}</span>
-              {cls.types.length > 0 && (
-                <button
-                  type="button"
-                  style={styles.expand}
-                  onClick={() => toggleExpanded(cls.key)}
-                  aria-expanded={isOpen}
-                  aria-label={`${isOpen ? 'Hide' : 'Show'} ${cls.label} types`}
-                >
-                  {isOpen ? '▾' : '▸'} {onCount}/{keys.length}
-                </button>
-              )}
-            </div>
-            {isOpen && (
-              <div style={{ paddingLeft: '18px', borderLeft: `2px solid ${cls.color}`, margin: '2px 0 4px 4px' }}>
-                {[...cls.types.map((t) => ({ key: t.key, label: t.label })),
-                  { key: `${cls.key}${OTHER_SUFFIX}`, label: `Other ${cls.label.toLowerCase()}` }].map((t) => (
-                  <label key={t.key} style={styles.typeRow}>
-                    <input
-                      type="checkbox"
-                      checked={active.has(t.key)}
-                      onChange={() => toggleType(t.key)}
-                      style={styles.checkbox}
-                    />
-                    {t.label}
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
+      {classBlocks}
     </div>
   );
 };

@@ -16,6 +16,13 @@ import structlog
 
 logger = structlog.get_logger(__name__)
 
+# Every outbound request identifies the project. TRAP (2026-10-02): overpass-api.de
+# answers HTTP 406 to default user agents (curl, python-httpx, a bare browser UA), so the
+# OSM railroad/POI importers failed for every city until requests carried a real UA.
+# ADJUSTABLE: add contact info here if a data provider asks for it.
+USER_AGENT = "interactive-city-map/0.1 (+static build)"
+HTTP_HEADERS = {"User-Agent": USER_AGENT}
+
 # Cache downloaded files here so re-runs don't re-download
 CACHE_DIR = Path(tempfile.gettempdir()) / "citymap_import_cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -86,7 +93,7 @@ class BaseImporter(ABC):
     def _http_get_json(self, url: str, timeout: float = 120.0) -> dict | list:
         """GET a URL and return parsed JSON."""
         self._log.info("http_get", url=url[:120])
-        with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+        with httpx.Client(timeout=timeout, follow_redirects=True, headers=HTTP_HEADERS) as client:
             resp = client.get(url)
             resp.raise_for_status()
             return resp.json()
@@ -94,7 +101,7 @@ class BaseImporter(ABC):
     def _http_post_json(self, url: str, data: str, timeout: float = 180.0) -> dict:
         """POST a body and return parsed JSON (for Overpass API)."""
         self._log.info("http_post", url=url[:120])
-        with httpx.Client(timeout=timeout) as client:
+        with httpx.Client(timeout=timeout, headers=HTTP_HEADERS) as client:
             resp = client.post(url, content=data, headers={"Content-Type": "application/x-www-form-urlencoded"})
             resp.raise_for_status()
             return resp.json()

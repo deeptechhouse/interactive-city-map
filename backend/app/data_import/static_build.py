@@ -50,8 +50,9 @@ from app.data_import.base_importer import BaseImporter
 
 logger = structlog.get_logger(__name__)
 
-# Row keys that are database plumbing, never map properties.
-_DROP_KEYS = frozenset({"id", "city_id", "geom_json", "geom", "metadata"})
+# Row keys that are database plumbing, never map properties. `id` is KEPT: the building
+# popup's "Add to contact list" / "Open details" buttons need a stable feature id.
+_DROP_KEYS = frozenset({"city_id", "geom_json", "geom", "metadata"})
 
 
 def _identity(rows: list[dict]) -> list[dict]:
@@ -227,19 +228,24 @@ def build_city(
     # O(L) time, O(L) space — L = layers in the plan
     chosen = [s for s in plan.layers if only is None or s.layer_id in only]
     rows: dict[str, list[dict]] = {}
+    # One importer run per (class, config) — transit feeds two tile layers from ONE
+    # download+transform, which used to run twice (and fetch every GTFS zip twice).
+    transformed: dict[tuple, list[dict]] = {}
     # O(N) time, O(N) space — N = rows across all layers (download/transform are linear)
     for static_layer in chosen:
         # bigo-lint: disable=BIGO006 — 1–2 tile layers per archive, fixed by the plan
         # O(t) time, O(R) space — t = tile layers in this archive; R = rows they return
         for tile_layer in static_layer.tile_layers:
-            importer = tile_layer.importer(
-                db_url="", city_id=plan.slug,
-                config=importer_config(sources, tile_layer.config_keys),
-            )
+            run_key = (tile_layer.importer, tile_layer.config_keys)
             log = logger.bind(city=plan.slug, layer=tile_layer.name)
             try:
-                raw = importer.download()
-                rows[tile_layer.name] = tile_layer.select(importer.transform(raw))
+                if run_key not in transformed:
+                    importer = tile_layer.importer(
+                        db_url="", city_id=plan.slug,
+                        config=importer_config(sources, tile_layer.config_keys),
+                    )
+                    transformed[run_key] = importer.transform(importer.download())
+                rows[tile_layer.name] = tile_layer.select(transformed[run_key])
             except Exception:
                 log.exception("static_layer_failed")
                 continue

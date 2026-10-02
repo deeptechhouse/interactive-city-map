@@ -1,120 +1,30 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { LayerGroup, LayerState } from '../../types/layer';
 import { LAYER_GROUP_LABELS } from '../../types/layer';
-import { martinTileUrl } from '../../utils/geoUtils';
 import { IS_STATIC } from '../../utils/staticMode';
+import { getCityProfile } from '../../cities/registry';
 
 /**
- * Default layer definitions for a city. Exported for tests (Chicago's list is pinned).
- * O(l) time, O(l) space — l = layers offered (~15).
+ * Layer list for a city, from its CityProfile (src/cities/<slug>/). Unknown city → no
+ * layers (fail closed — never another city's data). Exported for tests: Chicago's list
+ * is pinned in createDefaultLayers.test.ts.
+ * O(l) time, O(l) space — l = layers the city offers (~15).
  */
 export function createDefaultLayers(citySlug: string): LayerState[] {
-  const base: LayerState[] = [
-    // Infrastructure
-    { id: 'railroads', name: 'Railroads', group: 'infrastructure', visible: true, opacity: 1 },
-    {
-      id: 'transit',
-      name: citySlug === 'detroit' ? 'Transit (DDOT/SMART/QLine/PM)' : 'CTA Transit',
-      group: 'infrastructure',
-      visible: true,
-      opacity: 1,
-    },
-    { id: 'waterways', name: 'Waterways', group: 'infrastructure', visible: true, opacity: 1 },
-    // Zoning
-    { id: 'zoning', name: 'Zoning Districts', group: 'zoning', visible: false, opacity: 1 },
-    { id: 'buildings', name: 'Buildings', group: 'zoning', visible: true, opacity: 1 },
-    // Points of Interest
-    { id: 'pois', name: 'Points of Interest', group: 'poi', visible: true, opacity: 1 },
-    // Streets
-    { id: 'major_streets', name: 'Major Street Labels', group: 'infrastructure', visible: true, opacity: 1 },
-    // Boundaries
-    { id: 'zip_codes', name: 'Zip Codes', group: 'zoning', visible: false, opacity: 1 },
-    // Historical
-    { id: 'sanborn', name: 'Sanborn Maps', group: 'historical', visible: false, opacity: 0.7 },
-  ];
-
-  // Parks — NOT offered for Detroit (fixed 2026-10-02). The parks layer paints the whole
-  // `parcels` source-layer green, which is right for Chicago (its parcels table holds
-  // only parks) but would cover Detroit, whose parcels table holds ~378K real parcels.
-  // Detroit parks return with their own `parks` table (docs/detroit_parity TDD §4).
-  if (citySlug !== 'detroit') {
-    base.push({ id: 'parks', name: 'Parks & Green Space', group: 'parks', visible: true, opacity: 1 });
-  }
-
-  // Chicago-specific layers. police_districts is embedded CPD GeoJSON, so it is
-  // Chicago-only (fixed 2026-10-02 — it used to be "shared" and drew Chicago districts
-  // under every other city). Detroit gets DPD precincts in a later phase. Kept first
-  // here so Chicago's layer order is unchanged (pinned in createDefaultLayers.test.ts).
-  if (citySlug === 'chicago') {
-    base.push(
-      { id: 'police_districts', name: 'Police Districts', group: 'government', visible: false, opacity: 1 },
-      { id: 'wards', name: 'City Wards', group: 'government', visible: false, opacity: 1 },
-      { id: 'gang_territory', name: 'Gang Territory (CPD 2025)', group: 'safety', visible: false, opacity: 1 },
-      { id: 'federal_properties', name: 'Federal Properties', group: 'government', visible: false, opacity: 1 },
-      { id: 'railroad_row', name: 'Railroad Right-of-Way', group: 'infrastructure', visible: false, opacity: 1 },
-    );
-  }
-
-  // Detroit-specific layers
-  if (citySlug === 'detroit') {
-    base.push(
-      { id: 'neighborhoods', name: 'Neighborhoods', group: 'government', visible: false, opacity: 1 },
-      { id: 'council_districts', name: 'Council Districts', group: 'government', visible: false, opacity: 1 },
-      { id: 'dlba_properties', name: 'DLBA Land Bank', group: 'government', visible: false, opacity: 1 },
-      { id: 'abandoned_blight', name: 'Abandoned & Blight', group: 'safety', visible: false, opacity: 1 },
-    );
-  }
-
-  return base;
+  return getCityProfile(citySlug)?.layers() ?? [];
 }
 
 /**
- * Map layer IDs to their Martin tile source URLs (dev mode) or PMTiles/empty (static mode).
+ * Tile source for a layer in the current mode: static → the city's PMTiles ('' = the
+ * layer file's bundled GeoJSON, Chicago only); dev → Martin. Defaults to Chicago so any
+ * caller that predates multi-city keeps Chicago's exact URLs.
  * O(1) time, O(1) space — k = fixed-size lookup table of layer ids.
  */
-export function getLayerSourceUrl(layerId: string): string {
-  if (IS_STATIC) {
-    const staticPmtiles: Record<string, string> = {
-      buildings: 'pmtiles://./data/buildings.pmtiles',
-      zoning: 'pmtiles://./data/zoning_districts.pmtiles',
-      parks: 'pmtiles://./data/parcels.pmtiles',
-      railroads: 'pmtiles://./data/railroads.pmtiles',
-    };
-    if (staticPmtiles[layerId]) return staticPmtiles[layerId];
-
-    const staticGeojsonLayers = new Set([
-      'transit', 'waterways', 'major_streets',
-      'zip_codes', 'pois',
-    ]);
-    if (staticGeojsonLayers.has(layerId)) return '';
-
-    return '';
-  }
-
-  // Dev mode: Martin vector tile server
-  const sourceMap: Record<string, string> = {
-    railroads: martinTileUrl('railroads'),
-    transit: martinTileUrl('transit_lines'),
-    waterways: martinTileUrl('waterways'),
-    zoning: martinTileUrl('zoning_districts'),
-    buildings: martinTileUrl('buildings'),
-    pois: martinTileUrl('pois'),
-    major_streets: martinTileUrl('major_streets'),
-    zip_codes: martinTileUrl('zip_codes'),
-    sanborn: '',
-    parks: martinTileUrl('parcels'),
-    police_districts: '',
-    wards: '',
-    gang_territory: '',
-    federal_properties: '',
-    railroad_row: '',
-    // Detroit layers — Martin auto-discovers PostGIS tables
-    neighborhoods: martinTileUrl('neighborhoods'),
-    council_districts: '',  // Static GeoJSON (embedded in layer file)
-    dlba_properties: martinTileUrl('dlba_properties'),
-    abandoned_blight: martinTileUrl('blight_violations'),
-  };
-  return sourceMap[layerId] ?? '';
+export function getLayerSourceUrl(layerId: string, citySlug: string = 'chicago'): string {
+  const profile = getCityProfile(citySlug);
+  if (!profile) return '';
+  const table = IS_STATIC ? profile.staticAssets.layerPmtiles : profile.devSources();
+  return table[layerId] ?? '';
 }
 
 /** Per-layer visibility + opacity as saved in a preset (section key 'layers'). */

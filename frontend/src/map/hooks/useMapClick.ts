@@ -3,8 +3,11 @@ import type maplibregl from 'maplibre-gl';
 
 export interface ClickedFeatureInfo {
   clickedFeature: GeoJSON.Feature | null;
-  featureType: 'candidate' | 'building' | 'poi' | 'zoning' | 'railroad' | 'police_district' | 'ward' | 'gang_territory' | 'federal_property' | 'railroad_row' | null;
+  /** 'city' = a layer whose popup comes from the city profile (see `layerId`). */
+  featureType: 'candidate' | 'building' | 'poi' | 'zoning' | 'railroad' | 'police_district' | 'ward' | 'gang_territory' | 'federal_property' | 'railroad_row' | 'city' | null;
   position: { x: number; y: number } | null;
+  /** Style layer id that was hit — used to look up the city profile's popup builder. */
+  layerId?: string;
 }
 
 /** Layers to query on click, ordered by priority */
@@ -30,7 +33,15 @@ const INTERACTIVE_LAYERS = [
   'railroad_row-fill',
 ];
 
-export function useMapClick(map: maplibregl.Map | null): ClickedFeatureInfo {
+/**
+ * Click → which feature was hit. `cityLayers` are extra style layer ids from the current
+ * city profile's `popups` (checked after the shared layers).
+ * O(q) time per click, O(1) space — q = interactive layers queried.
+ */
+export function useMapClick(
+  map: maplibregl.Map | null,
+  cityLayers: readonly string[] = [],
+): ClickedFeatureInfo {
   const [clickInfo, setClickInfo] = useState<ClickedFeatureInfo>({
     clickedFeature: null,
     featureType: null,
@@ -39,13 +50,16 @@ export function useMapClick(map: maplibregl.Map | null): ClickedFeatureInfo {
 
   const mapRef = useRef(map);
   mapRef.current = map;
+  const cityLayersRef = useRef(cityLayers);
+  cityLayersRef.current = cityLayers;
 
   const handleClick = useCallback((e: maplibregl.MapMouseEvent) => {
     const currentMap = mapRef.current;
     if (!currentMap) return;
 
     // Query features at the click point
-    const existingLayers = INTERACTIVE_LAYERS.filter((id) => {
+    // O(q) time, O(q) space — q = shared + city interactive layer ids
+    const existingLayers = [...INTERACTIVE_LAYERS, ...cityLayersRef.current].filter((id) => {
       try {
         return currentMap.getLayer(id);
       } catch {
@@ -65,9 +79,11 @@ export function useMapClick(map: maplibregl.Map | null): ClickedFeatureInfo {
     if (features.length > 0) {
       const feature = features[0];
       const layerId = feature.layer?.id ?? '';
-      let featureType: 'candidate' | 'building' | 'poi' | 'zoning' | 'railroad' | 'police_district' | 'ward' | 'gang_territory' | 'federal_property' | 'railroad_row' | null = null;
+      let featureType: ClickedFeatureInfo['featureType'] = null;
 
-      if (layerId.startsWith('discovery-candidates')) {
+      if (cityLayersRef.current.includes(layerId)) {
+        featureType = 'city';
+      } else if (layerId.startsWith('discovery-candidates')) {
         featureType = 'candidate';
       } else if (layerId.startsWith('buildings')) {
         featureType = 'building';
@@ -93,6 +109,7 @@ export function useMapClick(map: maplibregl.Map | null): ClickedFeatureInfo {
         clickedFeature: feature as unknown as GeoJSON.Feature,
         featureType,
         position: { x: e.point.x, y: e.point.y },
+        layerId,
       });
     } else {
       setClickInfo({ clickedFeature: null, featureType: null, position: null });

@@ -5,6 +5,8 @@ export interface LayerConfig {
   visible: boolean;
   opacity: number;
   sourceUrl: string;
+  /** Vector source-layer override from the city profile (e.g. parks → 'parks'). */
+  sourceLayer?: string;
 }
 
 export interface LayerState {

@@ -34,6 +34,8 @@ export const DETROIT_ZOOM = 11;
 export const CITY_DEFAULTS: Record<string, { center: [number, number]; zoom: number }> = {
   chicago: { center: CHICAGO_CENTER, zoom: CHICAGO_ZOOM },
   detroit: { center: DETROIT_CENTER, zoom: DETROIT_ZOOM },
+  // Same values as cities/dayton/index.ts — keep in sync.
+  dayton: { center: [-84.1916, 39.7589], zoom: 12 },
 };
 
 /** Get city center/zoom by slug, defaulting to Chicago */

@@ -14,6 +14,7 @@ import { createOwnerBatchApi } from './ownerLookup';
 import { saveCsv, saveMessage } from './csvSave';
 import { setSelectedBuildings } from './SelectedBuildingsLayer';
 import type { SelectedBuilding } from './types';
+import { getCityProfile } from '../cities/registry';
 
 export interface UseContactListReturn {
   store: ContactListStore;
@@ -51,5 +52,7 @@ export function useContactList(map: maplibregl.Map | null, citySlug: string): Us
     };
   }, [map, ids]);
 
-  return { store, buildings, lookupAvailable: citySlug === 'chicago', batchRunner, batch };
+  // A city offers lookups when its profile has contact sources (cities/<slug>/contacts.ts).
+  const lookupAvailable = getCityProfile(citySlug)?.contacts != null;
+  return { store, buildings, lookupAvailable, batchRunner, batch };
 }

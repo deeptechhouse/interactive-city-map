@@ -58,7 +58,7 @@ export function toCsvRows(buildings: readonly SelectedBuilding[]): CsvRow[] {
       ]);
     }
     for (const x of b.businesses) {
-      rows.push([x.name, 'N', x.legalName, x.phone, '', x.website, x.address, 'CHICAGO', 'IL', x.zip, '']);
+      rows.push([x.name, 'N', x.legalName, x.phone, '', x.website, x.address, x.city || 'CHICAGO', x.state || 'IL', x.zip, '']);
     }
     // A building with nothing found still gets a row, so it isn't silently dropped.
     if (b.owners.length === 0 && b.businesses.length === 0) rows.push([label, 'Y', '', '', '', '', '', '', '', '', '']);

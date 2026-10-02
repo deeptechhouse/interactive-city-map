@@ -29,6 +29,7 @@ import { getCity } from './api/cities';
 import { getCityDefaults } from './utils/geoUtils';
 import type { Building } from './types/building';
 import type { City } from './types/city';
+import { getCityProfile } from './cities/registry';
 
 /** Read city slug from URL search params (e.g., ?city=detroit), default to chicago */
 function getCitySlugFromUrl(): string {
@@ -46,9 +47,12 @@ function App() {
   const [showInterior, setShowInterior] = useState<string | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
 
-  // Focus areas use Chicago zip / police / ward boundaries, so they're Chicago-only.
-  const focusEnabled = citySlug === 'chicago';
-  const focus = useFocusArea(mapInstance, focusEnabled);
+  // Focus areas come from the city profile (Chicago: zips/districts/wards; Detroit:
+  // zips/precincts/council districts; Dayton: zips/police areas/neighborhoods).
+  const cityProfile = getCityProfile(citySlug);
+  const focusConfig = cityProfile?.focus ?? null;
+  const focusEnabled = focusConfig !== null;
+  const focus = useFocusArea(mapInstance, focusConfig, citySlug);
   const contacts = useContactList(mapInstance, citySlug);
   // Free business-type browser → curated buildings → paid lookups (Chicago data only).
   const discovery = useDiscovery(mapInstance, focus.selection, contacts.store, contacts.batchRunner);
@@ -127,7 +131,7 @@ function App() {
     <div className="app">
       <CitySelector currentCitySlug={citySlug} onChange={handleCityChange} />
       <LayerPanel layerControls={layerControls}>
-        <SubFilterPanel map={mapInstance} layers={layerControls.layers} />
+        <SubFilterPanel map={mapInstance} layers={layerControls.layers} citySlug={citySlug} />
       </LayerPanel>
       <MapContainer
         layers={layerControls.layers}
@@ -143,7 +147,8 @@ function App() {
       <ToolsPanel badge={contacts.buildings.length}>
         <SavedSearchesPanel saved={savedSearches} />
         {focusEnabled && <FocusAreaPanel focus={focus} />}
-        {focusEnabled && <DiscoveryPanel discovery={discovery} />}
+        {/* Discovery's business directory is Chicago's licence data (discovery/businessDirectory.ts). */}
+        {citySlug === 'chicago' && <DiscoveryPanel discovery={discovery} />}
         <ContactListPanel
           store={contacts.store}
           buildings={contacts.buildings}
@@ -156,7 +161,7 @@ function App() {
       </ToolsPanel>
       <BuildingLegend map={mapInstance} />
       <POIListPanel mapInstance={mapInstance} />
-      <POICategoryFilter map={mapInstance} />
+      <POICategoryFilter map={mapInstance} citySlug={citySlug} />
       <POIBrowsePanel map={mapInstance} citySlug={citySlug} />
       <SanbornAdjust
         map={mapInstance}

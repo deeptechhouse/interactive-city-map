@@ -8,27 +8,24 @@
  */
 import { apiClient } from './client';
 import type { City } from '../types/city';
-import { CITY_DEFAULTS } from '../utils/geoUtils';
 import { IS_STATIC } from '../utils/staticMode';
+import { listCityProfiles } from '../cities/registry';
 
-// ADJUSTABLE: display names/states for the built-in cities. Add a city here AND in
-// CITY_DEFAULTS (geoUtils.ts) to offer it without the backend.
-const BUILT_IN_NAMES: Record<string, { name: string; state: string }> = {
-  chicago: { name: 'Chicago', state: 'IL' },
-  detroit: { name: 'Detroit', state: 'MI' },
-};
-
-/** Cities the map can show without the backend. O(c) time, O(c) space — c = built-in cities. */
+/**
+ * Cities the map can show without the backend — one per CityProfile (src/cities/<slug>/).
+ * To offer a new city, add its profile to cities/registry.ts; nothing here changes.
+ * O(c) time, O(c) space — c = registered cities.
+ */
 export function builtInCities(): City[] {
-  // O(c) time, O(c) space — c = cities in CITY_DEFAULTS (2).
-  return Object.entries(CITY_DEFAULTS).map(([slug, d]) => ({
-    id: slug,
-    slug,
-    name: BUILT_IN_NAMES[slug]?.name ?? slug,
-    state: BUILT_IN_NAMES[slug]?.state ?? '',
-    center_lat: d.center[1],
-    center_lng: d.center[0],
-    default_zoom: d.zoom,
+  // O(c) time, O(c) space — c = registered cities (3).
+  return listCityProfiles().map((p) => ({
+    id: p.slug,
+    slug: p.slug,
+    name: p.name,
+    state: p.state,
+    center_lat: p.center[1],
+    center_lng: p.center[0],
+    default_zoom: p.defaultZoom,
     bounds: null,
     created_at: '',
     updated_at: '',

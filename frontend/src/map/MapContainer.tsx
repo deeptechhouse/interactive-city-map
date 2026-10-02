@@ -4,11 +4,14 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { layers as protomapsLayers, namedTheme } from 'protomaps-themes-base';
 import { Protocol } from 'pmtiles';
 
-import { CHICAGO_CENTER, CHICAGO_ZOOM, getCityDefaults } from '../utils/geoUtils';
+import { CHICAGO_CENTER, CHICAGO_ZOOM } from '../utils/geoUtils';
 import { IS_STATIC } from '../utils/staticMode';
 import type { LayerConfig, LayerState } from '../types/layer';
 import { getLayerSourceUrl } from './hooks/useMapLayers';
 import { useMapClick } from './hooks/useMapClick';
+import { getCityProfile } from '../cities/registry';
+import { removeLayersAndSources } from './cityLayerLifecycle';
+import { addBoundaryLayer, getBoundaryLayerIds } from './layers/BoundaryLayer';
 
 import { addRailroadLayer, getRailroadLayerIds } from './layers/RailroadLayer';
 import { addZoningLayer, getZoningLayerIds } from './layers/ZoningLayer';
@@ -17,7 +20,7 @@ import { addBuildingLayer, getBuildingLayerIds } from './layers/BuildingLayer';
 import { addPOILayer, getPOILayerIds } from './layers/POILayer';
 import { addWaterwayLayer, getWaterwayLayerIds } from './layers/WaterwayLayer';
 import { addParkLayer, getParkLayerIds } from './layers/ParkLayer';
-import { addSanbornOverlay, getSanbornLayerIds, setSanbornYear, getSanbornYears } from './layers/SanbornOverlay';
+import { addSanbornOverlay, getSanbornLayerIds } from './layers/SanbornOverlay';
 import { addMajorStreetsLayer, getMajorStreetsLayerIds } from './layers/MajorStreetsLayer';
 import { addZipCodeLayer, getZipCodeLayerIds } from './layers/ZipCodeLayer';
 import { addPoliceDistrictLayer, getPoliceDistrictLayerIds } from './layers/PoliceDistrictLayer';
@@ -65,7 +68,12 @@ const LAYER_REGISTRY: Record<
   council_districts: { add: addCouncilDistrictLayer, getIds: getCouncilDistrictLayerIds },
   dlba_properties: { add: addDLBALayer, getIds: getDLBALayerIds },
   abandoned_blight: { add: addBlightLayer, getIds: getBlightLayerIds },
+  // Generic boundaries (Detroit DPD precincts, Dayton police areas)
+  police_precincts: { add: addBoundaryLayer, getIds: getBoundaryLayerIds },
 };
+
+// Chicago's static basemap — used when the city has no profile (never another city's).
+const CHICAGO_STATIC_BASEMAP = './data/chicago-basemap.pmtiles';
 
 export interface ClickedBuildingInfo {
   id: string;
@@ -102,15 +110,25 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
 
-  // Click handling
-  const clickInfo = useMapClick(mapInstance);
+  // Click handling — the city profile adds popup layers MapContainer has no builder for.
+  const profile = getCityProfile(citySlug ?? 'chicago');
+  const cityPopups = React.useMemo(() => profile?.popups ?? {}, [profile]);
+  // O(p) time, O(p) space — p = city popup layers (≤ ~6)
+  const cityPopupLayers = React.useMemo(() => Object.keys(cityPopups), [cityPopups]);
+  const clickInfo = useMapClick(mapInstance, cityPopupLayers);
+
+  // layer id → { city it was added for, style layer ids } — so a city switch can remove
+  // exactly what the previous city drew (cityLayerLifecycle.ts explains why).
+  const addedRef = useRef(new Map<string, { city: string; ids: string[] }>());
 
   // Initialize map
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
+    const staticBasemap = getCityProfile(citySlug ?? 'chicago')?.staticAssets.basemapPmtiles
+      ?? CHICAGO_STATIC_BASEMAP;
     const basemapUrl = IS_STATIC
-      ? 'pmtiles://./data/chicago-basemap.pmtiles'
+      ? `pmtiles://${staticBasemap}`
       : 'pmtiles://https://build.protomaps.com/20250313.pmtiles';
 
     const basemapStyle: maplibregl.StyleSpecification = {
@@ -170,16 +188,45 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     map.flyTo({ center: cityCenter, zoom: cityZoom ?? 11, duration: 1500 });
   }, [cityCenter?.[0], cityCenter?.[1], cityZoom]);
 
+  // Static mode: each city ships its own clipped basemap — swap it on city switch.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded || !IS_STATIC) return;
+    const path = getCityProfile(citySlug ?? 'chicago')?.staticAssets.basemapPmtiles
+      ?? CHICAGO_STATIC_BASEMAP;
+    const source = map.getSource('protomaps') as maplibregl.VectorTileSource | undefined;
+    if (source && source.url !== `pmtiles://${path}`) source.setUrl(`pmtiles://${path}`);
+  }, [citySlug, mapLoaded]);
+
   // Add data layers once map is loaded
+  // O(l + L) time per run, O(l) space — l = layers in the list; L = style layers removed
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapLoaded) return;
+    const city = citySlug ?? 'chicago';
+    const cityProfile = getCityProfile(city);
+    // useMapLayers swaps its list one render AFTER citySlug changes; ignore ids the
+    // current city doesn't offer so the stale list can't add Chicago data to Detroit.
+    // O(l) time, O(l) space — l = layers the city offers
+    const offered = new Set((cityProfile?.layers() ?? []).map((l) => l.id));
 
+    // Remove what an earlier city added, or what this city no longer offers.
+    const stale: string[] = [];
+    // O(a) time, O(a) space — a = layers added so far
+    for (const [layerId, record] of addedRef.current) {
+      if (record.city !== city || !offered.has(layerId)) {
+        stale.push(...record.ids);
+        addedRef.current.delete(layerId);
+      }
+    }
+    if (stale.length) removeLayersAndSources(map, stale);
+
+    // O(l) time, O(1) space — l = layers in the list
     for (const layer of layers) {
       const registry = LAYER_REGISTRY[layer.id];
-      if (!registry) continue;
+      if (!registry || !offered.has(layer.id)) continue;
 
-      const sourceUrl = getLayerSourceUrl(layer.id);
+      const sourceUrl = getLayerSourceUrl(layer.id, city);
       // Layers that use embedded GeoJSON or special sources (no Martin tile URL needed)
       const nonTileLayers = new Set([
         'sanborn', 'police_districts', 'wards', 'gang_territory',
@@ -207,10 +254,12 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           sourceUrl,
           visible: layer.visible,
           opacity: layer.opacity,
+          sourceLayer: cityProfile?.sourceLayers?.[layer.id],
         } satisfies LayerConfig);
+        addedRef.current.set(layer.id, { city, ids: sublayerIds });
       }
     }
-  }, [mapLoaded, layers]);
+  }, [mapLoaded, layers, citySlug]);
 
   // Sync visibility and opacity when layer state changes
   useEffect(() => {
@@ -287,7 +336,10 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     }
 
     let html: string;
-    if (isBldg) {
+    const cityPopup = clickInfo.layerId ? cityPopups[clickInfo.layerId] : undefined;
+    if (clickInfo.featureType === 'city' && cityPopup) {
+      html = cityPopup(props);
+    } else if (isBldg) {
       html = buildBuildingPopup(props);
     } else if (clickInfo.featureType === 'railroad') {
       html = buildRailroadPopup(props);

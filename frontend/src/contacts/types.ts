@@ -95,6 +95,10 @@ export interface BusinessContact {
   /** Provider that supplied the phone ("google", "foursquare") or '' */
   phoneSource: string;
   website: string;
+  /** City/state for the CSV ("DETROIT", "MI"); set by ContactResolver. Lists saved before
+   *  multi-city lack them and the CSV falls back to CHICAGO, IL — which is what they were. */
+  city?: string;
+  state?: string;
 }
 
 export type LookupStatus = 'loading' | 'ready' | 'error';

@@ -13,7 +13,7 @@ import { safeHref } from '../links';
 import type { OwnerLookup } from '../ownerLookup';
 import { CSV_HEADER, csvCell, csvFilename, toCsv, toCsvRows } from '../csvExport';
 import type { PhoneLookup } from '../phoneLookup';
-import { UnavailablePhoneLookup } from '../phoneLookup';
+import { BackendPhoneLookup, UnavailablePhoneLookup } from '../phoneLookup';
 import { formatAddress, letterAddress, looksLikeCompany, newOwner, sameAddress, type BuildingPick, type BusinessContact, type OwnerContact, type SelectedBuilding } from '../types';
 
 const PICK: BuildingPick = { id: 'b1', address: '1001 W NORTH AVE', lngLat: [-87.65, 41.91] };
@@ -433,7 +433,7 @@ describe('store skip trace', () => {
     store.add(PICK);
     await flush();
     await store.skipTraceOwner('b1', 0, true);
-    expect(ownerLookup.lookup).toHaveBeenCalledWith({ street: '1001 W NORTH AVE', zip: '60642', ownerName: 'CRM PROPERTIES GROUP' }, true);
+    expect(ownerLookup.lookup).toHaveBeenCalledWith({ street: '1001 W NORTH AVE', zip: '60642', ownerName: 'CRM PROPERTIES GROUP', locality: 'Chicago', region: 'IL' }, true);
     expect(store.getSnapshot()[0].owners[0]).toMatchObject({
       skipTrace: 'found', contactPerson: 'JANE DOE', phone: '(312) 555-0100', phoneNote: 'Mobile · via tracerfy', email: 'j@x.com',
       skipTracedAt: '2026-10-02T07:00:00Z', dncChecked: true,
@@ -501,5 +501,37 @@ describe('saved-list upgrade', () => {
     }]);
     expect(b.owners[0]).toMatchObject({ letterTo: 'owner', skipTrace: 'found', companyLookup: 'not_found', isCompany: false });
     expect(b.owners[1].name).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Paid lookups go to the right city (2026-10-02)
+// ---------------------------------------------------------------------------
+
+describe('paid lookups use the map city, never a Chicago default', () => {
+  it('phone lookup for a Detroit map defaults to Detroit, MI', async () => {
+    const get = vi.fn().mockResolvedValue({ phone: '', provider: '' });
+    await new BackendPhoneLookup('detroit', get as never).lookup({ name: 'Shop', address: '1331 BROADWAY ST' });
+    expect(get.mock.calls[0][0]).toContain('locality=Detroit');
+    expect(get.mock.calls[0][0]).toContain('region=MI');
+    expect(get.mock.calls[0][0]).toContain('city=detroit');
+  });
+
+  it('phone lookup for an unknown city makes no call', async () => {
+    const get = vi.fn();
+    const answer = await new BackendPhoneLookup('gotham', get as never).lookup({ name: 'Shop', address: '1 MAIN ST' });
+    expect(answer).toMatchObject({ status: 'unavailable' });
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it('a Dayton resolver skip-traces as Dayton, OH', async () => {
+    const resolver = ContactResolver.forCity('dayton')!;
+    const spy = vi.fn().mockResolvedValue({ status: 'not_found', lookedUpAt: '' });
+    (resolver as unknown as { ownerLookup: { lookup: typeof spy } }).ownerLookup = { lookup: spy };
+    await resolver.skipTraceOwner(
+      { id: 'b', address: '100 SAMPLE AVE' } as never,
+      { name: 'SAMPLE OWNER', propertyZip: '45417' } as never,
+    );
+    expect(spy.mock.calls[0][0]).toMatchObject({ locality: 'Dayton', region: 'OH' });
   });
 });

@@ -167,30 +167,35 @@ describe('phone lookup client', () => {
     const get = vi.fn();
     const lookup = new BackendOwnerLookup(get as never);
     get.mockResolvedValueOnce({ person_name: 'JANE', phones: [{ number: '1', type: 'Mobile', dnc: true }], emails: ['j@x.com'], provider: 'tracerfy', cached: false });
-    expect(await lookup.lookup({ street: '1001 W NORTH AVE', zip: '60642', ownerName: 'CRM' })).toEqual({
+    expect(await lookup.lookup({ street: '1001 W NORTH AVE', zip: '60642', ownerName: 'CRM', locality: 'Chicago', region: 'IL' })).toEqual({
       status: 'found', personName: 'JANE', phones: [{ number: '1', type: 'Mobile', dnc: true }], emails: ['j@x.com'], source: 'tracerfy',
       lookedUpAt: '', dncChecked: true, method: '',
     });
     expect(get.mock.calls[0][0]).toBe('/contacts/owner?street=1001+W+NORTH+AVE&locality=Chicago&region=IL&owner_name=CRM&zip=60642');
 
     get.mockResolvedValueOnce({ person_name: '', phones: [], emails: [], provider: '', cached: false, looked_up_at: '2026-10-02T00:00:00Z' });
-    expect(await lookup.lookup({ street: 'x', zip: 'bad', ownerName: '' }, true)).toEqual({ status: 'not_found', lookedUpAt: '2026-10-02T00:00:00Z' });
+    expect(await lookup.lookup({ street: 'x', zip: 'bad', ownerName: '', locality: 'Detroit', region: 'mi' }, true)).toEqual({ status: 'not_found', lookedUpAt: '2026-10-02T00:00:00Z' });
+    expect(get.mock.calls[1][0]).toContain('locality=Detroit&region=MI');
     expect(get.mock.calls[1][0]).toContain('refresh=true');
     expect(get.mock.calls[1][0]).not.toContain('zip=');
+    // No city → no call, nothing charged (wrong-city guard, 2026-10-02).
+    const calls = get.mock.calls.length;
+    expect(await lookup.lookup({ street: 'x', zip: '', ownerName: '', locality: '', region: '' })).toMatchObject({ status: 'unavailable' });
+    expect(get.mock.calls.length).toBe(calls);
 
     get.mockResolvedValueOnce({ person_name: undefined, phones: undefined, emails: ['e'], provider: undefined });
-    expect(await lookup.lookup({ street: 'x', zip: '', ownerName: '' })).toMatchObject({ status: 'found', personName: '', phones: [], source: '' });
+    expect(await lookup.lookup({ street: 'x', zip: '', ownerName: '', locality: 'Chicago', region: 'IL' })).toMatchObject({ status: 'found', personName: '', phones: [], source: '' });
 
     get.mockRejectedValueOnce(new ApiError(429, '', ''));
-    expect(await lookup.lookup({ street: 'x', zip: '', ownerName: '' })).toMatchObject({ status: 'unavailable' });
+    expect(await lookup.lookup({ street: 'x', zip: '', ownerName: '', locality: 'Chicago', region: 'IL' })).toMatchObject({ status: 'unavailable' });
 
     // Provider failure explained by the server (out of credits) is shown verbatim.
     get.mockRejectedValueOnce(new ApiError(402, JSON.stringify({ detail: 'Tracerfy account is out of credits — add credits on their website.' }), ''));
-    expect(await lookup.lookup({ street: 'x', zip: '', ownerName: '' })).toEqual({
+    expect(await lookup.lookup({ street: 'x', zip: '', ownerName: '', locality: 'Chicago', region: 'IL' })).toEqual({
       status: 'unavailable', reason: 'Tracerfy account is out of credits — add credits on their website.',
     });
     get.mockRejectedValueOnce(new ApiError(502, 'not json', ''));
-    expect(await lookup.lookup({ street: 'x', zip: '', ownerName: '' })).toMatchObject({ reason: 'Lookup service unreachable' });
+    expect(await lookup.lookup({ street: 'x', zip: '', ownerName: '', locality: 'Chicago', region: 'IL' })).toMatchObject({ reason: 'Lookup service unreachable' });
 
     expect(createOwnerLookup('http://x/api/v1')).toBeInstanceOf(BackendOwnerLookup);
     expect(await new UnavailableOwnerLookup().lookup()).toMatchObject({ status: 'unavailable' });

@@ -15,6 +15,7 @@
  */
 import { apiClient, ApiError } from '../api/client';
 import { IS_STATIC } from '../utils/staticMode';
+import { getCityProfile } from '../cities/registry';
 
 export type PhoneAnswer =
   | { status: 'found'; phone: string; source: string; website: string }
@@ -27,7 +28,7 @@ export interface PhoneQuery {
   address: string;
   /** Bias point — omit for owner companies, whose office is somewhere else. */
   lngLat?: [number, number];
-  /** City/state of ``address``; default Chicago, IL. */
+  /** City/state of ``address``; default = the map city's (from its profile). */
   locality?: string;
   region?: string;
 }
@@ -51,6 +52,7 @@ export type GetJson = <T>(path: string) => Promise<T>;
 export type PostJson = <T>(path: string, body: unknown) => Promise<T>;
 
 /** fetch → parsed JSON, or ApiError carrying the server's body (for failureReason). */
+// O(b) time, O(b) space — b = response body size (read + JSON parse, the single fetch counts as constant work)
 async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
   const resp = await fetch(url, { ...init, headers: { Accept: 'application/json', ...init.headers } });
   if (!resp.ok) throw new ApiError(resp.status, await resp.text().catch(() => ''), url);
@@ -58,11 +60,13 @@ async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
 }
 
 /** GET against an explicit base URL — used for the phone-only server in static mode. */
+// O(1) time, O(1) space — k = 1 closure returned (each call is linear in u + b); u = URL length; b = response body size
 export function getJsonFrom(baseUrl: string): GetJson {
   return <T>(path: string) => fetchJson<T>(`${baseUrl.replace(/\/$/, '')}${path}`, {});
 }
 
 /** POST against an explicit base URL (owner batch start). */
+// O(1) time, O(1) space — k = 1 closure returned (each call is linear in q + b); q = serialised request body size; b = response body size
 export function postJsonTo(baseUrl: string): PostJson {
   return <T>(path: string, body: unknown) =>
     fetchJson<T>(`${baseUrl.replace(/\/$/, '')}${path}`, {
@@ -76,12 +80,14 @@ export function postJsonTo(baseUrl: string): PostJson {
 const PHONE_API_URL: string = import.meta.env.VITE_PHONE_API_URL ?? '';
 
 /** The GET function for paid lookups, or null when no server is reachable (see header). */
+// O(1) time, O(1) space — k = 1 getter chosen, no I/O
 export function backendGetter(phoneApiUrl: string = PHONE_API_URL): GetJson | null {
   if (phoneApiUrl) return getJsonFrom(phoneApiUrl);
   return IS_STATIC ? null : (path) => apiClient.get(path);
 }
 
 /** POST twin of backendGetter. */
+// O(1) time, O(1) space — k = 1 poster chosen, no I/O
 export function backendPoster(phoneApiUrl: string = PHONE_API_URL): PostJson | null {
   if (phoneApiUrl) return postJsonTo(phoneApiUrl);
   return IS_STATIC ? null : (path, body) => apiClient.post(path, body);
@@ -94,6 +100,7 @@ export const NO_SERVER_REASON = 'Phone/owner lookup needs the lookup server — 
  * failures in FastAPI's ``{"detail": "..."}`` body — e.g. 402 "Tracerfy account is out
  * of credits" — and that text is shown as-is (it's our own server's wording).
  */
+// O(e) time, O(e) space — e = length of the error body (JSON.parse)
 export function failureReason(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.status === 429) return 'Lookup limit reached — retry in a minute';
@@ -114,19 +121,31 @@ export const RATE_LIMIT_WAIT_MS = 20_000;
 
 /** Calls the backend proxy. One HTTP call per query; the backend caches repeats. */
 export class BackendPhoneLookup implements PhoneLookup {
+  // O(1) time, O(1) space — k = 3 injected dependencies stored (constant)
   constructor(
     private readonly city: string,
+    // O(1) time, O(1) space — k = 1 delegated apiClient call (network, counted as constant work)
     private readonly get: GetJson = (path) => apiClient.get(path),
     private readonly sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
   ) {}
 
+  // O(1) time, O(1) space — k = at most RATE_LIMIT_RETRIES + 1 GETs (constant, each counted as constant work, query fields length-capped)
   async lookup(q: PhoneQuery): Promise<PhoneAnswer> {
+    // City/state default to THIS map city's (from its profile) — never to Chicago. Before
+    // 2026-10-02 a missing locality became "Chicago, IL", which would have paid for
+    // Detroit/Dayton searches in the wrong city. No known place → no paid call at all.
+    const profile = getCityProfile(this.city);
+    const locality = q.locality || profile?.name || '';
+    const region = q.region || profile?.state || '';
+    if (!locality || !region) {
+      return { status: 'unavailable', reason: 'Unknown city — phone lookup skipped (nothing was charged).' };
+    }
     const params = new URLSearchParams({
       name: q.name.slice(0, 200), // backend rejects > 200 chars (422)
       address: q.address.slice(0, 200),
       city: this.city,
-      locality: (q.locality || 'Chicago').slice(0, 80),
-      region: (q.region || 'IL').slice(0, 2),
+      locality: locality.slice(0, 80),
+      region: region.slice(0, 2),
     });
     if (q.lngLat) {
       params.set('lat', String(q.lngLat[1]));
@@ -154,13 +173,16 @@ export class BackendPhoneLookup implements PhoneLookup {
 
 /** Static mode without a lookup server: never looks anything up. */
 export class UnavailablePhoneLookup implements PhoneLookup {
+  // O(1) time, O(1) space — k = 1 reason string stored (constant)
   constructor(private readonly reason: string) {}
 
+  // O(1) time, O(1) space — k = 1 constant answer built, no I/O
   async lookup(): Promise<PhoneAnswer> {
     return { status: 'unavailable', reason: this.reason };
   }
 }
 
+// O(1) time, O(1) space — k = 1 implementation chosen, no I/O
 export function createPhoneLookup(city: string, phoneApiUrl: string = PHONE_API_URL): PhoneLookup {
   const get = backendGetter(phoneApiUrl);
   return get ? new BackendPhoneLookup(city, get) : new UnavailablePhoneLookup(NO_SERVER_REASON);

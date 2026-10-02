@@ -46,6 +46,10 @@ export interface OwnerQuery {
   street: string;
   zip: string;
   ownerName: string;
+  /** The property's city/state ("Detroit", "MI"). REQUIRED: this lookup costs 5 credits
+   *  and used to send every address as Chicago, IL (fixed 2026-10-02). */
+  locality: string;
+  region: string;
 }
 
 /** Wire format shared by the instant and batch endpoints (routes/contacts.py _owner_json). */
@@ -60,12 +64,14 @@ interface OwnerJson {
 }
 
 /** JSON → answer. A result with no phones and no emails is a (dated) miss. */
+// O(p) time, O(p) space — p = phones in the response (emails are passed through, not copied)
 export function toOwnerAnswer(res: OwnerJson): OwnerAnswer {
   const lookedUpAt = res.looked_up_at ?? '';
   if (!res.phones?.length && !res.emails?.length) return { status: 'not_found', lookedUpAt };
   return {
     status: 'found',
     personName: res.person_name ?? '',
+    // O(p) time, O(p) space — p = phones in the response
     phones: (res.phones ?? []).map((p) => ({ number: p.number, type: p.type ?? '', dnc: !!p.dnc })),
     emails: res.emails ?? [],
     source: res.provider ?? '',
@@ -86,13 +92,20 @@ export interface OwnerLookup {
 }
 
 export class BackendOwnerLookup implements OwnerLookup {
+  // O(1) time, O(1) space — k = 1 injected getter stored (constant)
   constructor(private readonly get: GetJson) {}
 
+  // O(p) time, O(p) space — p = phones in the reply (fields length-capped, the single GET counts as constant work)
   async lookup(q: OwnerQuery, refresh = false): Promise<OwnerAnswer> {
+    // Fail closed: without the property's city/state this would be a 5-credit lookup in
+    // an unknown place — skip it instead (nothing is charged).
+    if (!q.locality || !q.region) {
+      return { status: 'unavailable', reason: 'Unknown city — owner lookup skipped (nothing was charged).' };
+    }
     const params = new URLSearchParams({
       street: q.street.slice(0, 200),
-      locality: 'Chicago',
-      region: 'IL',
+      locality: q.locality.slice(0, 80),
+      region: q.region.slice(0, 2).toUpperCase(),
       owner_name: q.ownerName.slice(0, 200),
     });
     if (VALID_ZIP.test(q.zip)) params.set('zip', q.zip);
@@ -106,11 +119,13 @@ export class BackendOwnerLookup implements OwnerLookup {
 }
 
 export class UnavailableOwnerLookup implements OwnerLookup {
+  // O(1) time, O(1) space — k = 1 constant answer built, no I/O
   async lookup(): Promise<OwnerAnswer> {
     return { status: 'unavailable', reason: NO_SERVER_REASON };
   }
 }
 
+// O(1) time, O(1) space — k = 1 implementation chosen, no I/O
 export function createOwnerLookup(phoneApiUrl?: string): OwnerLookup {
   const get = backendGetter(phoneApiUrl);
   return get ? new BackendOwnerLookup(get) : new UnavailableOwnerLookup();
@@ -154,6 +169,7 @@ export interface OwnerBatchApi {
   poll(jobId: string): Promise<BatchReply>;
 }
 
+// O(r + P) time, O(r + P) space — r = results in the reply; P = phones across all results
 function toBatchReply(res: BatchJson): BatchReply {
   return {
     ok: true,
@@ -161,19 +177,23 @@ function toBatchReply(res: BatchJson): BatchReply {
     pending: !!res.pending,
     submitted: res.submitted ?? 0,
     byName: res.by_name ?? 0,
+    // O(r + P) time, O(r + P) space — r = results; P = phones across all results (toOwnerAnswer is linear in each result's phones)
     results: (res.results ?? []).map((r) => ({ street: r.street, answer: toOwnerAnswer(r) })),
   };
 }
 
 export class BackendOwnerBatchApi implements OwnerBatchApi {
+  // O(1) time, O(1) space — k = 2 injected functions stored (constant)
   constructor(
     private readonly get: GetJson,
     private readonly post: PostJson,
   ) {}
 
+  // O(k + r + P) time, O(k + r + P) space — k = items submitted; r = results in the reply; P = phones across them (the single POST counts as constant work)
   async start(items: BatchItem[], refresh: boolean): Promise<BatchReply> {
     const body = {
       refresh,
+      // O(k) time, O(k) space — k = items submitted (each field is length-capped)
       items: items.map((i) => ({
         street: i.street.slice(0, 200),
         zip: VALID_ZIP.test(i.zip) ? i.zip : '',
@@ -190,6 +210,7 @@ export class BackendOwnerBatchApi implements OwnerBatchApi {
     }
   }
 
+  // O(r + P) time, O(r + P) space — r = results in the reply; P = phones across them (the single GET counts as constant work)
   async poll(jobId: string): Promise<BatchReply> {
     try {
       return toBatchReply(await this.get<BatchJson>(`/contacts/owner/batch/${encodeURIComponent(jobId)}`));
@@ -200,15 +221,18 @@ export class BackendOwnerBatchApi implements OwnerBatchApi {
 }
 
 export class UnavailableOwnerBatchApi implements OwnerBatchApi {
+  // O(1) time, O(1) space — k = 1 constant failure built, no I/O
   async start(): Promise<BatchReply> {
     return { ok: false, reason: NO_SERVER_REASON };
   }
 
+  // O(1) time, O(1) space — k = 1 constant failure built, no I/O
   async poll(): Promise<BatchReply> {
     return { ok: false, reason: NO_SERVER_REASON };
   }
 }
 
+// O(1) time, O(1) space — k = 1 implementation chosen, no I/O
 export function createOwnerBatchApi(phoneApiUrl?: string): OwnerBatchApi {
   const get = backendGetter(phoneApiUrl);
   const post = backendPoster(phoneApiUrl);

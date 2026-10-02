@@ -144,7 +144,10 @@ export class ContactResolver {
     refresh = false,
   ): Promise<Partial<OwnerContact> & { reason?: string }> {
     const answer = await this.ownerLookup.lookup(
-      { street: building.address, zip: owner.propertyZip, ownerName: owner.name },
+      {
+        street: building.address, zip: owner.propertyZip, ownerName: owner.name,
+        locality: this.place.locality, region: this.place.region,
+      },
       refresh,
     );
     return ownerPatchFromAnswer(answer);

@@ -159,7 +159,7 @@ class TestBuildingsEndpoints:
             has_interior=True,
             is_hidden=False,
             external_links=None,
-            metadata=None,
+            metadata_=None,  # the model attribute (SQLAlchemy reserves `metadata`)
             created_at=NOW,
             updated_at=NOW,
         )
@@ -321,7 +321,7 @@ class TestPOIEndpoints:
             source="manual",
             source_id=None,
             verified=False,
-            metadata=None,
+            metadata_=None,  # the model attribute (SQLAlchemy reserves `metadata`)
             created_at=NOW,
             updated_at=NOW,
         )

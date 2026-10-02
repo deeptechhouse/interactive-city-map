@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { RoomInfoPopup } from '../RoomInfoPopup';
@@ -93,8 +94,8 @@ describe('RoomInfoPopup', () => {
         room={{ ...defaultRoom, name: null }}
       />,
     );
-    // Falls back to room_type
-    expect(screen.getByText('office')).toBeTruthy();
+    // Falls back to room_type for the title (the type row shows it too, so ≥ 2 matches)
+    expect(screen.getByRole('heading', { name: 'office' })).toBeTruthy();
   });
 
   it('uses "Room" as title when both name and room_type are null', () => {

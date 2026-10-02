@@ -34,6 +34,7 @@ const EMPTY_RESULT: UseInteriorDataResult = {
   refetch: () => {},
 };
 
+// O(r + w + f) time, O(r + w + f) space — r = rooms; w = walls; f = features of one level
 export function useInteriorData(
   buildingId: string | null,
   level?: number,
@@ -48,6 +49,12 @@ export function useInteriorData(
 
   const buildingRef = useRef<string | null>(null);
   const fetchIdRef = useRef(0);
+  // The level the current data was fetched for. TRAP (fixed 2026-10-02): both effects
+  // below run on mount; the level effect used to bump fetchIdRef too, so the first
+  // fetchAllData saw its own response as stale and dropped it — the summary ("5 rooms ·
+  // 2 sources") never appeared when an interior opened. The level effect now runs only
+  // when the level really changes.
+  const fetchedLevelRef = useRef<number | undefined>(level);
 
   // Fetch level-specific data (rooms, walls, features)
   const fetchLevelData = useCallback(
@@ -116,12 +123,15 @@ export function useInteriorData(
     }
 
     buildingRef.current = buildingId;
+    fetchedLevelRef.current = level;
     fetchAllData(buildingId, level);
   }, [buildingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When level changes (but buildingId stays the same), re-fetch level data only
   useEffect(() => {
     if (!buildingId || buildingRef.current !== buildingId) return;
+    if (fetchedLevelRef.current === level) return; // mount, or same level — nothing new
+    fetchedLevelRef.current = level;
 
     const fetchId = ++fetchIdRef.current;
     setLoading(true);

@@ -41,12 +41,15 @@ export function addDLBALayer(map: maplibregl.Map, config: LayerConfig): void {
     maxzoom: 16,
   });
 
-  // Fill layer for polygonal parcels
+  // Fill layer for polygonal parcels. The 2026 Detroit export is POINTS (one per Land Bank
+  // property, verified 2026-10-02), so fills/outlines only draw for polygon features and
+  // the circle layer below carries the points.
   map.addLayer({
     id: `${config.id}-fill`,
     type: 'fill',
     source: SOURCE_ID,
     'source-layer': 'dlba_properties',
+    filter: ['==', ['geometry-type'], 'Polygon'],
     layout: { visibility: config.visible ? 'visible' : 'none' },
     paint: {
       'fill-color': statusColorExpression(),
@@ -64,11 +67,29 @@ export function addDLBALayer(map: maplibregl.Map, config: LayerConfig): void {
     type: 'line',
     source: SOURCE_ID,
     'source-layer': 'dlba_properties',
+    filter: ['==', ['geometry-type'], 'Polygon'],
     layout: { visibility: config.visible ? 'visible' : 'none' },
     paint: {
       'line-color': statusColorExpression(),
       'line-width': 1,
       'line-opacity': config.opacity * 0.6,
+    },
+  } as maplibregl.AddLayerObject);
+
+  // Point properties (clickable — Detroit's popup is keyed to `<id>-points`)
+  map.addLayer({
+    id: `${config.id}-points`,
+    type: 'circle',
+    source: SOURCE_ID,
+    'source-layer': 'dlba_properties',
+    filter: ['==', ['geometry-type'], 'Point'],
+    layout: { visibility: config.visible ? 'visible' : 'none' },
+    paint: {
+      'circle-color': statusColorExpression(),
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 1.5, 16, 5],
+      'circle-opacity': config.opacity * 0.85,
+      'circle-stroke-color': '#000000',
+      'circle-stroke-width': 0.5,
     },
   } as maplibregl.AddLayerObject);
 
@@ -99,5 +120,5 @@ export function addDLBALayer(map: maplibregl.Map, config: LayerConfig): void {
 
 // O(1) time, O(1) space — n = fixed list of style layer ids
 export function getDLBALayerIds(configId: string): string[] {
-  return [`${configId}-fill`, `${configId}-stroke`, `${configId}-label`];
+  return [`${configId}-fill`, `${configId}-stroke`, `${configId}-points`, `${configId}-label`];
 }

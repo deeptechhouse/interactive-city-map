@@ -195,9 +195,11 @@ describe('ContactResolver', () => {
     expect(p2.mock.calls.at(-1)![0].note).toContain('no street address');
   });
 
-  it('only Chicago has a resolver', () => {
+  it('a resolver exists for every city with contact sources, never for an unknown city', () => {
     expect(ContactResolver.forCity('chicago')).toBeInstanceOf(ContactResolver);
-    expect(ContactResolver.forCity('detroit')).toBeNull();
+    expect(ContactResolver.forCity('detroit')).toBeInstanceOf(ContactResolver);
+    expect(ContactResolver.forCity('dayton')).toBeInstanceOf(ContactResolver);
+    expect(ContactResolver.forCity('gotham')).toBeNull();
   });
 });
 

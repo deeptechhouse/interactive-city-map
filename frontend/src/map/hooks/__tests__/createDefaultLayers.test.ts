@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createDefaultLayers } from '../useMapLayers';
+import { getCityProfile } from '../../../cities/registry';
 
 const ids = (slug: string) => createDefaultLayers(slug).map((l) => l.id);
 
@@ -33,8 +34,17 @@ describe('createDefaultLayers', () => {
     expect(ids('detroit')).not.toContain('police_districts');
   });
 
-  it('Detroit does not offer parks until it has its own parks table', () => {
-    expect(ids('detroit')).not.toContain('parks');
+  it('Detroit parks read its own parks table, never the parcels source-layer', () => {
+    // Chicago's parks live in 'parcels' (parks only); Detroit's parcels hold every parcel,
+    // so painting that source-layer would cover the city (interim guard until 2026-10-02).
+    expect(ids('detroit')).toContain('parks');
+    expect(getCityProfile('detroit')?.sourceLayers?.parks).toBe('parks');
+    expect(getCityProfile('dayton')?.sourceLayers?.parks).toBe('parks');
+    expect(getCityProfile('chicago')?.sourceLayers?.parks).toBeUndefined();
+  });
+
+  it('an unknown city gets no layers, not Chicago', () => {
+    expect(createDefaultLayers('gotham')).toEqual([]);
   });
 
   it('Detroit keeps its own layers', () => {

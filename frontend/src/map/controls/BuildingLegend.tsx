@@ -107,6 +107,7 @@ interface BuildingLegendProps {
 }
 
 // Saved in presets — the key is persisted, never rename it. Value = HIDDEN type keys.
+// O(k) time, O(k) space — k = legend items (fixed list)
 const HIDDEN_TYPES_SECTION = setSection('buildings.hiddenTypes', LEGEND_ITEMS.map((i) => i.key), 'none');
 
 const BUILDING_LAYER_IDS = [
@@ -114,6 +115,7 @@ const BUILDING_LAYER_IDS = [
   'buildings-highlight', 'buildings-label',
 ];
 
+// O(k) time, O(k) space — k = legend items (fixed list, the filter effect repeats it for 5 fixed layer ids)
 export const BuildingLegend: React.FC<BuildingLegendProps> = ({ map }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [hiddenTypes, setHiddenTypes] = useSearchSection(HIDDEN_TYPES_SECTION);
@@ -131,6 +133,7 @@ export const BuildingLegend: React.FC<BuildingLegendProps> = ({ map }) => {
   useEffect(() => {
     if (!map) return;
 
+    // O(d·k) time, O(k) space — d = 5 building layer ids (fixed); k = legend items (fixed)
     for (const layerId of BUILDING_LAYER_IDS) {
       try {
         if (!map.getLayer(layerId)) continue;
@@ -142,6 +145,7 @@ export const BuildingLegend: React.FC<BuildingLegendProps> = ({ map }) => {
           // Build exclusion filter based on zoning_code prefix
           const conditions: unknown[] = [['==', ['get', 'is_hidden'], false]];
 
+          // O(k) time, O(k) space — k = legend items (fixed, one Set lookup each)
           for (const item of LEGEND_ITEMS) {
             if (!hiddenTypes.has(item.key)) continue;
 
@@ -175,6 +179,20 @@ export const BuildingLegend: React.FC<BuildingLegendProps> = ({ map }) => {
     );
   }
 
+  // O(k) time, O(k) space — k = legend items (Set lookups per row)
+  const legendRows = LEGEND_ITEMS.map((item) => (
+    <label key={item.key} style={{ ...styles.row, cursor: 'pointer' }}>
+      <input
+        type="checkbox"
+        checked={!hiddenTypes.has(item.key)}
+        onChange={() => toggleType(item.key)}
+        style={{ accentColor: item.color, width: '11px', height: '11px', cursor: 'pointer' }}
+      />
+      <div style={{ ...styles.swatch, background: item.color, opacity: hiddenTypes.has(item.key) ? 0.3 : 1 }} />
+      <span style={{ ...styles.label, opacity: hiddenTypes.has(item.key) ? 0.4 : 1 }}>{item.label}</span>
+    </label>
+  ));
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
@@ -183,18 +201,7 @@ export const BuildingLegend: React.FC<BuildingLegendProps> = ({ map }) => {
           &times;
         </button>
       </div>
-      {LEGEND_ITEMS.map((item) => (
-        <label key={item.key} style={{ ...styles.row, cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={!hiddenTypes.has(item.key)}
-            onChange={() => toggleType(item.key)}
-            style={{ accentColor: item.color, width: '11px', height: '11px', cursor: 'pointer' }}
-          />
-          <div style={{ ...styles.swatch, background: item.color, opacity: hiddenTypes.has(item.key) ? 0.3 : 1 }} />
-          <span style={{ ...styles.label, opacity: hiddenTypes.has(item.key) ? 0.4 : 1 }}>{item.label}</span>
-        </label>
-      ))}
+      {legendRows}
     </div>
   );
 };

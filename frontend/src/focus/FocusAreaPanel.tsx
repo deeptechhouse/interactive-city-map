@@ -22,16 +22,34 @@ interface KindListProps {
 }
 
 /** One collapsible, searchable checkbox list (e.g. all 50 wards). */
+// O(n + s) time, O(n + s) space — n = options for this kind (≤ 59); s = selected ids
 const KindList: React.FC<KindListProps> = ({ kind, options, label, selected, onToggle, onSetAll }) => {
   const [query, setQuery] = useState('');
-  const selectedSet = useMemo(() => new Set(selected), [selected]); // O(s)
-  // O(n) filter — n = options for this kind (≤ 59).
+  // O(s) time, O(s) space — s = selected ids
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
+  // O(n) time, O(n) space — n = options for this kind (≤ 59)
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
+    // O(n) time, O(n) space — n = options for this kind
     return q ? options.filter((o) => o.label.toLowerCase().includes(q)) : options;
   }, [options, query]);
 
   const searchId = `focus-search-${kind}`;
+  // O(n) time, O(n) space — n = visible options (only built when "Select all" is clicked)
+  const selectVisible = () => onSetAll(kind, visible.map((o) => o.id));
+  // O(n) time, O(n) space — n = visible options (Set lookup per row)
+  const optionRows = visible.map((opt) => (
+    <li key={opt.id}>
+      <label className="tools-check">
+        <input
+          type="checkbox"
+          checked={selectedSet.has(opt.id)}
+          onChange={() => onToggle(kind, opt.id)}
+        />
+        <span>{opt.label}</span>
+      </label>
+    </li>
+  ));
   return (
     <details className="tools-section__group" open={selected.length > 0}>
       <summary className="tools-section__summary">
@@ -50,7 +68,7 @@ const KindList: React.FC<KindListProps> = ({ kind, options, label, selected, onT
         onChange={(e) => setQuery(e.target.value)}
       />
       <div className="tools-links">
-        <button type="button" className="tools-link" onClick={() => onSetAll(kind, visible.map((o) => o.id))}>
+        <button type="button" className="tools-link" onClick={selectVisible}>
           Select {query ? 'matches' : 'all'}
         </button>
         <button type="button" className="tools-link" onClick={() => onSetAll(kind, [])}>
@@ -58,26 +76,28 @@ const KindList: React.FC<KindListProps> = ({ kind, options, label, selected, onT
         </button>
       </div>
       <ul className="tools-checklist" aria-label={label}>
-        {visible.map((opt) => (
-          <li key={opt.id}>
-            <label className="tools-check">
-              <input
-                type="checkbox"
-                checked={selectedSet.has(opt.id)}
-                onChange={() => onToggle(kind, opt.id)}
-              />
-              <span>{opt.label}</span>
-            </label>
-          </li>
-        ))}
+        {optionRows}
       </ul>
     </details>
   );
 };
 
+// O(n + s) time, O(n + s) space — n = options across the k = 3 focus kinds; s = selected ids
 export const FocusAreaPanel: React.FC<FocusAreaPanelProps> = ({ focus }) => {
   const { selection, shape, isEmptyResult, toggle, setKindIds, setMode, clear, zoomToFocus } = focus;
   const total = selection.zip.length + selection.police.length + selection.ward.length;
+  // O(1) time, O(1) space — k = 3 focus kinds (each list carries its own n + s bound)
+  const kindLists = FOCUS_KINDS.map((kind) => (
+    <KindList
+      key={kind}
+      kind={kind}
+      options={focus.options[kind]}
+      label={focus.kindLabels[kind]}
+      selected={selection[kind]}
+      onToggle={toggle}
+      onSetAll={setKindIds}
+    />
+  ));
 
   return (
     <section className="tools-section" aria-labelledby="focus-heading">
@@ -106,17 +126,7 @@ export const FocusAreaPanel: React.FC<FocusAreaPanelProps> = ({ focus }) => {
         </label>
       </fieldset>
 
-      {FOCUS_KINDS.map((kind) => (
-        <KindList
-          key={kind}
-          kind={kind}
-          options={focus.options[kind]}
-          label={focus.kindLabels[kind]}
-          selected={selection[kind]}
-          onToggle={toggle}
-          onSetAll={setKindIds}
-        />
-      ))}
+      {kindLists}
 
       {isEmptyResult && (
         <p className="tools-warning" role="status">

@@ -38,6 +38,7 @@ class BaseImporter(ABC):
     # Subclasses set this for logging / cache key purposes
     layer_name: str = "unknown"
 
+    # O(1) time, O(1) space — n = 1 importer (stores config by reference)
     def __init__(self, db_url: str, city_id: str, config: dict | None = None):
         self._db_url = db_url
         self._city_id = city_id
@@ -49,16 +50,19 @@ class BaseImporter(ABC):
     # ------------------------------------------------------------------
 
     @abstractmethod
+    # O(n) time, O(n) space — n = raw features downloaded (contract for subclasses)
     def download(self) -> Path:
         """Download raw data and return the path to the cached file."""
         ...
 
     @abstractmethod
+    # O(n) time, O(n) space — n = raw features turned into records (contract for subclasses)
     def transform(self, raw_path: Path) -> list[dict]:
         """Read the raw file and return a list of dicts ready for DB insert."""
         ...
 
     @abstractmethod
+    # O(n) time, O(1) space — n = records inserted (contract for subclasses)
     def load(self, records: list[dict]) -> int:
         """Bulk-insert records into the database. Return row count."""
         ...
@@ -67,6 +71,7 @@ class BaseImporter(ABC):
     # Orchestration
     # ------------------------------------------------------------------
 
+    # O(n) time, O(n) space — n = features flowing through download → transform → load
     def run(self) -> int:
         """Execute the full import pipeline. Returns the number of rows loaded."""
         self._log.info("import_start")
@@ -86,10 +91,12 @@ class BaseImporter(ABC):
     # Helpers available to subclasses
     # ------------------------------------------------------------------
 
+    # O(1) time, O(1) space — n = 1 connection opened
     def _get_connection(self):
         """Return a raw psycopg2 connection (caller must close)."""
         return psycopg2.connect(self._db_url)
 
+    # O(b) time, O(b) space — b = bytes in the response body (parsed into JSON)
     def _http_get_json(self, url: str, timeout: float = 120.0) -> dict | list:
         """GET a URL and return parsed JSON."""
         self._log.info("http_get", url=url[:120])
@@ -98,6 +105,7 @@ class BaseImporter(ABC):
             resp.raise_for_status()
             return resp.json()
 
+    # O(b) time, O(b) space — b = bytes in the response body (parsed into JSON)
     def _http_post_json(self, url: str, data: str, timeout: float = 180.0) -> dict:
         """POST a body and return parsed JSON (for Overpass API)."""
         self._log.info("http_post", url=url[:120])
@@ -106,10 +114,12 @@ class BaseImporter(ABC):
             resp.raise_for_status()
             return resp.json()
 
+    # O(1) time, O(1) space — n = 1 path built from short fixed strings
     def _cache_path(self, suffix: str = ".geojson") -> Path:
         """Return a deterministic cache file path for this layer + city."""
         return CACHE_DIR / f"{self._city_id}_{self.layer_name}{suffix}"
 
+    # O(b) time, O(b) space — b = bytes of serialised JSON written
     def _save_json_cache(self, data, suffix: str = ".geojson") -> Path:
         """Write JSON data to cache and return the path."""
         p = self._cache_path(suffix)
@@ -117,6 +127,7 @@ class BaseImporter(ABC):
         self._log.info("cached", path=str(p))
         return p
 
+    # O(b) time, O(b) space — b = bytes of cached JSON read and parsed
     def _load_json_cache(self, suffix: str = ".geojson"):
         """Load cached JSON if it exists, else return None."""
         p = self._cache_path(suffix)
@@ -125,6 +136,7 @@ class BaseImporter(ABC):
             return json.loads(p.read_text())
         return None
 
+    # O(d) time, O(1) space — d = rows deleted for this city (server-side DELETE)
     def _truncate_table(self, table: str):
         """Delete all rows for this city from a table."""
         conn = self._get_connection()

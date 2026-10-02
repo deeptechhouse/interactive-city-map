@@ -51,6 +51,7 @@ export interface ResolverPlace {
 const CHICAGO_PLACE: ResolverPlace = { locality: 'Chicago', region: 'IL' };
 
 export class ContactResolver {
+  // O(1) time, O(1) space — n = 1 resolver (stores its five collaborators)
   constructor(
     private readonly owners: OwnerSource,
     private readonly businesses: BusinessSource,
@@ -72,14 +73,16 @@ export class ContactResolver {
       profile.contacts.owners,
       profile.contacts.businesses,
       createPhoneLookup(city),
+      // O(1) time, O(1) space — n = 1 owner-lookup adapter built
       createOwnerLookup(),
       { locality: profile.name, region: profile.state },
     );
   }
 
   /**
-   * O(b + c) network calls — b businesses + c ≤ MAX_COMPANY_LOOKUPS owner companies,
-   * plus one county and one licence call. O(o + b) space.
+   * Network: b + c phone calls (b businesses + c ≤ MAX_COMPANY_LOOKUPS owner companies),
+   * plus one county and one licence call, all issued in parallel.
+   * O(o + b) time, O(o + b) space — o = owners found; b = businesses found.
    */
   async resolve(pick: BuildingPick, onProgress: (fields: ResolvedFields) => void): Promise<void> {
     const notes: string[] = [];
@@ -102,23 +105,29 @@ export class ContactResolver {
     const bothFailed = ownerResult.status === 'rejected' && bizResult.status === 'rejected';
     // Mark the owner companies we are about to search so the panel shows "searching…".
     let companiesLeft = MAX_COMPANY_LOOKUPS;
+    // O(o) time, O(o) space — o = owners found
     owners = owners.map((o) =>
       o.isCompany && companiesLeft-- > 0 ? { ...o, companyLookup: 'pending' as const } : o,
     );
     onProgress({ owners, businesses, status: bothFailed ? 'error' : 'loading', note: notes.join(' ') });
     if (bothFailed) return;
 
-    // All paid lookups at once. O(b + c) calls.
+    // All paid lookups at once: b + c calls in parallel.
     const [bizLooked, ownerLooked] = await Promise.all([
+      // O(b) time, O(b) space — b = businesses, one phone lookup each
       Promise.all(businesses.map((b) => this.withBusinessPhone(b, pick.lngLat))),
       Promise.all(
+        // O(o) time, O(o) space — o = owners (only c ≤ MAX_COMPANY_LOOKUPS make a call)
         owners.map((o): Promise<Looked<OwnerContact>> | Looked<OwnerContact> =>
           o.companyLookup === 'pending' ? this.withCompanyContact(o) : { contact: o },
         ),
       ),
     ]);
+    // O(b) time, O(b) space — b = businesses
     businesses = bizLooked.map((l) => l.contact);
+    // O(o) time, O(o) space — o = owners
     owners = ownerLooked.map((l) => l.contact);
+    // O(o + b) time, O(o + b) space — o = owners; b = businesses (spread copy, then first hit)
     const reason = [...bizLooked, ...ownerLooked].find((l) => l.unavailableReason)?.unavailableReason;
     if (reason) notes.push(reason);
     onProgress({ owners, businesses, status: 'ready', note: notes.join(' ') });
@@ -127,6 +136,7 @@ export class ContactResolver {
   /**
    * INSTANT paid skip trace for one owner (hidden in the GUI — the batch runner is the
    * GUI path). Returns the fields to merge; the store decides what not to overwrite.
+   * O(p + e) time, O(p + e) space — p = phones returned; e = emails returned (one lookup call).
    */
   async skipTraceOwner(
     building: SelectedBuilding,
@@ -140,7 +150,8 @@ export class ContactResolver {
     return ownerPatchFromAnswer(answer);
   }
 
-  /** Look up one business phone. O(1) calls. */
+  /** Look up one business phone — one call. */
+  // O(1) time, O(1) space — n = 1 phone lookup
   private async withBusinessPhone(
     b: BusinessContact,
     lngLat: [number, number],
@@ -162,7 +173,8 @@ export class ContactResolver {
 
   /**
    * Search the owner COMPANY at its letter address (management firms, LLC offices).
-   * Gives a company switchboard + website — not the person; skip trace does that. O(1).
+   * Gives a company switchboard + website — not the person; skip trace does that.
+   * O(1) time, O(1) space — n = 1 phone lookup.
    */
   private async withCompanyContact(o: OwnerContact): Promise<Looked<OwnerContact>> {
     const addr = letterAddress(o);
@@ -193,7 +205,8 @@ export class ContactResolver {
 
 /**
  * Any owner answer (instant or batch) → the owner fields it fills. Phones arrive
- * callable-first from the server, so the first one becomes the main phone. O(p + e).
+ * callable-first from the server, so the first one becomes the main phone.
+ * O(p + e) time, O(p + e) space — p = phones in the answer; e = emails in the answer.
  */
 export function ownerPatchFromAnswer(answer: OwnerAnswer): Partial<OwnerContact> & { reason?: string } {
   if (answer.status === 'unavailable') return { skipTrace: 'unavailable', reason: answer.reason };
@@ -210,6 +223,7 @@ export function ownerPatchFromAnswer(answer: OwnerAnswer): Partial<OwnerContact>
     phoneDnc: first?.dnc ?? false,
     // "(by name)" flags a 1-credit name trace: only as reliable as the name that was sent.
     phoneNote: first
+      // O(1) time, O(1) space — k = 2 note parts filtered and joined
       ? [first.type, `via ${answer.source}${answer.method === 'name' ? ' (by name)' : ''}`].filter(Boolean).join(' · ')
       : '',
     extraPhones: rest,

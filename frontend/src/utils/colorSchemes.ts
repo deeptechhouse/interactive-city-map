@@ -45,6 +45,8 @@ export const ZONING_COLORS: Record<string, string> = {
   mixed: '#DDA0DD',
   special: '#FFD700',
   transportation: '#7DD3FC',
+  // Detroit W1 (waterfront). Chicago emits no 'waterfront' class, so its colours are unchanged.
+  waterfront: '#38BDF8',
 };
 
 /** Zoning stroke colors (darker shade of fill) */
@@ -55,6 +57,7 @@ export const ZONING_STROKE_COLORS: Record<string, string> = {
   mixed: '#AA66AA',
   special: '#CCA800',
   transportation: '#38A3D1',
+  waterfront: '#0284C7',
 };
 
 /** POI category colors */

@@ -60,20 +60,24 @@ _GTFS_ROUTE_TYPE_MAP: dict[int, str] = {
 }
 
 
+# O(k·s) time, O(s) space — k = 8 CTA colours (constant); s = length of the raw name
 def _normalize_line_name(raw: str) -> str:
     """Extract a canonical line name from various property formats."""
     s = raw.strip().lower()
+    # O(k·s) time, O(1) space — k = 8 CTA colours; s = length of the lowered name
     for color in CTA_LINE_COLORS:
         if color in s:
             return color.capitalize()
     return raw.strip()
 
 
+# O(s) time, O(s) space — s = length of the line name
 def _color_for_line(name: str) -> str | None:
     """Look up the official CTA hex color for a line name."""
     return CTA_LINE_COLORS.get(name.strip().lower())
 
 
+# O(v) time, O(v) space — v = vertices in the geometry (serialised by json.dumps)
 def _ensure_multilinestring(geom) -> str | None:
     """Coerce geometry to MultiLineString GeoJSON string."""
     if geom is None or geom.is_empty:
@@ -85,12 +89,15 @@ def _ensure_multilinestring(geom) -> str | None:
     return json.dumps(mapping(geom))
 
 
+# O(c) time, O(1) space — c = keys under transit_lines in the city config
 def _is_gtfs_config(config: dict) -> bool:
     """Check if the config uses GTFS ZIP format (vs. GeoJSON URLs)."""
     lines_config = config.get("transit_lines", {})
+    # O(c) time, O(1) space — c = config keys, short-circuits on the first GTFS key
     return any(k.endswith("_gtfs_url") for k in lines_config)
 
 
+# O(s) time, O(s) space — s = length of the config key
 def _extract_system_key(url_key: str) -> str:
     """Extract system key from GTFS URL config key.
 
@@ -103,6 +110,7 @@ def _extract_system_key(url_key: str) -> str:
 class TransitImporter(BaseImporter):
     layer_name = "transit"
 
+    # O(n) time, O(n) space — n = features/rows downloaded (or read back from the cache)
     def download(self) -> Path:
         # TRAP (fixed 2026-10-02): this read the default ".geojson" cache while download
         # saves ".json", so the cache never hit — every run re-downloaded, and Overpass
@@ -115,6 +123,7 @@ class TransitImporter(BaseImporter):
             return self._download_gtfs()
         return self._download_geojson()
 
+    # O(n) time, O(n) space — n = line + station features returned by Socrata
     def _download_geojson(self) -> Path:
         """Original GeoJSON download path (Chicago/Socrata)."""
         lines_url = self._config.get("transit_lines", {}).get("url", "")
@@ -126,6 +135,7 @@ class TransitImporter(BaseImporter):
         combined = {"lines": lines_data, "stations": stations_data, "format": "geojson"}
         return self._save_json_cache(combined, suffix=".json")
 
+    # O(z) time, O(z) space — z = total rows across every agency's GTFS ZIP
     def _download_gtfs(self) -> Path:
         """Download and parse GTFS ZIP files from multiple transit agencies."""
         lines_config = self._config.get("transit_lines", {})
@@ -136,17 +146,20 @@ class TransitImporter(BaseImporter):
 
         # Collect all GTFS URLs from both lines and stations config
         gtfs_urls: dict[str, str] = {}
+        # O(c) time, O(c) space — c = keys under transit_lines
         for key, url in lines_config.items():
             if key.endswith("_gtfs_url") and url:
                 system_key = _extract_system_key(key)
                 gtfs_urls[system_key] = url
         # Also check stations config for any systems not in lines
+        # O(c) time, O(c) space — c = keys under transit_stations
         for key, url in stations_config.items():
             if key.endswith("_gtfs_url") and url:
                 system_key = _extract_system_key(key)
                 if system_key not in gtfs_urls:
                     gtfs_urls[system_key] = url
 
+        # O(z) time, O(z) space — z = total GTFS rows over a = agencies (each ZIP parsed once)
         for system_key, url in gtfs_urls.items():
             self._log.info("gtfs_download", system=system_key, url=url[:100])
             try:
@@ -167,6 +180,7 @@ class TransitImporter(BaseImporter):
         }
         return self._save_json_cache(combined, suffix=".json")
 
+    # O(z + p log p) time, O(z) space — z = rows in routes/shapes/trips/stops.txt; p = shape points (sorted per shape)
     def _parse_gtfs_zip(self, url: str, system_key: str) -> tuple[list[dict], list[dict]]:
         """Download a GTFS ZIP and extract routes (as LineStrings) and stops (as Points).
 
@@ -193,6 +207,7 @@ class TransitImporter(BaseImporter):
             if "routes.txt" in file_list:
                 with zf.open("routes.txt") as f:
                     reader = csv.DictReader(io.TextIOWrapper(f, encoding="utf-8-sig"))
+                    # O(r) time, O(r) space — r = rows in routes.txt
                     for row in reader:
                         route_id = row.get("route_id", "").strip()
                         if not route_id:
@@ -209,6 +224,7 @@ class TransitImporter(BaseImporter):
             if "shapes.txt" in file_list:
                 with zf.open("shapes.txt") as f:
                     reader = csv.DictReader(io.TextIOWrapper(f, encoding="utf-8-sig"))
+                    # O(p) time, O(p) space — p = rows in shapes.txt (shape points)
                     for row in reader:
                         shape_id = row.get("shape_id", "").strip()
                         if not shape_id:
@@ -222,6 +238,7 @@ class TransitImporter(BaseImporter):
                         shapes[shape_id].append((lon, lat, seq))
 
             # Sort shape points by sequence
+            # O(p log p) time, O(1) space — p = shape points, each shape's points sorted once (sum of per-shape sorts ≤ p log p)
             for shape_id in shapes:
                 shapes[shape_id].sort(key=lambda p: p[2])
 
@@ -230,6 +247,7 @@ class TransitImporter(BaseImporter):
             if "trips.txt" in file_list:
                 with zf.open("trips.txt") as f:
                     reader = csv.DictReader(io.TextIOWrapper(f, encoding="utf-8-sig"))
+                    # O(t) time, O(t) space — t = rows in trips.txt (route→shape pairs deduplicated into sets)
                     for row in reader:
                         route_id = row.get("route_id", "").strip()
                         shape_id = row.get("shape_id", "").strip()
@@ -243,6 +261,7 @@ class TransitImporter(BaseImporter):
             system_color = system_info[1] if system_info else None
             system_line_type = system_info[2] if system_info else "bus"
 
+            # O(r + t + p) time, O(p) space — r = routes; t = route→shape pairs; p = shape points copied into LineStrings
             for route_id, route_info in routes_by_id.items():
                 shape_ids = route_to_shapes.get(route_id, set())
                 if not shape_ids:
@@ -250,10 +269,14 @@ class TransitImporter(BaseImporter):
 
                 # Build LineStrings from all shapes for this route
                 line_geoms = []
+                # bigo-lint: disable=BIGO006 — amortised: each route→shape pair is visited once overall (≤ t), and a shape normally belongs to one route
+                # O(h) time, O(h) space — h = shapes used by this route
                 for sid in shape_ids:
                     pts = shapes.get(sid, [])
                     if len(pts) < 2:
                         continue
+                    # bigo-lint: disable=BIGO006 — amortised: each shape's points are copied once overall (p)
+                    # O(q) time, O(q) space — q = points in this shape
                     coords = [(p[0], p[1]) for p in pts]
                     line_geoms.append(LineString(coords))
 
@@ -291,6 +314,7 @@ class TransitImporter(BaseImporter):
             if "stops.txt" in file_list:
                 with zf.open("stops.txt") as f:
                     reader = csv.DictReader(io.TextIOWrapper(f, encoding="utf-8-sig"))
+                    # O(s) time, O(s) space — s = rows in stops.txt
                     for row in reader:
                         stop_name = row.get("stop_name", "").strip()
                         if not stop_name:
@@ -322,6 +346,7 @@ class TransitImporter(BaseImporter):
 
         return routes_data, stops_data
 
+    # O(n) time, O(n) space — n = routes/stops or features in the cached JSON
     def transform(self, raw_path: Path) -> list[dict]:
         raw = json.loads(raw_path.read_text())
         data_format = raw.get("format", "geojson")
@@ -330,6 +355,7 @@ class TransitImporter(BaseImporter):
             return self._transform_gtfs(raw)
         return self._transform_geojson(raw)
 
+    # O(v) time, O(v) space — v = total vertices across line + station features (each geometry parsed and serialised once)
     def _transform_geojson(self, raw: dict) -> list[dict]:
         """Original GeoJSON transform path (Chicago/Socrata)."""
         lines_data = raw.get("lines", {})
@@ -341,6 +367,7 @@ class TransitImporter(BaseImporter):
         # --- Transform lines ---
         line_records = []
         line_name_to_id: dict[str, str] = {}
+        # O(v) time, O(v) space — v = total vertices across all line features (shape + json.dumps once each)
         for feat in lines_features:
             props = feat.get("properties", {})
             geom_json = feat.get("geometry")
@@ -376,6 +403,7 @@ class TransitImporter(BaseImporter):
 
         # --- Transform stations ---
         station_records = []
+        # O(st) time, O(st) space — st = station features (inner loops are bounded by k = 8 CTA colours)
         for feat in stations_features:
             props = feat.get("properties", {})
             geom_json = feat.get("geometry")
@@ -397,18 +425,23 @@ class TransitImporter(BaseImporter):
             lines_served = []
             raw_lines = props.get("lines", "")
             if raw_lines:
+                # bigo-lint: disable=BIGO006 — amortised: each character of every station's "lines" string is split once overall (part of v)
+                # O(m) time, O(m) space — m = comma-separated lines on this station (≤ 8 CTA lines in practice)
                 for part in raw_lines.split(","):
                     normalized = _normalize_line_name(part.strip())
                     if normalized:
                         lines_served.append(normalized)
             if not lines_served:
                 # Fallback: check boolean fields per color
+                # O(k) time, O(k) space — k = 8 CTA colours (constant)
                 for color in CTA_LINE_COLORS:
                     if props.get(color) is True or str(props.get(color, "")).lower() in ("true", "1", "yes"):
                         lines_served.append(color.capitalize())
 
             # Try to link to the first matching transit_line
             line_id = None
+            # bigo-lint: disable=BIGO006 — amortised: lines_served was just built from this station's own input (≤ 8 entries), so the total is part of v
+            # O(m) time, O(1) space — m = lines served by this station (≤ 8), one dict lookup each
             for ls in lines_served:
                 if ls.lower() in line_name_to_id:
                     line_id = line_name_to_id[ls.lower()]
@@ -430,6 +463,7 @@ class TransitImporter(BaseImporter):
         self._log.info("transformed", lines=len(line_records), stations=len(station_records))
         return [{"lines": line_records, "stations": station_records}]
 
+    # O(r + s) time, O(r + s) space — r = parsed routes; s = parsed stops
     def _transform_gtfs(self, raw: dict) -> list[dict]:
         """Transform GTFS-parsed routes and stops into DB-ready records."""
         routes = raw.get("routes", [])
@@ -440,6 +474,7 @@ class TransitImporter(BaseImporter):
         line_name_to_id: dict[str, str] = {}
         seen_routes: set[str] = set()
 
+        # O(r) time, O(r) space — r = parsed routes (set-based dedup)
         for route in routes:
             # Deduplicate: same system + route_id
             dedup_key = f"{route['system']}_{route['route_id']}"
@@ -467,6 +502,7 @@ class TransitImporter(BaseImporter):
         station_records = []
         seen_stops: set[str] = set()
 
+        # O(s) time, O(s) space — s = parsed stops (set-based dedup)
         for stop in stops:
             # Skip child stops (location_type 0 with parent)
             # Keep stations (location_type 1) and standalone stops
@@ -491,6 +527,7 @@ class TransitImporter(BaseImporter):
         )
         return [{"lines": line_records, "stations": station_records}]
 
+    # O(l + s) time, O(1) space — l = line records; s = station records (one INSERT each)
     def load(self, records: list[dict]) -> int:
         if not records or not records[0]:
             return 0
@@ -510,6 +547,7 @@ class TransitImporter(BaseImporter):
                 VALUES (%s, %s, %s, %s, %s, %s,
                     ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326))
             """
+            # O(l) time, O(1) space — l = line records (one INSERT per row)
             for r in line_records:
                 cur.execute(line_sql, (
                     r["id"], r["city_id"], r["name"], r["color"],
@@ -523,6 +561,7 @@ class TransitImporter(BaseImporter):
                 VALUES (%s, %s, %s, %s, %s, %s,
                     ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326))
             """
+            # O(s) time, O(1) space — s = station records (one INSERT per row)
             for r in station_records:
                 cur.execute(station_sql, (
                     r["id"], r["city_id"], r["line_id"], r["name"],

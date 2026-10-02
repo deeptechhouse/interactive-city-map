@@ -39,6 +39,7 @@ const COMPANY_STATUS_TEXT: Partial<Record<LookupState, string>> = {
 // per hit, DNC-checked) next to the batch. Hidden 2026-10-02 to keep costs down.
 const SHOW_INSTANT_OWNER_LOOKUP = false;
 
+// O(1) time, O(1) space — n = 1 credit count formatted
 const dollars = (credits: number) => `$${(credits * DOLLARS_PER_CREDIT).toFixed(2)}`;
 
 const SKIP_TRACE_BUTTON: Record<LookupState, string> = {
@@ -60,6 +61,7 @@ interface ContactListPanelProps {
 }
 
 /** Status line + button for the owner batch. */
+// O(c) time, O(1) space — c = batch candidates (cost range counts them once)
 const BatchBar: React.FC<{ runner: OwnerBatchRunner; batch: BatchState; candidates: readonly BatchCandidate[] }> = ({
   runner,
   batch,
@@ -117,6 +119,7 @@ const BatchBar: React.FC<{ runner: OwnerBatchRunner; batch: BatchState; candidat
 };
 
 /** Text input that only reports its value when the user leaves the field. */
+// O(1) time, O(1) space — n = 1 input field
 const EditField: React.FC<{
   value: string;
   label: string;
@@ -151,12 +154,14 @@ const PHONE_STATUS_TEXT: Record<PhoneStatus, string> = {
   manual: 'entered by hand',
 };
 
+// O(1) time, O(1) space — n = 1 status lookup
 function phoneHint(b: BusinessContact): string {
   if (b.phoneStatus === 'found') return `via ${b.phoneSource}`;
   return PHONE_STATUS_TEXT[b.phoneStatus];
 }
 
 /** One owner of record: identity, where letters go, and how to reach them. */
+// O(p + e) time, O(p + e) space — p = extra phones; e = extra emails on this owner
 const OwnerBlock: React.FC<{
   store: ContactListStore;
   runner: OwnerBatchRunner;
@@ -165,11 +170,23 @@ const OwnerBlock: React.FC<{
   index: number;
   o: OwnerContact;
 }> = ({ store, runner, batchRunning, buildingId, index, o }) => {
+  // O(n) time, O(n) space — n = buildings in the list (the store copies it for the new snapshot)
   const set = (patch: Partial<OwnerContact>) => store.updateOwner(buildingId, index, patch);
   const mail = letterAddress(o);
   const differ = !!o.ownerAddress.street && !!o.taxBillAddress.street && !sameAddress(o.ownerAddress, o.taxBillAddress);
   const website = safeHref(o.website);
   const radioName = `letter-${buildingId}-${index}`;
+  // O(p) time, O(p) space — p = extra phones on this owner
+  const extraPhoneRows = o.extraPhones.map((p) => (
+    <span key={p.number} className="contact-row__meta">
+      also {p.number}
+      {p.type ? ` · ${p.type}` : ''} {p.dnc && <span className="contact-dnc">DNC</span>}
+    </span>
+  ));
+  // O(e) time, O(e) space — e = extra emails on this owner
+  const extraEmailRows = o.extraEmails.map((e) => (
+    <span key={e} className="contact-row__meta">also {e}</span>
+  ));
   return (
     <div className="contact-row">
       <EditField value={o.name} label="Owner name" onCommit={(v) => set({ name: v })} />
@@ -224,16 +241,9 @@ const OwnerBlock: React.FC<{
           {o.phoneNote}
         </span>
       )}
-      {o.extraPhones.map((p) => (
-        <span key={p.number} className="contact-row__meta">
-          also {p.number}
-          {p.type ? ` · ${p.type}` : ''} {p.dnc && <span className="contact-dnc">DNC</span>}
-        </span>
-      ))}
+      {extraPhoneRows}
       <EditField value={o.email} label="Owner email" placeholder="Email" onCommit={(v) => set({ email: v })} />
-      {o.extraEmails.map((e) => (
-        <span key={e} className="contact-row__meta">also {e}</span>
-      ))}
+      {extraEmailRows}
       {website && (
         <a className="tools-link contact-row__meta" href={website} target="_blank" rel="noopener noreferrer">
           {o.website} ↗
@@ -270,6 +280,7 @@ const OwnerBlock: React.FC<{
 };
 
 /** "Owner looked up Oct 2, 2026 · DNC not checked" / "searching…" / "no match". */
+// O(s) time, O(s) space — s = length of the owner/contact name parsed for the plan line
 const OwnerLookupInfo: React.FC<{ o: OwnerContact; plannable: boolean }> = ({ o, plannable }) => {
   const date = formatLookupDate(o.skipTracedAt);
   if (o.skipTrace === 'pending') return <span className="contact-row__meta">Owner lookup: searching…</span>;
@@ -304,6 +315,7 @@ const OwnerLookupInfo: React.FC<{ o: OwnerContact; plannable: boolean }> = ({ o,
   );
 };
 
+// O(o + b) time, O(o + b) space — o = owners; b = businesses at this building
 const BuildingCard: React.FC<{
   store: ContactListStore;
   runner: OwnerBatchRunner;
@@ -311,6 +323,33 @@ const BuildingCard: React.FC<{
   b: SelectedBuilding;
 }> = ({ store, runner, batchRunning, b }) => {
   const title = b.address || `Building ${b.id.slice(0, 8)}`;
+  // O(o) time, O(o) space — o = owners at this building
+  const ownerBlocks = b.owners.map((o, i) => (
+    <OwnerBlock
+      key={`${o.pin}-${i}`}
+      store={store}
+      runner={runner}
+      batchRunning={batchRunning}
+      buildingId={b.id}
+      index={i}
+      o={o}
+    />
+  ));
+  // O(b) time, O(b) space — b = businesses at this building
+  const businessRows = b.businesses.map((x) => (
+    <div key={x.id} className="contact-row">
+      <div className="contact-row__name">{x.name}</div>
+      {x.legalName !== x.name && <div className="contact-row__meta">{x.legalName}</div>}
+      {x.activity && <div className="contact-row__meta">{x.activity}</div>}
+      <EditField value={x.phone} label={`Phone for ${x.name}`} placeholder="Phone" onCommit={(v) => store.updateBusiness(b.id, x.id, { phone: v })} />
+      <span className="contact-row__meta">{phoneHint(x)}</span>
+      {safeHref(x.website) && (
+        <a className="tools-link contact-row__meta" href={safeHref(x.website) ?? undefined} target="_blank" rel="noopener noreferrer">
+          {x.website} ↗
+        </a>
+      )}
+    </div>
+  ));
   return (
     <li className="contact-card">
       <div className="contact-card__head">
@@ -336,17 +375,7 @@ const BuildingCard: React.FC<{
 
       <div className="contact-card__section">Owner of record</div>
       {b.owners.length === 0 && b.status !== 'loading' && <p className="tools-hint">No owner record found.</p>}
-      {b.owners.map((o, i) => (
-        <OwnerBlock
-          key={`${o.pin}-${i}`}
-          store={store}
-          runner={runner}
-          batchRunning={batchRunning}
-          buildingId={b.id}
-          index={i}
-          o={o}
-        />
-      ))}
+      {ownerBlocks}
       <button type="button" className="tools-link" onClick={() => store.addOwner(b.id)}>
         + Add owner
       </button>
@@ -355,24 +384,12 @@ const BuildingCard: React.FC<{
       {b.businesses.length === 0 && b.status !== 'loading' && (
         <p className="tools-hint">No active business licences at this address.</p>
       )}
-      {b.businesses.map((x) => (
-        <div key={x.id} className="contact-row">
-          <div className="contact-row__name">{x.name}</div>
-          {x.legalName !== x.name && <div className="contact-row__meta">{x.legalName}</div>}
-          {x.activity && <div className="contact-row__meta">{x.activity}</div>}
-          <EditField value={x.phone} label={`Phone for ${x.name}`} placeholder="Phone" onCommit={(v) => store.updateBusiness(b.id, x.id, { phone: v })} />
-          <span className="contact-row__meta">{phoneHint(x)}</span>
-          {safeHref(x.website) && (
-            <a className="tools-link contact-row__meta" href={safeHref(x.website) ?? undefined} target="_blank" rel="noopener noreferrer">
-              {x.website} ↗
-            </a>
-          )}
-        </div>
-      ))}
+      {businessRows}
     </li>
   );
 };
 
+// O(n + o + b) time, O(n + o + b) space — n = buildings; o = total owners; b = total businesses rendered
 export const ContactListPanel: React.FC<ContactListPanelProps> = ({
   store,
   buildings,
@@ -383,16 +400,23 @@ export const ContactListPanel: React.FC<ContactListPanelProps> = ({
   batch,
 }) => {
   const batchRunning = batch.phase === 'running' || batch.phase === 'starting';
-  // Re-derived on every list change — O(n), n = buildings (tens).
+  // Re-derived on every list change.
+  // O(n) time, O(n) space — n = buildings (tens)
   const candidates = store.batchCandidates(false);
+  // O(n) time, O(1) space — n = buildings
   const contactCount = buildings.reduce((n, b) => n + Math.max(1, b.owners.length + b.businesses.length), 0);
   const [exportNote, setExportNote] = useState('');
   const [exporting, setExporting] = useState(false);
+  // O(t) time, O(t) space — t = total CSV characters written
   const exportNow = async () => {
     setExporting(true);
     setExportNote(saveMessage(await saveCsv(buildings)));
     setExporting(false);
   };
+  // O(n) time, O(n) space — n = buildings (each card carries its own o + b bound)
+  const buildingCards = buildings.map((b) => (
+    <BuildingCard key={b.id} store={store} runner={batchRunner} batchRunning={batchRunning} b={b} />
+  ));
   return (
     <section className="tools-section" aria-labelledby="contacts-heading">
       <h3 id="contacts-heading" className="tools-section__title">Contact list</h3>
@@ -412,9 +436,7 @@ export const ContactListPanel: React.FC<ContactListPanelProps> = ({
         <p className="tools-hint">No buildings yet. Turn on selection, then click buildings — or use “+ Contact list” in a building popup.</p>
       ) : (
         <ul className="contact-list">
-          {buildings.map((b) => (
-            <BuildingCard key={b.id} store={store} runner={batchRunner} batchRunning={batchRunning} b={b} />
-          ))}
+          {buildingCards}
         </ul>
       )}
       <div className="tools-actions">

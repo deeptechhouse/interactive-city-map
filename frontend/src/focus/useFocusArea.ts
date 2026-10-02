@@ -42,11 +42,14 @@ export function focusStorageKey(citySlug: string): string {
 const NO_OPTIONS: Record<FocusKind, readonly AreaOption[]> = { zip: [], police: [], ward: [] };
 const DEFAULT_LABELS: Record<FocusKind, string> = { zip: 'Zip codes', police: 'Police', ward: 'Wards' };
 
-/** Validate untrusted saved state; anything malformed becomes the empty selection. O(n). */
+/** Validate untrusted saved state; anything malformed becomes the empty selection. */
+// O(n) time, O(n) space — n = saved ids across all kinds
 export function parseSavedSelection(raw: unknown): FocusSelection {
   if (!raw || typeof raw !== 'object') return EMPTY_SELECTION;
   const obj = raw as Record<string, unknown>;
+  // O(k) time, O(k) space — k = saved ids for one kind
   const ids = (v: unknown): string[] =>
+    // O(k) time, O(k) space — k = saved ids for one kind
     Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
   return { zip: ids(obj.zip), police: ids(obj.police), ward: ids(obj.ward), mode: coerceMode(obj.mode) };
 }
@@ -72,7 +75,7 @@ export interface UseFocusAreaReturn {
 /**
  * Focus-area state for the current city. `config` null = the city offers no focus areas
  * (the panel is hidden and the mask is cleared).
- * O(1) per render; geometry work is memoised on selection/boundary changes.
+ * O(1) time, O(1) space — n = 1 render (geometry work is memoised on selection/boundary changes).
  */
 export function useFocusArea(
   map: maplibregl.Map | null,
@@ -118,9 +121,10 @@ export function useFocusArea(
     setFocusMask(map, mask, active ? shape : null);
   }, [map, mask, shape, active]);
 
-  // O(s) — s = ids selected for that kind.
+  // O(s) time, O(s) space — s = ids selected for that kind
   const toggle = useCallback((kind: FocusKind, id: string) => {
     setSelection((prev) => {
+      // O(s) time, O(s) space — s = ids selected for that kind (includes + filter/copy)
       const ids = prev[kind].includes(id) ? prev[kind].filter((x) => x !== id) : [...prev[kind], id];
       return { ...prev, [kind]: ids };
     });

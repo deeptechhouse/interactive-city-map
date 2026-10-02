@@ -59,6 +59,7 @@ const styles = {
 /**
  * Build an owner filter expression (returns just the owner part, no status).
  * Returns null when all owners selected (no filter needed).
+ * O(w) time, O(w) space — w = railroad owners (fixed taxonomy list).
  */
 function buildOwnerFilter(activeOwners: ReadonlySet<string>): unknown[] | null {
   const allActive = activeOwners.size === RAILROAD_OWNERS.length;
@@ -67,7 +68,9 @@ function buildOwnerFilter(activeOwners: ReadonlySet<string>): unknown[] | null {
   if (activeOwners.size === 0) return null; // handled by hiding all layers
 
   const hasOther = activeOwners.has('_other');
+  // O(w) time, O(w) space — w = active owners (≤ railroad owners)
   const specificOwners = [...activeOwners].filter((o) => o !== '_other');
+  // O(w) time, O(w) space — w = railroad owners (filter, then map)
   const knownOwnerKeys = RAILROAD_OWNERS.filter((o) => o.key !== '_other').map((o) => o.key);
 
   if (hasOther && specificOwners.length > 0) {
@@ -88,10 +91,14 @@ function buildOwnerFilter(activeOwners: ReadonlySet<string>): unknown[] | null {
 }
 
 // Saved in presets — keys are persisted, never rename them. Values = VISIBLE keys.
+// O(w) time, O(w) space — w = railroad owners
 const OWNERS_SECTION = setSection('railroads.owners', RAILROAD_OWNERS.map((o) => o.key), 'all');
+// O(t) time, O(t) space — t = railroad statuses
 const STATUSES_SECTION = setSection('railroads.statuses', RAILROAD_STATUSES.map((s) => s.key), 'all');
+// O(y) time, O(y) space — y = ownership types
 const OWNERSHIP_TYPES_SECTION = setSection('railroads.ownershipTypes', OWNERSHIP_TYPES.map((t) => t.key), 'all');
 
+// O(w + t + y) time, O(w + t + y) space — w = railroad owners; t = statuses; y = ownership types (all fixed taxonomy lists)
 export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map }) => {
   const [activeOwners, setActiveOwners] = useSearchSection(OWNERS_SECTION);
   const [activeStatuses, setActiveStatuses] = useSearchSection(STATUSES_SECTION);
@@ -147,6 +154,7 @@ export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map }) => {
       ? ['in', ['get', 'owner_type'], ['literal', [...activeOwnershipTypes]]]
       : null;
 
+    // O(t + w + y) time, O(w + y) space — t = statuses (one layer each); w = owners; y = ownership types (expressions built once, shared by reference)
     for (const status of RAILROAD_STATUSES) {
       const layerId = `railroads-${status.key}`;
       try {
@@ -168,6 +176,7 @@ export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map }) => {
     // Labels
     try {
       if (map.getLayer('railroads-label')) {
+        // O(t) time, O(1) space — t = railroad statuses
         const anyVisible = !noOwnersSelected && !noOwnershipSelected && RAILROAD_STATUSES.some(s => activeStatuses.has(s.key));
         map.setLayoutProperty('railroads-label', 'visibility', anyVisible ? 'visible' : 'none');
 
@@ -185,64 +194,71 @@ export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map }) => {
     } catch { /* */ }
   }, [map, activeOwners, activeStatuses, activeOwnershipTypes]);
 
+  // O(w) time, O(w) space — w = railroad owners
+  const ownerRows = RAILROAD_OWNERS.map((owner) => (
+    <label key={owner.key} style={styles.checkboxRow}>
+      <input
+        type="checkbox"
+        checked={activeOwners.has(owner.key)}
+        onChange={() => toggleOwner(owner.key)}
+        style={styles.checkbox}
+      />
+      <span style={{ ...styles.colorDot, background: owner.color }} />
+      {owner.label}
+    </label>
+  ));
+  // O(y) time, O(y) space — y = ownership types
+  const ownershipRows = OWNERSHIP_TYPES.map((ot) => (
+    <label key={ot.key} style={styles.checkboxRow}>
+      <input
+        type="checkbox"
+        checked={activeOwnershipTypes.has(ot.key)}
+        onChange={() => toggleOwnershipType(ot.key)}
+        style={styles.checkbox}
+      />
+      <span style={{ ...styles.colorDot, background: ot.color }} />
+      {ot.label}
+    </label>
+  ));
+  // O(t) time, O(t) space — t = railroad statuses
+  const statusRows = RAILROAD_STATUSES.map((status) => (
+    <label key={status.key} style={styles.checkboxRow}>
+      <input
+        type="checkbox"
+        checked={activeStatuses.has(status.key)}
+        onChange={() => toggleStatus(status.key)}
+        style={styles.checkbox}
+      />
+      <span style={{
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: status.color,
+        letterSpacing: '1px',
+        width: '36px',
+        display: 'inline-block',
+      }}>{status.style}</span>
+      {status.label}
+    </label>
+  ));
+
   return (
     <div style={styles.container}>
       {/* Owner filter */}
       <div style={styles.group}>
         <div style={styles.title}>By Owner</div>
-        {RAILROAD_OWNERS.map((owner) => (
-          <label key={owner.key} style={styles.checkboxRow}>
-            <input
-              type="checkbox"
-              checked={activeOwners.has(owner.key)}
-              onChange={() => toggleOwner(owner.key)}
-              style={styles.checkbox}
-            />
-            <span style={{ ...styles.colorDot, background: owner.color }} />
-            {owner.label}
-          </label>
-        ))}
+        {ownerRows}
       </div>
 
       {/* Ownership type filter */}
       <div style={styles.group}>
         <div style={styles.title}>By Ownership</div>
-        {OWNERSHIP_TYPES.map((ot) => (
-          <label key={ot.key} style={styles.checkboxRow}>
-            <input
-              type="checkbox"
-              checked={activeOwnershipTypes.has(ot.key)}
-              onChange={() => toggleOwnershipType(ot.key)}
-              style={styles.checkbox}
-            />
-            <span style={{ ...styles.colorDot, background: ot.color }} />
-            {ot.label}
-          </label>
-        ))}
+        {ownershipRows}
       </div>
 
       {/* Status filter */}
       <div style={styles.group}>
         <div style={styles.title}>By Status</div>
-        {RAILROAD_STATUSES.map((status) => (
-          <label key={status.key} style={styles.checkboxRow}>
-            <input
-              type="checkbox"
-              checked={activeStatuses.has(status.key)}
-              onChange={() => toggleStatus(status.key)}
-              style={styles.checkbox}
-            />
-            <span style={{
-              fontFamily: 'monospace',
-              fontSize: '10px',
-              color: status.color,
-              letterSpacing: '1px',
-              width: '36px',
-              display: 'inline-block',
-            }}>{status.style}</span>
-            {status.label}
-          </label>
-        ))}
+        {statusRows}
       </div>
     </div>
   );

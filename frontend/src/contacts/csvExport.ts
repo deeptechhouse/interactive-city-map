@@ -43,12 +43,17 @@ export const CSV_HEADER = [
 
 export type CsvRow = [string, 'Y' | 'N', string, string, string, string, string, string, string, string, string];
 
-/** Flatten the list into rows. O(o + b) time and space — total owners + businesses. */
+/**
+ * Flatten the list into rows.
+ * O(n + o + b) time, O(n + o + b) space — n = buildings; o = total owners; b = total businesses.
+ */
 export function toCsvRows(buildings: readonly SelectedBuilding[]): CsvRow[] {
   const rows: CsvRow[] = [];
+  // O(n + o + b) time, O(n + o + b) space — n = buildings; o = total owners; b = total businesses
   for (const b of buildings) {
-    // O(n) buildings × their contacts = O(total contacts)
     const label = b.address || `Building ${b.id.slice(0, 8)}`;
+    // bigo-lint: disable=BIGO006 — amortised: each owner belongs to one building, so all passes total o
+    // O(k) time, O(k) space — k = owners of this building
     for (const o of b.owners) {
       const mail = letterAddress(o);
       const contact = o.contactPerson && o.contactPerson !== o.name ? `${o.contactPerson}, ${o.name}` : o.name;
@@ -57,6 +62,8 @@ export function toCsvRows(buildings: readonly SelectedBuilding[]): CsvRow[] {
         mail.street, mail.city, mail.state, mail.zip, o.skipTracedAt.slice(0, 10),
       ]);
     }
+    // bigo-lint: disable=BIGO006 — amortised: each business belongs to one building, so all passes total b
+    // O(j) time, O(j) space — j = businesses at this building
     for (const x of b.businesses) {
       rows.push([x.name, 'N', x.legalName, x.phone, '', x.website, x.address, x.city || 'CHICAGO', x.state || 'IL', x.zip, '']);
     }
@@ -69,7 +76,8 @@ export function toCsvRows(buildings: readonly SelectedBuilding[]): CsvRow[] {
 /**
  * Owner phone + its compliance marker. "DNC not checked" applies only to numbers that
  * came from a batch skip trace (phoneNote "… via tracerfy") — a company switchboard from
- * Google or a number typed by hand is not a skip-trace result. O(1).
+ * Google or a number typed by hand is not a skip-trace result.
+ * O(1) time, O(1) space — n = 1 phone cell (short phoneNote regex test).
  */
 function ownerPhoneCell(o: OwnerContact): string {
   if (!o.phone) return '';
@@ -78,15 +86,18 @@ function ownerPhoneCell(o: OwnerContact): string {
   return fromSkipTrace && !o.dncChecked ? `${o.phone} [DNC not checked]` : o.phone;
 }
 
-/** Quote one cell (RFC 4180) and neutralise spreadsheet formulas. O(n) — n = cell length. */
+/** Quote one cell (RFC 4180) and neutralise spreadsheet formulas. */
+// O(n) time, O(n) space — n = cell length
 export function csvCell(value: string): string {
   const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
   return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
-/** Full CSV text with CRLF line endings (what Excel expects). O(total characters). */
+/** Full CSV text with CRLF line endings (what Excel expects). */
+// O(t) time, O(t) space — t = total characters across all cells
 export function toCsv(buildings: readonly SelectedBuilding[]): string {
   return [CSV_HEADER as readonly string[], ...toCsvRows(buildings)]
+    // O(t) time, O(t) space — t = total characters (r rows × 11 fixed columns, each cell quoted once)
     .map((row) => row.map(csvCell).join(','))
     .join('\r\n');
 }

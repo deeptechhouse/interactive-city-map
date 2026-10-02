@@ -31,9 +31,11 @@ _TAG_CATEGORY_MAP: dict[tuple[str, str], str] = {
 }
 
 
+# O(k) time, O(k) space — k = tag/category pairs in _TAG_CATEGORY_MAP (fixed, ~20)
 def _build_overpass_query(bbox: str) -> str:
     """Build Overpass QL for multiple POI categories within a bbox."""
     tag_filters = []
+    # O(k) time, O(k) space — k = tag/category pairs (fixed)
     for (key, val) in _TAG_CATEGORY_MAP:
         tag_filters.append(f'  node["{key}"="{val}"]({bbox});')
     filter_block = "\n".join(tag_filters)
@@ -46,8 +48,10 @@ out body;
 """
 
 
+# O(k) time, O(1) space — k = tag/category pairs (fixed), first match wins
 def _categorize_node(tags: dict) -> str | None:
     """Determine the POI category from OSM tags."""
+    # O(k) time, O(1) space — k = tag/category pairs (fixed)
     for (key, val), category in _TAG_CATEGORY_MAP.items():
         if tags.get(key) == val:
             return category
@@ -57,6 +61,7 @@ def _categorize_node(tags: dict) -> str | None:
 class POIsImporter(BaseImporter):
     layer_name = "pois"
 
+    # O(n) time, O(n) space — n = OSM elements returned by Overpass (or read from cache)
     def download(self) -> Path:
         # TRAP (fixed 2026-10-02): this read the default ".geojson" cache while download
         # saves ".json", so the cache never hit — every run re-downloaded, and Overpass
@@ -74,10 +79,12 @@ class POIsImporter(BaseImporter):
         )
         return self._save_json_cache(data, suffix=".json")
 
+    # O(n) time, O(n) space — n = OSM elements (per-element categorise is constant: k fixed tag pairs)
     def transform(self, raw_path: Path) -> list[dict]:
         raw = json.loads(raw_path.read_text())
         elements = raw.get("elements", [])
         records = []
+        # O(n) time, O(n) space — n = OSM elements in the Overpass response
         for el in elements:
             if el.get("type") != "node":
                 continue
@@ -102,6 +109,7 @@ class POIsImporter(BaseImporter):
                 tags.get("addr:housenumber", ""),
                 tags.get("addr:street", ""),
             ]
+            # O(1) time, O(1) space — k = 2 address parts (house number + street)
             address = " ".join(p for p in address_parts if p).strip() or None
 
             records.append({
@@ -121,6 +129,7 @@ class POIsImporter(BaseImporter):
         self._log.info("transformed", count=len(records))
         return records
 
+    # O(n) time, O(n) space — n = POI records (tuple batch built once, inserted in chunks)
     def load(self, records: list[dict]) -> int:
         if not records:
             return 0
@@ -134,6 +143,7 @@ class POIsImporter(BaseImporter):
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326))
             """
+            # O(n) time, O(n) space — n = POI records
             batch = [
                 (r["id"], r["city_id"], r["name"], r["category"], r["subcategory"],
                  r["address"], r["phone"], r["website"], r["description"],
@@ -142,6 +152,7 @@ class POIsImporter(BaseImporter):
             ]
             chunk_size = 2000
             total = 0
+            # O(n) time, O(c) space — n = POI records; c = chunk_size rows sliced per executemany
             for i in range(0, len(batch), chunk_size):
                 chunk = batch[i : i + chunk_size]
                 cur.executemany(sql, chunk)

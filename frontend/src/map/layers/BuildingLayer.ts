@@ -4,9 +4,11 @@ import { BUILDING_CLASS_COLORS, BUILDING_DEFAULT_COLOR } from '../../utils/color
 
 const SOURCE_ID = 'buildings-source';
 
+// O(c) time, O(c) space — c = property classes in BUILDING_CLASS_COLORS (fixed, ~a dozen)
 function buildingFillColorExpression(): unknown {
   // Data-driven color by property_class, with special cases for has_interior and owner_type
   const pairs: string[] = [];
+  // O(c) time, O(c) space — c = property classes (fixed)
   for (const [cls, color] of Object.entries(BUILDING_CLASS_COLORS)) {
     pairs.push(cls, color);
   }
@@ -57,6 +59,7 @@ function buildingFillColorExpression(): unknown {
   ];
 }
 
+// O(1) time, O(1) space — n = 1 source + a fixed set of style layers added
 export function addBuildingLayer(map: maplibregl.Map, config: LayerConfig): void {
   if (map.getSource(SOURCE_ID)) return;
 
@@ -194,6 +197,7 @@ export function addBuildingLayer(map: maplibregl.Map, config: LayerConfig): void
   });
 }
 
+// O(1) time, O(1) space — k = fixed number of sub-layer ids
 export function getBuildingLayerIds(configId: string): string[] {
   return [
     `${configId}-fill`,

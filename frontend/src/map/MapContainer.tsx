@@ -101,6 +101,7 @@ interface MapContainerProps {
   onCandidateClick?: (key: string) => void;
 }
 
+// O(l) time, O(l) space — l = layers in the list (each effect walks it once, each layer has a fixed handful of style sublayers)
 export const MapContainer: React.FC<MapContainerProps> = ({
   layers, citySlug, cityCenter, cityZoom, onMapReady, onBuildingClick,
   selectionMode = false, onBuildingSelect, onCandidateClick,
@@ -166,6 +167,9 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     );
 
     map.on('load', () => {
+      // Dev-only test hook: the multi-city smoke test (city switching, stray layers) reads
+      // the live style from here. Stripped from production builds by Vite (DEV is false).
+      if (import.meta.env.DEV) (window as unknown as { __citymap?: maplibregl.Map }).__citymap = map;
       setMapLoaded(true);
       setMapInstance(map);
       onMapReady?.(map);
@@ -238,6 +242,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({
 
       // Only add if not already added
       const sublayerIds = registry.getIds(layer.id);
+      // bigo-lint: disable=BIGO006 — amortised: each layer has a fixed handful of sublayers (≤ 5), so the total stays linear in l
+      // O(s) time, O(1) space — s = style sublayers of this layer (≤ 5)
       const alreadyAdded = sublayerIds.some((id) => {
         try {
           return map.getLayer(id);
@@ -266,11 +272,14 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     const map = mapRef.current;
     if (!map || !mapLoaded) return;
 
+    // O(l) time, O(1) space — l = layers in the list (each with a fixed handful of sublayers)
     for (const layer of layers) {
       const registry = LAYER_REGISTRY[layer.id];
       if (!registry) continue;
 
       const sublayerIds = registry.getIds(layer.id);
+      // bigo-lint: disable=BIGO006 — amortised: each layer has a fixed handful of sublayers (≤ 5), so the total stays linear in l
+      // O(s) time, O(1) space — s = style sublayers of this layer (≤ 5)
       for (const sublayerId of sublayerIds) {
         try {
           if (!map.getLayer(sublayerId)) continue;
@@ -413,14 +422,17 @@ const rowStyle = `
 const labelStyle = `color: #8b949e; font-size: 12px;`;
 const valueStyle = `color: #e6edf3; font-weight: 500; text-align: right; max-width: 180px; word-break: break-word;`;
 
+// O(1) time, O(1) space — n = 1 inline style string
 const badgeStyle = (bg: string, fg: string) =>
   `display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; background: ${bg}; color: ${fg}; margin-right: 4px; margin-bottom: 4px;`;
 
+// O(v) time, O(v) space — v = length of the rendered value
 function row(label: string, value: unknown): string {
   if (value === null || value === undefined || value === '' || value === 'null') return '';
   return `<div style="${rowStyle}"><span style="${labelStyle}">${label}</span><span style="${valueStyle}">${value}</span></div>`;
 }
 
+// O(m) time, O(m) space — m = size of the building's metadata JSON (parsed for the businesses section)
 function buildBuildingPopup(p: Record<string, unknown>): string {
   const name = p.name ?? p.address ?? 'Building';
   const badges: string[] = [];
@@ -452,6 +464,7 @@ function buildBuildingPopup(p: Record<string, unknown>): string {
   </div>`;
 }
 
+// O(m) time, O(m) space — m = size of the metadata JSON (parsed once, at most 5 businesses rendered)
 function buildBusinessesSection(p: Record<string, unknown>): string {
   let metadata: Record<string, unknown> = {};
   if (p.metadata) {
@@ -480,6 +493,7 @@ function buildBusinessesSection(p: Record<string, unknown>): string {
     </div>`;
 }
 
+// O(1) time, O(1) space — k = 9 ownership labels in a fixed lookup table
 function formatOwnershipType(type: string | null | undefined): string | null {
   const map: Record<string, string> = {
     government_transit: 'Public Transit Agency',
@@ -495,6 +509,7 @@ function formatOwnershipType(type: string | null | undefined): string | null {
   return type ? (map[type] ?? type) : null;
 }
 
+// O(r) time, O(r) space — r = trackage-rights entries joined into the popup
 function buildRailroadPopup(p: Record<string, unknown>): string {
   const name = p.name ?? 'Railroad';
   const statusColors: Record<string, [string, string]> = {
@@ -521,6 +536,7 @@ function buildRailroadPopup(p: Record<string, unknown>): string {
   </div>`;
 }
 
+// O(1) time, O(1) space — k = 5 fixed rows
 function buildZoningPopup(p: Record<string, unknown>): string {
   const title = p.zone_code ?? p.zone_class ?? 'Zoning District';
   return `<div style="${popupStyles} max-width: 340px; padding: 8px;">
@@ -533,6 +549,7 @@ function buildZoningPopup(p: Record<string, unknown>): string {
   </div>`;
 }
 
+// O(m) time, O(m) space — m = size of the POI's metadata JSON (parsed once, at most 5 contacts rendered)
 function buildPOIPopup(p: Record<string, unknown>): string {
   const name = p.name ?? 'Point of Interest';
   const badges: string[] = [];

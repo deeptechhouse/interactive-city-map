@@ -127,18 +127,23 @@ export interface BuildingPick {
 
 export const EMPTY_ADDRESS: PostalAddress = Object.freeze({ street: '', city: '', state: '', zip: '' });
 
-/** "740 WAUKEGAN RD, DEERFIELD, IL 60015" — skips blank parts. O(1). */
+/** "740 WAUKEGAN RD, DEERFIELD, IL 60015" — skips blank parts. */
+// O(1) time, O(1) space — k = 4 short address parts
 export function formatAddress(a: PostalAddress): string {
+  // O(1) time, O(1) space — k = 2 parts (state, zip)
   const stateZip = [a.state, a.zip].filter(Boolean).join(' ');
+  // O(1) time, O(1) space — k = 3 parts (street, city, state+zip)
   return [a.street, a.city, stateZip].filter(Boolean).join(', ');
 }
 
-/** True when two addresses are the same place, ignoring case/spacing. O(1). */
+/** True when two addresses are the same place, ignoring case/spacing. */
+// O(1) time, O(1) space — k = 4 short address parts per side
 export function sameAddress(a: PostalAddress, b: PostalAddress): boolean {
   return formatAddress(a).replace(/\s+/g, ' ').toUpperCase() === formatAddress(b).replace(/\s+/g, ' ').toUpperCase();
 }
 
-/** The address the user chose for letters. O(1). */
+/** The address the user chose for letters. */
+// O(1) time, O(1) space — n = 1 field picked
 export function letterAddress(o: OwnerContact): PostalAddress {
   return o.letterTo === 'owner' ? o.ownerAddress : o.taxBillAddress;
 }
@@ -149,12 +154,13 @@ export function letterAddress(o: OwnerContact): PostalAddress {
 const COMPANY_WORDS =
   /\b(L\.?L\.?C|LTD|INC|CORP|CORPORATION|CO|COMPANY|LP|LLP|TRUST|TR|BANK|MGMT|MANAGEMENT|PROPERTIES|PROPERTY|REALTY|GROUP|PARTNERS|PARTNERSHIP|HOLDINGS|ASSN|ASSOC|ASSOCIATION|ENTERPRISES|INVESTMENTS|DEVELOPMENT|LIAB|CHURCH|CITY OF|BOARD|FUND|CAPITAL|VENTURES)\b/i;
 
-/** O(n) — n = name length. */
+// O(n) time, O(1) space — n = name length (one regex test)
 export function looksLikeCompany(name: string): boolean {
   return COMPANY_WORDS.test(name);
 }
 
 /** A fresh owner with every optional field defaulted. */
+// O(p) time, O(p) space — p = fields in the patch (spread over fixed defaults)
 export function newOwner(patch: Partial<OwnerContact> = {}): OwnerContact {
   return {
     name: '',

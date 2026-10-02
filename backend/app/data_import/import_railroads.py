@@ -18,6 +18,7 @@ from app.data_import.base_importer import BaseImporter
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
 
+# O(1) time, O(1) space — n = 1 fixed-size query template (bbox string is short)
 def _build_overpass_query(bbox: str) -> str:
     """Build an Overpass QL query for railroad ways within a bounding box."""
     return f"""
@@ -40,6 +41,7 @@ out skel qt;
 class RailroadsImporter(BaseImporter):
     layer_name = "railroads"
 
+    # O(n) time, O(n) space — n = OSM elements returned by Overpass (or read from cache)
     def download(self) -> Path:
         # TRAP (fixed 2026-10-02): this read the default ".geojson" cache while download
         # saves ".json", so the cache never hit — every run re-downloaded, and Overpass
@@ -57,6 +59,7 @@ class RailroadsImporter(BaseImporter):
         )
         return self._save_json_cache(data, suffix=".json")
 
+    # O(e) time, O(e) space — e = OSM elements (nodes + ways + every way's node refs)
     def transform(self, raw_path: Path) -> list[dict]:
         raw = json.loads(raw_path.read_text())
         elements = raw.get("elements", [])
@@ -64,6 +67,7 @@ class RailroadsImporter(BaseImporter):
         # Build node lookup: id -> (lon, lat)
         nodes: dict[int, tuple[float, float]] = {}
         ways: list[dict] = []
+        # O(e) time, O(e) space — e = OSM elements, split into a node dict and a way list
         for el in elements:
             if el["type"] == "node":
                 nodes[el["id"]] = (el["lon"], el["lat"])
@@ -71,9 +75,12 @@ class RailroadsImporter(BaseImporter):
                 ways.append(el)
 
         records = []
+        # O(e) time, O(e) space — e = total node refs across all ways (dict lookups, each ref resolved once)
         for way in ways:
             tags = way.get("tags", {})
             node_ids = way.get("nodes", [])
+            # bigo-lint: disable=BIGO006 — amortised: each way's node refs are resolved once overall (part of e)
+            # O(r) time, O(r) space — r = node refs in this way (one dict lookup each)
             coords = [nodes[nid] for nid in node_ids if nid in nodes]
             if len(coords) < 2:
                 continue
@@ -111,6 +118,7 @@ class RailroadsImporter(BaseImporter):
         self._log.info("transformed", count=len(records))
         return records
 
+    # O(n) time, O(n) space — n = railroad records (tuple batch built once, inserted in chunks)
     def load(self, records: list[dict]) -> int:
         if not records:
             return 0
@@ -125,6 +133,7 @@ class RailroadsImporter(BaseImporter):
                     ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326),
                     %s::jsonb)
             """
+            # O(n) time, O(n) space — n = railroad records
             batch = [
                 (r["id"], r["city_id"], r["name"], r["owner"], r["status"],
                  r["track_class"], r["source"], r["geom_json"],
@@ -133,6 +142,7 @@ class RailroadsImporter(BaseImporter):
             ]
             chunk_size = 2000
             total = 0
+            # O(n) time, O(c) space — n = railroad records; c = chunk_size rows sliced per executemany
             for i in range(0, len(batch), chunk_size):
                 chunk = batch[i : i + chunk_size]
                 cur.executemany(sql, chunk)

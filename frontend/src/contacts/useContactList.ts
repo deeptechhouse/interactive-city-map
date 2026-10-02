@@ -25,6 +25,7 @@ export interface UseContactListReturn {
   batch: BatchState;
 }
 
+// O(n) time, O(n) space — n = buildings in the contact list (id list + map filter rebuilt when it changes)
 export function useContactList(map: maplibregl.Map | null, citySlug: string): UseContactListReturn {
   const store = useMemo(() => new ContactListStore(ContactResolver.forCity(citySlug), citySlug), [citySlug]);
   const buildings = useSyncExternalStore(store.subscribe, store.getSnapshot);
@@ -40,9 +41,11 @@ export function useContactList(map: maplibregl.Map | null, citySlug: string): Us
   }, [batchRunner, store]);
   const batch = useSyncExternalStore(batchRunner.subscribe, batchRunner.getSnapshot);
 
-  const ids = useMemo(() => buildings.map((b) => b.id), [buildings]); // O(n)
+  // O(n) time, O(n) space — n = buildings in the contact list
+  const ids = useMemo(() => buildings.map((b) => b.id), [buildings]);
   useEffect(() => {
     if (!map) return;
+    // O(n) time, O(n) space — n = selected ids written into the outline filter
     const apply = () => setSelectedBuildings(map, ids);
     apply();
     // The buildings source may not exist yet on first load — try again once the map settles.

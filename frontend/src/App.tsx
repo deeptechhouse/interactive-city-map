@@ -32,11 +32,13 @@ import type { City } from './types/city';
 import { getCityProfile } from './cities/registry';
 
 /** Read city slug from URL search params (e.g., ?city=detroit), default to chicago */
+// O(q) time, O(q) space — q = length of the URL query string (parsed once)
 function getCitySlugFromUrl(): string {
   const params = new URLSearchParams(window.location.search);
   return params.get('city') ?? 'chicago';
 }
 
+// O(L) time, O(L) space — L = map layers (per render: snapshot memo + Sanborn lookup, child panels carry their own bounds)
 function App() {
   const [citySlug, setCitySlug] = useState<string>(getCitySlugFromUrl);
   const [cityConfig, setCityConfig] = useState<City | null>(null);
@@ -127,6 +129,9 @@ function App() {
     setShowInterior(null);
   }, []);
 
+  // O(L) time, O(1) space — L = map layers, scanned for the Sanborn toggle
+  const sanbornVisible = layerControls.layers.find(l => l.id === 'sanborn')?.visible ?? false;
+
   return (
     <div className="app">
       <CitySelector currentCitySlug={citySlug} onChange={handleCityChange} />
@@ -165,7 +170,7 @@ function App() {
       <POIBrowsePanel map={mapInstance} citySlug={citySlug} />
       <SanbornAdjust
         map={mapInstance}
-        visible={layerControls.layers.find(l => l.id === 'sanborn')?.visible ?? false}
+        visible={sanbornVisible}
       />
 
       {selectedBuilding && !showInterior && (

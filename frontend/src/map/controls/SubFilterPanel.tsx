@@ -16,9 +16,12 @@ interface SubFilterPanelProps {
  * Container for sub-filter controls that appear when specific layers
  * are visible. Renders RailroadFilter and ZoningFilter when their
  * respective layers are turned on.
+ * O(L) time, O(1) space — L = map layers scanned for the two sub-filter toggles.
  */
 export const SubFilterPanel: React.FC<SubFilterPanelProps> = ({ map, layers, citySlug = 'chicago' }) => {
+  // O(L) time, O(1) space — L = map layers
   const railroadLayer = layers.find((l) => l.id === 'railroads');
+  // O(L) time, O(1) space — L = map layers
   const zoningLayer = layers.find((l) => l.id === 'zoning');
 
   const showRailroad = railroadLayer?.visible ?? false;

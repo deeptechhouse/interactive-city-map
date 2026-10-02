@@ -1,6 +1,7 @@
 import type maplibregl from 'maplibre-gl';
 
 /** Convert map bounds to a [west, south, east, north] bbox array */
+// O(1) time, O(1) space — n = 1 bounds object (two corners read)
 export function boundsToArray(bounds: maplibregl.LngLatBounds): [number, number, number, number] {
   const sw = bounds.getSouthWest();
   const ne = bounds.getNorthEast();
@@ -8,17 +9,20 @@ export function boundsToArray(bounds: maplibregl.LngLatBounds): [number, number,
 }
 
 /** Convert bbox array to query string param */
+// O(1) time, O(1) space — k = 4 bbox numbers joined
 export function bboxToParam(bbox: [number, number, number, number]): string {
   return bbox.join(',');
 }
 
 /** Get Martin tile URL for a given table */
+// O(1) time, O(1) space — n = 1 URL template filled
 export function martinTileUrl(tableName: string): string {
   const base = import.meta.env.VITE_MARTIN_URL || 'http://localhost:3030';
   return `${base}/${tableName}/{z}/{x}/{y}`;
 }
 
 /** Get the API base URL */
+// O(1) time, O(1) space — n = 1 env lookup
 export function apiBaseUrl(): string {
   return import.meta.env.VITE_API_URL || 'http://localhost:8000';
 }
@@ -39,11 +43,13 @@ export const CITY_DEFAULTS: Record<string, { center: [number, number]; zoom: num
 };
 
 /** Get city center/zoom by slug, defaulting to Chicago */
+// O(1) time, O(1) space — n = 1 keyed lookup in CITY_DEFAULTS
 export function getCityDefaults(slug: string): { center: [number, number]; zoom: number } {
   return CITY_DEFAULTS[slug] ?? { center: CHICAGO_CENTER, zoom: CHICAGO_ZOOM };
 }
 
 /** Darken a hex color by a factor (0-1) */
+// O(1) time, O(1) space — k = 3 colour channels parsed and darkened
 export function darkenColor(hex: string, factor: number): string {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);

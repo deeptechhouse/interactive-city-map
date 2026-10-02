@@ -108,8 +108,10 @@ const styles = {
 } as const;
 
 // Saved in presets — the key is persisted, never rename it. Value = VISIBLE categories.
+// O(k) time, O(k) space — k = POI categories (fixed list)
 const ACTIVE_CATEGORIES_SECTION = setSection('pois.activeCategories', POI_CATEGORIES.map((c) => c.key), 'all');
 
+// O(k) time, O(k) space — k = POI categories (fixed list, filter and rows rebuilt per change)
 export const POICategoryFilter: React.FC<POICategoryFilterProps> = ({ map, citySlug = 'chicago' }) => {
   // Counts come from the city's export (cities/<slug>/taxonomies.ts). Chicago's profile has
   // none, so Chicago keeps the counts in POI_CATEGORIES above.
@@ -130,6 +132,7 @@ export const POICategoryFilter: React.FC<POICategoryFilterProps> = ({ map, cityS
   const toggleAll = useCallback(() => {
     setActiveCategories(prev => {
       if (prev.size === POI_CATEGORIES.length) return new Set();
+      // O(k) time, O(k) space — k = POI categories
       return new Set(POI_CATEGORIES.map(c => c.key));
     });
   }, [setActiveCategories]);
@@ -162,6 +165,20 @@ export const POICategoryFilter: React.FC<POICategoryFilterProps> = ({ map, cityS
   }
 
   const allActive = activeCategories.size === POI_CATEGORIES.length;
+  // O(k) time, O(k) space — k = POI categories (Set lookup per row)
+  const categoryRows = POI_CATEGORIES.map(cat => (
+    <label key={cat.key} style={styles.row}>
+      <input
+        type="checkbox"
+        checked={activeCategories.has(cat.key)}
+        onChange={() => toggleCategory(cat.key)}
+        style={styles.checkbox}
+      />
+      <span style={{ ...styles.dot, background: cat.color }} />
+      {cat.label}
+      <span style={styles.count}>{hasCityCounts ? (cityCounts[cat.key] ?? 0) : cat.count}</span>
+    </label>
+  ));
 
   return (
     <div style={styles.container}>
@@ -172,19 +189,7 @@ export const POICategoryFilter: React.FC<POICategoryFilterProps> = ({ map, cityS
         </button>
         <button style={{ ...styles.toggleAll, fontSize: '14px' }} onClick={() => setCollapsed(true)}>×</button>
       </div>
-      {POI_CATEGORIES.map(cat => (
-        <label key={cat.key} style={styles.row}>
-          <input
-            type="checkbox"
-            checked={activeCategories.has(cat.key)}
-            onChange={() => toggleCategory(cat.key)}
-            style={styles.checkbox}
-          />
-          <span style={{ ...styles.dot, background: cat.color }} />
-          {cat.label}
-          <span style={styles.count}>{hasCityCounts ? (cityCounts[cat.key] ?? 0) : cat.count}</span>
-        </label>
-      ))}
+      {categoryRows}
     </div>
   );
 };

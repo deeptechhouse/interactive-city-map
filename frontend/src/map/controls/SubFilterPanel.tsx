@@ -33,7 +33,7 @@ export const SubFilterPanel: React.FC<SubFilterPanelProps> = ({ map, layers, cit
 
   return (
     <>
-      {showRailroad && <RailroadFilter map={map} />}
+      {showRailroad && <RailroadFilter key={citySlug} map={map} citySlug={citySlug} />}
       {showZoning && (
         <ZoningFilter
           key={citySlug}

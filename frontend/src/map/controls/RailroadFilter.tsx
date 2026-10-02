@@ -3,10 +3,14 @@ import type maplibregl from 'maplibre-gl';
 import { THEME } from '../../utils/colorSchemes';
 import { setSection } from '../../presets/searchState';
 import { useSearchSection } from '../../presets/SearchStateContext';
-import { CHICAGO_OWNERSHIP_TYPES as OWNERSHIP_TYPES, CHICAGO_RAILROAD_OWNERS as RAILROAD_OWNERS } from '../../utils/railroadTaxonomy';
+import { CHICAGO_OWNERSHIP_TYPES, CHICAGO_RAILROAD_OWNERS } from '../../utils/railroadTaxonomy';
+import { getCityProfile } from '../../cities/registry';
+import type { TaxonomyEntry } from '../../cities/CityProfile';
 
 interface RailroadFilterProps {
   map: maplibregl.Map | null;
+  /** Current city — picks its owner / ownership-type lists (default Chicago). */
+  citySlug?: string;
 }
 
 const RAILROAD_STATUSES = [
@@ -61,8 +65,8 @@ const styles = {
  * Returns null when all owners selected (no filter needed).
  * O(w) time, O(w) space — w = railroad owners (fixed taxonomy list).
  */
-function buildOwnerFilter(activeOwners: ReadonlySet<string>): unknown[] | null {
-  const allActive = activeOwners.size === RAILROAD_OWNERS.length;
+function buildOwnerFilter(activeOwners: ReadonlySet<string>, owners: readonly TaxonomyEntry[]): unknown[] | null {
+  const allActive = activeOwners.size === owners.length;
   if (allActive) return null;
 
   if (activeOwners.size === 0) return null; // handled by hiding all layers
@@ -71,7 +75,7 @@ function buildOwnerFilter(activeOwners: ReadonlySet<string>): unknown[] | null {
   // O(w) time, O(w) space — w = active owners (≤ railroad owners)
   const specificOwners = [...activeOwners].filter((o) => o !== '_other');
   // O(w) time, O(w) space — w = railroad owners (filter, then map)
-  const knownOwnerKeys = RAILROAD_OWNERS.filter((o) => o.key !== '_other').map((o) => o.key);
+  const knownOwnerKeys = owners.filter((o) => o.key !== '_other').map((o) => o.key);
 
   if (hasOther && specificOwners.length > 0) {
     // Show selected owners + anything not in the known list
@@ -92,17 +96,52 @@ function buildOwnerFilter(activeOwners: ReadonlySet<string>): unknown[] | null {
 
 // Saved in presets — keys are persisted, never rename them. Values = VISIBLE keys.
 // O(w) time, O(w) space — w = railroad owners
-const OWNERS_SECTION = setSection('railroads.owners', RAILROAD_OWNERS.map((o) => o.key), 'all');
+const OWNERS_SECTION = setSection('railroads.owners', CHICAGO_RAILROAD_OWNERS.map((o) => o.key), 'all');
 // O(t) time, O(t) space — t = railroad statuses
 const STATUSES_SECTION = setSection('railroads.statuses', RAILROAD_STATUSES.map((s) => s.key), 'all');
 // O(y) time, O(y) space — y = ownership types
-const OWNERSHIP_TYPES_SECTION = setSection('railroads.ownershipTypes', OWNERSHIP_TYPES.map((t) => t.key), 'all');
+const OWNERSHIP_TYPES_SECTION = setSection('railroads.ownershipTypes', CHICAGO_OWNERSHIP_TYPES.map((t) => t.key), 'all');
+
+type Section = ReturnType<typeof setSection>;
+// Other cities' owner / ownership sections, created once per city (section identity
+// matters to the search store). Chicago keeps the original preset keys above.
+const CITY_SECTIONS = new Map<string, { owners: Section; types: Section }>();
+
+/**
+ * Preset sections for a city's railroad owner and ownership-type selections.
+ * O(w + y) time, O(w + y) space — w = owners; y = ownership types (paid once per city).
+ */
+function railroadSections(
+  citySlug: string,
+  owners: readonly TaxonomyEntry[],
+  types: readonly TaxonomyEntry[],
+): { owners: Section; types: Section } {
+  if (citySlug === 'chicago') return { owners: OWNERS_SECTION, types: OWNERSHIP_TYPES_SECTION };
+  let sections = CITY_SECTIONS.get(citySlug);
+  if (!sections) {
+    sections = {
+      // O(w) time, O(w) space — w = owners
+      owners: setSection(`railroads.owners.${citySlug}`, owners.map((o) => o.key), 'all'),
+      // O(y) time, O(y) space — y = ownership types
+      types: setSection(`railroads.ownershipTypes.${citySlug}`, types.map((t) => t.key), 'all'),
+    };
+    CITY_SECTIONS.set(citySlug, sections);
+  }
+  return sections;
+}
 
 // O(w + t + y) time, O(w + t + y) space — w = railroad owners; t = statuses; y = ownership types (all fixed taxonomy lists)
-export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map }) => {
-  const [activeOwners, setActiveOwners] = useSearchSection(OWNERS_SECTION);
+export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map, citySlug = 'chicago' }) => {
+  // The city's own vocabularies (generated from its export); Chicago's lists otherwise.
+  const profile = getCityProfile(citySlug);
+  const RAILROAD_OWNERS = profile?.railroadOwners.length ? profile.railroadOwners : CHICAGO_RAILROAD_OWNERS;
+  const OWNERSHIP_TYPES = profile?.railroadOwnershipTypes.length
+    ? profile.railroadOwnershipTypes
+    : CHICAGO_OWNERSHIP_TYPES;
+  const sections = railroadSections(citySlug, RAILROAD_OWNERS, OWNERSHIP_TYPES);
+  const [activeOwners, setActiveOwners] = useSearchSection(sections.owners);
   const [activeStatuses, setActiveStatuses] = useSearchSection(STATUSES_SECTION);
-  const [activeOwnershipTypes, setActiveOwnershipTypes] = useSearchSection(OWNERSHIP_TYPES_SECTION);
+  const [activeOwnershipTypes, setActiveOwnershipTypes] = useSearchSection(sections.types);
 
   const toggleOwner = useCallback((key: string) => {
     setActiveOwners((prev) => {
@@ -144,7 +183,7 @@ export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map }) => {
   useEffect(() => {
     if (!map) return;
 
-    const ownerExpr = buildOwnerFilter(activeOwners);
+    const ownerExpr = buildOwnerFilter(activeOwners, RAILROAD_OWNERS);
     const noOwnersSelected = activeOwners.size === 0;
 
     // Build ownership_type filter
@@ -192,7 +231,7 @@ export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map }) => {
         }
       }
     } catch { /* */ }
-  }, [map, activeOwners, activeStatuses, activeOwnershipTypes]);
+  }, [map, activeOwners, activeStatuses, activeOwnershipTypes, RAILROAD_OWNERS, OWNERSHIP_TYPES]);
 
   // O(w) time, O(w) space — w = railroad owners
   const ownerRows = RAILROAD_OWNERS.map((owner) => (

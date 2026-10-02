@@ -63,18 +63,22 @@ class BusinessQuery:
 # Words that appear in nearly every business name and so prove nothing about a match.
 # ADJUSTABLE: add words here if unrelated businesses are being accepted as matches.
 _STOP_WORDS = frozenset(
-    {"the", "and", "of", "inc", "llc", "ltd", "co", "corp", "company", "a", "chicago", "&"}
+    # City names are noise when matching a business name to a place listing.
+    {"the", "and", "of", "inc", "llc", "ltd", "co", "corp", "company", "a", "chicago", "detroit", "dayton", "&"}
 )
 
 
+# O(n) time, O(n) space — n = characters in text
 def _tokens(text: str) -> set[str]:
     """Lower-case significant words in ``text``.
 
     O(n) time, O(n) space — n = characters in text.
     """
+    # O(n) time, O(n) space — n = characters in text (findall + one pass over its words)
     return {w for w in re.findall(r"[a-z0-9]+", text.lower()) if w not in _STOP_WORDS and len(w) > 1}
 
 
+# O(a + b) time, O(a + b) space — a = length of wanted; b = length of found
 def names_match(wanted: str, found: str) -> bool:
     """True when ``found`` plausibly names the same business as ``wanted``.
 
@@ -94,15 +98,18 @@ class PhoneLookupAdapter(ABC):
 
     @property
     @abstractmethod
+    # O(1) time, O(1) space — n = none (constant provider id)
     def name(self) -> str:
         """Short provider id used in config and in the response (``google``...)."""
 
     @property
+    # O(1) time, O(1) space — n = none (constant flag)
     def is_configured(self) -> bool:
         """False when the adapter has no API key — the chain skips it silently."""
         return True
 
     @abstractmethod
+    # O(1) time, O(1) space — n = none (abstract, each adapter states its own bound)
     async def lookup(self, query: BusinessQuery) -> Optional[PhoneMatch]:
         """Return the provider's phone for ``query`` or None. Must not raise on 'no match'."""
 
@@ -126,20 +133,23 @@ class GooglePlacesPhoneLookup(PhoneLookupAdapter):
     # Google may return nothing for large buildings whose pin sits at the far corner.
     _BIAS_RADIUS_M = 150.0
 
+    # O(1) time, O(1) space — n = none (stores a key and a client)
     def __init__(self, api_key: str = "", client: Optional[httpx.AsyncClient] = None):
         self._api_key = real_key(api_key or settings.google_places_api_key)
         self._client = client  # injectable for tests; None = make one per call
 
     @property
+    # O(1) time, O(1) space — n = none (constant provider id)
     def name(self) -> str:
         return "google"
 
     @property
+    # O(1) time, O(1) space — n = none (truthiness of a stored key)
     def is_configured(self) -> bool:
         return bool(self._api_key)
 
     def _body(self, query: BusinessQuery) -> dict:
-        """Build the searchText request body. O(1) time and space."""
+        """O(1) time, O(1) space — n = none (fixed-size request body). Build the searchText body."""
         body: dict = {
             "textQuery": f"{query.name}, {query.address}, {query.city}, {query.state}",
             "maxResultCount": 1,  # we only want the best hit; more results cost the same but add noise
@@ -154,7 +164,10 @@ class GooglePlacesPhoneLookup(PhoneLookupAdapter):
         return body
 
     async def lookup(self, query: BusinessQuery) -> Optional[PhoneMatch]:
-        """One HTTP call. O(1) time, O(1) space (maxResultCount = 1)."""
+        """O(a + b) time, O(a + b) space — a = query name length; b = returned name length.
+
+        One HTTP call (counted as O(1) work); maxResultCount = 1, so only one place is checked.
+        """
         headers = {
             "X-Goog-Api-Key": self._api_key,
             "X-Goog-FieldMask": self._FIELD_MASK,
@@ -191,20 +204,26 @@ class FoursquarePhoneLookup(PhoneLookupAdapter):
     # ADJUSTABLE: search radius in metres (Foursquare minimum is 1). See Google note above.
     _RADIUS_M = 150
 
+    # O(1) time, O(1) space — n = none (stores a key and a client)
     def __init__(self, api_key: str = "", client: Optional[httpx.AsyncClient] = None):
         self._api_key = real_key(api_key or settings.foursquare_api_key)
         self._client = client
 
     @property
+    # O(1) time, O(1) space — n = none (constant provider id)
     def name(self) -> str:
         return "foursquare"
 
     @property
+    # O(1) time, O(1) space — n = none (truthiness of a stored key)
     def is_configured(self) -> bool:
         return bool(self._api_key)
 
     async def lookup(self, query: BusinessQuery) -> Optional[PhoneMatch]:
-        """One HTTP call, scan up to 5 results. O(r) time, O(r) space — r = results (≤ 5)."""
+        """O(r) time, O(r) space — r = results returned (≤ 5, the ``limit`` param).
+
+        One HTTP call (counted as O(1) work), then a scan of at most 5 results.
+        """
         headers = {
             "Authorization": f"Bearer {self._api_key}",
             "X-Places-Api-Version": self._API_VERSION,
@@ -218,7 +237,8 @@ class FoursquarePhoneLookup(PhoneLookupAdapter):
             params["near"] = f"{query.address}, {query.city}, {query.state}"
 
         data = await _get_json(self._client, self._URL, headers, params)
-        # O(r) — first result whose name matches AND has a phone wins.
+        # O(r) time, O(1) space — r = results (≤ 5), each names_match costs the name length.
+        # First result whose name matches AND has a phone wins.
         for place in data.get("results") or []:
             phone = place.get("tel", "")
             found_name = place.get("name", "")
@@ -237,32 +257,41 @@ class ChainedPhoneLookup(PhoneLookupAdapter):
     are swallowed per provider so one outage doesn't blank the whole lookup.
     """
 
+    # O(p) time, O(p) space — p = providers passed in
     def __init__(self, providers: list[PhoneLookupAdapter]):
-        # Unconfigured providers (no key) are dropped up front — O(p), p = providers.
+        # O(p) time, O(p) space — p = providers. Unconfigured providers (no key) are dropped up front.
         self._providers = tuple(p for p in providers if p.is_configured)
 
     @property
+    # O(p) time, O(p) space — p = configured providers
     def name(self) -> str:
+        # O(p) time, O(p) space — p = configured providers (joined into one id string)
         return "+".join(p.name for p in self._providers) or "none"
 
     @property
+    # O(1) time, O(1) space — n = none (truthiness of the provider tuple)
     def is_configured(self) -> bool:
         return bool(self._providers)
 
     @property
+    # O(p) time, O(p) space — p = configured providers
     def provider_names(self) -> tuple[str, ...]:
         """Names of the providers that will actually be called, in order."""
+        # O(p) time, O(p) space — p = configured providers
         return tuple(p.name for p in self._providers)
 
     async def lookup(self, query: BusinessQuery) -> Optional[PhoneMatch]:
-        """O(p) HTTP calls worst case — p = configured providers (≤ 2 today).
+        """O(p) time, O(p) space — p = configured providers (≤ 2 today).
+
+        Worst case is p HTTP calls (each counted as O(1) work); space is the error list.
 
         Raises ProviderUnavailable when every provider ERRORED (see http_json.py) so the
         failure is reported, not cached as "no phone".
         """
         errors: list[tuple[str, Exception]] = []
         answered = False
-        for provider in self._providers:  # O(p)
+        # O(p) time, O(p) space — p = configured providers (errors list grows ≤ p)
+        for provider in self._providers:
             try:
                 match = await provider.lookup(query)
             except httpx.HTTPError as err:
@@ -282,11 +311,13 @@ _PROVIDER_FACTORIES: dict[str, Callable[[], PhoneLookupAdapter]] = {
 }
 
 
+# O(p) time, O(p) space — p = names in the list
 def build_phone_lookup(provider_names: list[str]) -> ChainedPhoneLookup:
     """Factory: provider-name list from config → chain. Unknown names are ignored.
 
-    O(p) time and space — p = names in the list.
+    O(p) time, O(p) space — p = names in the list.
     """
+    # O(p) time, O(p) space — p = names in the list (dict membership is constant-time)
     providers = [
         _PROVIDER_FACTORIES[n]() for n in provider_names if n in _PROVIDER_FACTORIES
     ]

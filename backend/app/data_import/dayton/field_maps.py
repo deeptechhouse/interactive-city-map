@@ -9,14 +9,13 @@ UNPROVEN: every value below is a best guess until it is checked against the live
     and records the check date beside each map. Anything still unchecked keeps
     `verified=False`, and the importer logs a warning when it runs.
 
-SHARED TYPE: FieldMap/pick currently live in detroit/field_maps.py. Plan D0 promotes them
-    to app/data_import/field_map.py. Until then this import is the one place where Dayton
-    depends on Detroit code. Do not add a second one.
+SHARED TYPE: FieldMap/pick live in app/data_import/field_map.py (promoted from the
+    Detroit package 2026-10-02, combined plan W1). Dayton has no imports from detroit/.
 
 STATUS — SKELETON.
 """
 
-from app.data_import.detroit.field_maps import FieldMap
+from app.data_import.field_map import FieldMap
 
 DAYTON_GIS = "https://maps.daytonohio.gov/gisservices/rest/services"
 

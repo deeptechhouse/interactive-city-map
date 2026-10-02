@@ -8,9 +8,9 @@
  *   CHICAGO_BOUNDARIES). This port collects them so a city is *added* (a new profile
  *   file) rather than *edited into* shared code. See docs/detroit_parity/detroit_tdd.html §3.
  *
- * STATUS — SKELETON (2026-10-02). Nothing imports this file yet, so it cannot change
- *   Chicago behaviour. Wiring happens in plan Phase 4 (registry seam), after Chicago's
- *   current layer list is pinned by a snapshot test.
+ * STATUS — interface FROZEN for the multi-city build (2026-10-02, combined plan W4).
+ *   Chicago's profile (./chicago) delegates to the pre-existing Chicago code, so Chicago's
+ *   output is unchanged; createDefaultLayers.test.ts pins it.
  *
  * ARCHITECTURE
  *   CityProfile (port) ← chicago/ and detroit/ (adapters) ← registry.ts (lookup by slug).
@@ -77,8 +77,19 @@ export interface CityProfile {
   devSources(): Readonly<Record<string, string>>;
   readonly staticAssets: StaticAssets;
 
-  /** Layer ids with a click popup in this city, mapped to their builder. */
+  /**
+   * Click popups for layers the shared MapContainer has no builder for, keyed by STYLE
+   * layer id (e.g. 'neighborhoods-fill', 'police_precincts-fill'). useMapClick queries
+   * these ids too. Builders must escape every value (utils/html.escapeHtml).
+   */
   readonly popups: Readonly<Record<string, PopupBuilder>>;
+
+  /**
+   * Per-layer vector `source-layer` overrides, when a city's tiles name a layer
+   * differently from Chicago's. Example: parks → 'parks' (Chicago's parks live in the
+   * 'parcels' source-layer). Omitted ids use the layer file's default.
+   */
+  readonly sourceLayers?: Readonly<Record<string, string>>;
 
   readonly zoning: readonly ZoneClass[];
   readonly railroadOwners: readonly TaxonomyEntry[];

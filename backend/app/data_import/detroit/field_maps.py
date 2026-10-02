@@ -13,16 +13,7 @@ UNPROVEN — every value below is a best guess until checked against the live la
 STATUS — SKELETON.
 """
 
-from dataclasses import dataclass
-
-
-@dataclass(frozen=True)
-class FieldMap:
-    """Our column name → upstream field name(s), first non-empty wins."""
-
-    source: str
-    fields: dict[str, tuple[str, ...]]
-    verified: bool = False  # flip to True with a dated comment once checked live
+from app.data_import.field_map import FieldMap, pick  # noqa: F401 — re-exported
 
 
 SEMCOG_BUILDINGS = FieldMap(
@@ -59,10 +50,3 @@ NHD_FLOWLINES = FieldMap(
     fields={"name": ("GNIS_NAME", "gnis_name"), "ftype": ("FTYPE", "ftype")},
 )
 
-
-def pick(props: dict, field_map: FieldMap, column: str) -> str | None:
-    """O(k) time, O(1) space — k = candidate upstream names for the column (≤ 3).
-
-    First non-empty upstream value for `column`, else None.
-    """
-    raise NotImplementedError("skeleton: pick")

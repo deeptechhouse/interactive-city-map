@@ -1,11 +1,24 @@
-"""ArcGIS FeatureServer client with pagination and coordinate reprojection.
+"""ArcGIS FeatureServer / MapServer client with pagination and reprojection.
 
-Handles downloading all features from ArcGIS FeatureServer REST endpoints
-that impose per-request record limits (typically 1000-2000). Supports
-reprojecting coordinates from arbitrary EPSG codes to WGS84 (EPSG:4326).
+Handles downloading all features from ArcGIS REST query endpoints that impose
+per-request record limits (typically 1000-2000). Supports reprojecting
+coordinates from arbitrary EPSG codes to WGS84 (EPSG:4326).
 
-Used by Detroit importers for data from data.detroitmi.gov (ArcGIS Hub)
-and SEMCOG FeatureServer (EPSG:2898 Michigan South State Plane).
+Used by Detroit importers (data.detroitmi.gov ArcGIS Hub; SEMCOG, EPSG:2898)
+and Dayton importers (maps.daytonohio.gov MapServer layers).
+
+PAGING STRATEGIES
+    1. resultOffset paging, following exceededTransferLimit (FeatureServers and
+       MapServers that advertise supportsPagination).
+    2. Object-ID batches (older MapServers that reject resultOffset): fetch every
+       OBJECTID with returnIdsOnly, then POST objectIds in page_size chunks.
+    Strategy 2 is chosen automatically when the first offset page errors.
+
+REPROJECTION
+    With pyproj installed, features are requested in their native SRID and
+    reprojected locally. Without it (pyproj has no wheel for some macOS/Python
+    combinations), the server is asked for outSR=4326 instead — accurate to well
+    under a metre for city-scale display.
 """
 
 import json
@@ -14,11 +27,19 @@ from pathlib import Path
 
 import httpx
 import structlog
-from pyproj import Transformer
 from shapely.geometry import shape, mapping
 from shapely.ops import transform
 
 logger = structlog.get_logger(__name__)
+
+try:  # optional: see REPROJECTION in the module docstring
+    from pyproj import Transformer
+except ImportError:  # pragma: no cover - depends on the machine
+    Transformer = None
+
+
+class _PaginationUnsupported(Exception):
+    """First resultOffset page failed — switch to object-ID batches."""
 
 
 class ArcGISFeatureServerClient:
@@ -75,10 +96,13 @@ class ArcGISFeatureServerClient:
         # Set up reprojection transformer if needed
         # always_xy=True ensures (lon, lat) order for both input and output
         self._transformer = None
-        if source_srid != 4326:
+        # SRID to request from the server: native when we reproject locally, else 4326.
+        self._out_srid = 4326
+        if source_srid != 4326 and Transformer is not None:
             self._transformer = Transformer.from_crs(
                 f"EPSG:{source_srid}", "EPSG:4326", always_xy=True
             )
+            self._out_srid = source_srid
 
     def download_all(self) -> dict:
         """O(n) time, O(n) space — n = features matching ``where``.
@@ -95,77 +119,124 @@ class ArcGISFeatureServerClient:
         dict
             A GeoJSON FeatureCollection with all features reprojected to EPSG:4326.
         """
+        with httpx.Client(timeout=self._timeout, follow_redirects=True) as client:
+            try:
+                return self._download_by_offset(client)
+            except _PaginationUnsupported:
+                self._log.info("pagination_unsupported_using_object_ids")
+                return self._download_by_object_ids(client)
+
+    def _base_params(self) -> dict[str, str]:
+        """O(1) time, O(1) space — k = fixed query parameters."""
+        return {
+            "where": self._where,
+            "outFields": self._out_fields,
+            "f": self._output_format,
+            "outSR": str(self._out_srid),
+        }
+
+    def _query(self, client, params: dict, post: bool = False) -> dict:
+        """O(p) time, O(p) space — p = features in the response.
+
+        One query request; ArcGIS reports errors inside a 200 response, so those
+        are raised here.
+        """
+        resp = client.post(self._base_url, data=params) if post else client.get(
+            self._base_url, params=params
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if "error" in data:
+            error = data["error"]
+            raise RuntimeError(f"ArcGIS error {error.get('code')}: {error.get('message')}")
+        return data
+
+    def _prepare(self, features: list[dict]) -> list[dict]:
+        """O(p) time, O(p) space — p = features on this page (converted/reprojected)."""
+        if self._output_format == "json":
+            # O(p) time, O(p) space — p = features on this page
+            features = [self._arcgis_to_geojson(f) for f in features]
+        if self._transformer:
+            # O(p) time, O(p) space — p = features on this page
+            features = [self._reproject_feature(f) for f in features]
+        return features
+
+    def _download_by_object_ids(self, client) -> dict:
+        """O(n) time, O(n) space — n = features, fetched in n/page_size POSTs.
+
+        Fallback for servers without resultOffset support.
+        """
+        ids_data = self._query(
+            client, {"where": self._where, "returnIdsOnly": "true", "f": "json"}
+        )
+        ids = sorted(ids_data.get("objectIds") or [])
+        all_features: list[dict] = []
+        # O(n) time, O(n) space — n = object ids, page_size per request
+        for start in range(0, len(ids), self._page_size):
+            chunk = ids[start : start + self._page_size]
+            params = self._base_params()
+            # bigo-lint: disable=BIGO006 — amortised: each id is joined once overall (n)
+            # O(c) time, O(c) space — c = ids in this chunk (≤ page_size)
+            params["objectIds"] = ",".join(str(i) for i in chunk)
+            # bigo-lint: disable=BIGO006 — amortised: each feature is fetched once (n)
+            # O(p) time, O(p) space — p = features in this chunk
+            all_features.extend(self._prepare(self._query(client, params, post=True).get("features", [])))
+            self._log.info("ids_page_downloaded", done=len(all_features), total=len(ids))
+            time.sleep(0.5)
+        self._log.info("download_complete", total_features=len(all_features))
+        return {"type": "FeatureCollection", "features": all_features}
+
+    def _download_by_offset(self, client) -> dict:
+        """O(n) time, O(n) space — n = features (the paging trap is in download_all's docstring)."""
         all_features: list[dict] = []
         offset = 0
         total_downloaded = 0
+        # O(n) time, O(n) space — n = matching features, fetched n/p pages at a time (p = rows per page)
+        while True:
+            # Build the paginated query URL
+            params = self._base_params()
+            params["resultRecordCount"] = str(self._page_size)
+            params["resultOffset"] = str(offset)
 
-        with httpx.Client(timeout=self._timeout, follow_redirects=True) as client:
-            # O(n) time, O(n) space — n = matching features, fetched n/p pages at a time (p = rows per page)
-            while True:
-                # Build the paginated query URL
-                params = {
-                    "where": self._where,
-                    "outFields": self._out_fields,
-                    "f": self._output_format,
-                    "resultRecordCount": str(self._page_size),
-                    "resultOffset": str(offset),
-                }
-                # If source SRID is not 4326, request in native projection
-                # and reproject ourselves (more accurate than server-side)
-                if self._source_srid != 4326:
-                    params["outSR"] = str(self._source_srid)
+            self._log.info("page_request", offset=offset)
+            try:
+                data = self._query(client, params)
+            except RuntimeError:
+                if offset == 0:
+                    raise _PaginationUnsupported() from None
+                raise
 
-                self._log.info("page_request", offset=offset)
-                resp = client.get(self._base_url, params=params)
-                resp.raise_for_status()
-                data = resp.json()
+            features = data.get("features", [])
+            if not features:
+                break
 
-                # Handle ArcGIS error responses embedded in JSON
-                if "error" in data:
-                    error = data["error"]
-                    raise RuntimeError(
-                        f"ArcGIS error {error.get('code')}: {error.get('message')}"
-                    )
+            # bigo-lint: disable=BIGO006 — amortised: each feature is prepared once overall (n)
+            # O(p) time, O(p) space — p = features on this page
+            features = self._prepare(features)
 
-                features = data.get("features", [])
-                if not features:
-                    break
+            all_features.extend(features)
+            total_downloaded += len(features)
+            self._log.info(
+                "page_downloaded",
+                offset=offset,
+                page_count=len(features),
+                total=total_downloaded,
+            )
 
-                # Convert ArcGIS JSON to GeoJSON if needed
-                if self._output_format == "json":
-                    # bigo-lint: disable=BIGO006 — amortised: each feature is converted once overall (n)
-                    # O(p) time, O(p) space — p = features on this page
-                    features = [self._arcgis_to_geojson(f) for f in features]
+            # The flag sits at the top level for f=json and under "properties"
+            # for f=geojson. True = more rows exist even if this page was short.
+            exceeded = data.get("exceededTransferLimit")
+            if exceeded is None:
+                exceeded = (data.get("properties") or {}).get("exceededTransferLimit")
+            # No flag (older servers) + short page = done. A short page WITH the
+            # flag means the server capped the page, not that the data ended.
+            if not exceeded and len(features) < self._page_size:
+                break
 
-                # Reproject geometries if needed
-                if self._transformer:
-                    # bigo-lint: disable=BIGO006 — amortised: each feature is reprojected once overall (n)
-                    # O(p) time, O(p) space — p = features on this page
-                    features = [self._reproject_feature(f) for f in features]
+            offset += len(features)
 
-                all_features.extend(features)
-                total_downloaded += len(features)
-                self._log.info(
-                    "page_downloaded",
-                    offset=offset,
-                    page_count=len(features),
-                    total=total_downloaded,
-                )
-
-                # The flag sits at the top level for f=json and under "properties"
-                # for f=geojson. True = more rows exist even if this page was short.
-                exceeded = data.get("exceededTransferLimit")
-                if exceeded is None:
-                    exceeded = (data.get("properties") or {}).get("exceededTransferLimit")
-                # No flag (older servers) + short page = done. A short page WITH the
-                # flag means the server capped the page, not that the data ended.
-                if not exceeded and len(features) < self._page_size:
-                    break
-
-                offset += len(features)
-
-                # Brief pause to be polite to the server
-                time.sleep(0.5)
+            # Brief pause to be polite to the server
+            time.sleep(0.5)
 
         self._log.info("download_complete", total_features=total_downloaded)
         return {"type": "FeatureCollection", "features": all_features}

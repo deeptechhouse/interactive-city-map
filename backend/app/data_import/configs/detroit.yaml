@@ -68,6 +68,22 @@ sources:
     url: "https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/DLBA_Owned_Properties/FeatureServer/0/query"
     note: "Detroit Land Bank Authority owned properties — see also buildingdetroit.org for auction listings"
 
+  # Read by import_blight.py. Cities without this block import no blight (fail closed);
+  # until 2026-10-02 these URLs were hard-coded and leaked into every city's import.
+  blight_violations:
+    tickets_url: "https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/blight_tickets/FeatureServer/0/query"
+    demolitions_url: "https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/Commercial_Demolitions/FeatureServer/0/query"
+    # ADJUSTABLE: server-side filter on tickets. Default = every ticket with coordinates
+    # (902,995 of 906,848 on 2026-10-02, 2005 → today; ~900 requests of 1,000 rows).
+    # To shrink the layer to recent years use e.g.
+    #   "latitude IS NOT NULL AND ticket_issued_date >= DATE '2021-01-01'"   (411,525 rows)
+    # TRAP: write DATE '…'. A bare '2021-01-01' works for counts but the paged query
+    # fails with "ArcGIS error 400: Unable to perform query" (checked 2026-10-02).
+    tickets_where: "latitude IS NOT NULL AND longitude IS NOT NULL"
+    page_size: 1000          # server maxRecordCount for blight_tickets
+    bbox: [[-83.30, 42.20], [-82.90, 42.50]]   # same as city.bounds; drops 0,0 / stray points
+    note: "Tickets carry location in latitude/longitude, not geometry. Commercial_Demolitions is marked Deprecated upstream."
+
   # =========================================================================
   # TRANSIT — GTFS ZIP files from 4 agencies
   # All systems are active as of 2026. Free to ride: QLine (through 2039),

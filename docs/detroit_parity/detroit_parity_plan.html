@@ -29,6 +29,7 @@ a{color:var(--accent2)}
 <p>Interactive City Map · how to bring Detroit up to Chicago's level · 2026-10-02 · companion to <a style="color:#f0b07f" href="detroit_tdd.html">detroit_tdd.html</a></p>
 </div></header>
 <main>
+<div class="callout info"><b>Combined plan (2026-10-02):</b> Detroit and Dayton are now planned together. Shared seams, wave order (W0–W9 ↔ P0–P9) and the Chicago-safety gates are in <code>../interactive-city-map-dayton/docs/multi_city/multi_city_tdd.html</code> (branch <code>feat/dayton-skeleton</code>, commit c6c5a59). Where the two documents differ, the combined TDD §11 wins.</div>
 <nav class="toc"><b>Contents</b> — <a href="#verdict">1 Verdict</a> · <a href="#matrix">2 Feature matrix</a> · <a href="#defects">3 Defects found</a> · <a href="#goal">4 Goal</a> · <a href="#approach">5 Approach</a> · <a href="#steps">6 Steps</a> · <a href="#schedule">7 Schedule</a> · <a href="#tradeoffs">8 Trade-offs</a> · <a href="#costs">9 Costs</a> · <a href="#risks">10 Risks</a> · <a href="#skeleton">11 Skeleton delivered</a></nav>
 
 <h2 id="verdict"><span class="n">1</span>Verdict</h2>
@@ -60,9 +61,9 @@ a{color:var(--accent2)}
 <tr><td>7</td><td>Railroad right-of-way parcels (2,780)</td><td><span class="pill bad">missing</span></td><td>Derive from Detroit parcels owned by railroads → P2</td></tr>
 <tr><td>8</td><td>Zip code boundaries + labels (59)</td><td><span class="pill bad">missing</span></td><td>Configured layer may be non-spatial (use the TIGER ZCTA fallback). No migration-defined table → P1/P2</td></tr>
 <tr><td>9</td><td>Zoning districts + type filter (RS-3, B3-2, DX…)</td><td><span class="pill bad">missing</span></td><td>Importer classifies with Chicago codes; filter catalogue is Chicago Title 17 → P2/P5</td></tr>
-<tr><td>10</td><td>Police districts</td><td><span class="pill bad">wrong data</span></td><td>Shows embedded CPD polygons. Needs DPD precincts (12) → P1/P2/P4</td></tr>
+<tr><td>10</td><td>Police districts</td><td><span class="pill bad">missing</span></td><td>No longer shows CPD polygons (fixed 2026-10-02). Needs DPD precincts (12) → P1/P2/P4</td></tr>
 <tr><td>11</td><td>City wards (50)</td><td><span class="pill bad">empty layer</span></td><td>Council-district layer exists, but its source is <code>''</code>: no table, importer or data → P1/P2</td></tr>
-<tr><td>12</td><td>Parks — green fill + labels</td><td><span class="pill bad">missing</span></td><td>Configured but has no importer. <b>Trap:</b> the shared ParkLayer paints the whole <code>parcels</code> layer → P1/P2/P4</td></tr>
+<tr><td>12</td><td>Parks — green fill + labels</td><td><span class="pill bad">missing</span></td><td>Hidden for Detroit for now (2026-10-02); permanent fix in TDD §13 F-3. Configured but has no importer. <b>Trap:</b> the shared ParkLayer paints the whole <code>parcels</code> layer → P1/P2/P4</td></tr>
 <tr><td>13</td><td>Waterways — blue lines + labels</td><td><span class="pill part">partial</span></td><td>NHD configured, but upper-case vs lower-case fields would null every name. No pagination → P2</td></tr>
 <tr><td>14</td><td>Major street labels (25)</td><td><span class="pill bad">missing</span></td><td>Importer is a stub; no Detroit streets → P2</td></tr>
 <tr><td>15</td><td>Transit lines + stations (CTA colours)</td><td><span class="pill part">partial</span></td><td>GTFS importer exists for 4 agencies but has not been run. All Detroit lines would render grey (#888) → P2/P5</td></tr>
@@ -81,13 +82,13 @@ a{color:var(--accent2)}
 </table></div>
 
 <h2 id="defects"><span class="n">3</span>Defects found during the audit</h2>
-<p>These are bugs, not just missing features. Each one gets a regression test in the phase that fixes it.</p>
+<p>These are bugs, not just missing features. Each one gets a regression test in the phase that fixes it. <b>Update 2026-10-02:</b> the blight importer (city leak, null geometry, wrong field names, single-page download) and the police bug are fixed, plus an interim parks guard. The owner-batch and city-switch fixes are specified in <a href="detroit_tdd.html#fixes">TDD §13</a>, because their files are in the Chicago session's working set.</p>
 <table>
 <tr><th>Severity</th><th>Defect</th><th>Where</th><th>Fix in</th></tr>
-<tr><td><span class="pill bad">high</span></td><td>Blight importer ignores config and hard-codes Detroit URLs, so <code>run.py --city chicago</code> loads about 874K Detroit tickets under Chicago's city_id</td><td><code>import_blight.py:20-21</code>, <code>run.py:38-50</code></td><td>P2 (city_registry)</td></tr>
-<tr><td><span class="pill bad">high</span></td><td>Layers are never removed on city switch, so Chicago-only layers stay drawn and can't be toggled off</td><td><code>MapContainer.tsx:184-271</code></td><td>P4</td></tr>
-<tr><td><span class="pill bad">high</span></td><td>Owner batch sends every address to Tracerfy as Chicago, IL. That spends paid credits on wrong-city lookups</td><td><code>routes/contacts.py:244</code></td><td>P6</td></tr>
-<tr><td><span class="pill part">med</span></td><td>Police-districts layer is "shared", so Detroit renders CPD data</td><td><code>useMapLayers.ts:43</code></td><td>P4</td></tr>
+<tr><td><span class="pill ok">fixed</span></td><td>Blight importer ignores config and hard-codes Detroit URLs, so <code>run.py --city chicago</code> loads about 874K Detroit tickets under Chicago's city_id</td><td><code>import_blight.py:20-21</code>, <code>run.py:38-50</code></td><td>P2 (city_registry)</td></tr>
+<tr><td><span class="pill bad">high</span></td><td><i>(spec: TDD §13 F-2)</i> Layers are never removed on city switch, so Chicago-only layers stay drawn and can't be toggled off</td><td><code>MapContainer.tsx:184-271</code></td><td>P4</td></tr>
+<tr><td><span class="pill bad">high</span></td><td><i>(spec: TDD §13 F-1)</i> Owner batch sends every address to Tracerfy as Chicago, IL. That spends paid credits on wrong-city lookups</td><td><code>routes/contacts.py:244</code></td><td>P6</td></tr>
+<tr><td><span class="pill ok">fixed</span></td><td>Police-districts layer is "shared", so Detroit renders CPD data</td><td><code>useMapLayers.ts:43</code></td><td>P4</td></tr>
 <tr><td><span class="pill part">med</span></td><td>In static mode, layers with <code>''</code> URLs still add broken vector sources</td><td><code>MapContainer.tsx:196</code></td><td>P4</td></tr>
 <tr><td><span class="pill part">med</span></td><td>ArcGIS helper merges multi-ring features into one Polygon (false holes); building importer keeps only the first part of a MultiPolygon</td><td><code>arcgis_helper.py:150-155</code>, <code>import_buildings.py:80-81</code></td><td>P2 (Detroit override; shared fix optional)</td></tr>
 <tr><td><span class="pill part">med</span></td><td>Unknown <code>?city=</code> silently falls back to Chicago</td><td><code>geoUtils.getCityDefaults</code></td><td>P4 (registry returns null)</td></tr>

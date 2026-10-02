@@ -29,7 +29,8 @@ a{color:var(--accent2)}
 <p>Interactive City Map · city-profile architecture and the Detroit data pipeline · 2026-10-02 · plan: <a style="color:#f0b07f" href="detroit_parity_plan.html">detroit_parity_plan.html</a></p>
 </div></header>
 <main>
-<nav class="toc"><b>Contents</b> — <a href="#scope">1 Scope</a> · <a href="#context">2 Context</a> · <a href="#arch">3 Architecture</a> · <a href="#data">4 Data model</a> · <a href="#fe">5 Frontend</a> · <a href="#be">6 Backend pipeline</a> · <a href="#api">7 API</a> · <a href="#deps">8 Dependencies</a> · <a href="#deploy">9 Deployment</a> · <a href="#skeleton">10 Skeleton</a> · <a href="#test">11 Testing</a> · <a href="#sec">12 Security</a></nav>
+<div class="callout info"><b>Combined plan (2026-10-02):</b> Detroit and Dayton are now planned together. Shared seams, wave order (W0–W9 ↔ P0–P9) and the Chicago-safety gates are in <code>../interactive-city-map-dayton/docs/multi_city/multi_city_tdd.html</code> (branch <code>feat/dayton-skeleton</code>, commit c6c5a59). Where the two documents differ, the combined TDD §11 wins.</div>
+<nav class="toc"><b>Contents</b> — <a href="#scope">1 Scope</a> · <a href="#context">2 Context</a> · <a href="#arch">3 Architecture</a> · <a href="#data">4 Data model</a> · <a href="#fe">5 Frontend</a> · <a href="#be">6 Backend pipeline</a> · <a href="#api">7 API</a> · <a href="#deps">8 Dependencies</a> · <a href="#deploy">9 Deployment</a> · <a href="#skeleton">10 Skeleton</a> · <a href="#test">11 Testing</a> · <a href="#sec">12 Security</a> · <a href="#fixes">13 Bug fixes</a></nav>
 
 <h2 id="scope"><span class="n">1</span>Scope</h2>
 <p><b>In scope:</b> bring Detroit to Chicago's feature level in both run modes (static and dev), and introduce a city-profile seam so the work goes into new files instead of edits to Chicago code.</p>
@@ -235,6 +236,103 @@ a{color:var(--accent2)}
 <li><b>Paid-API spend:</b> the hard-coded Chicago/IL owner batch was a credit-wasting defect. Validate <code>city</code>/<code>state</code> in <code>BatchItem</code> (2-letter state, bounded length). The existing per-IP rate limits apply.</li>
 <li><b>Secrets:</b> no new keys. The Detroit open-data endpoints are keyless, and the Google, Foursquare and Tracerfy keys stay server-side.</li>
 <li><b>Internet-facing (§27):</b> no new public endpoints. The <code>BatchItem</code> change sits behind the existing local-only and rate-limited routes.</li>
+</ul>
+
+<h2 id="fixes"><span class="n">13</span>Bug fixes from the audit</h2>
+<p>These are the five bugs found in the 2026-10-02 audit. The rule: fix immediately if no file is in another session's working set; otherwise specify the fix here. The Chicago session confirmed on 2026-10-02 that it owns <code>MapContainer.tsx</code>, <code>routes/contacts.py</code>, <code>OwnerBatchRunner.ts</code> and <code>ownerLookup.ts</code>.</p>
+
+<h3>13.1 Fixed 2026-10-02</h3>
+<div class="scroll"><table>
+<tr><th>Bug</th><th>Fix</th><th>Files</th><th>Verified by</th></tr>
+<tr><td><b>B-1 Blight importer.</b> (a) It leaked into every city: the URLs were module constants, so <code>run.py --city chicago</code> would store Detroit tickets under Chicago's city_id. Checking the live services on 2026-10-02 found three more defects that together would have imported almost nothing:<br>(b) ~98–100% of tickets have <code>geometry: null</code>; the location is in the <code>latitude</code>/<code>longitude</code> fields, and null-geometry rows were skipped.<br>(c) The field names were wrong (<code>violation_address</code>, <code>violation_code</code>, <code>TicketIssuedDT</code>… don't exist), so every field would have been null.<br>(d) Paging stopped after one page: the server caps pages at 1,000 rows while the importer asked for 2,000, and the helper stopped on a short page. That is 1,000 of ~907K rows.</td><td>(a) The URLs now come from <code>sources.blight_violations</code>. A city without them fails closed with 0 rows before any download.<br>(b) Points are built from lat/lon when geometry is null. Points outside the city bbox (including 0,0) are dropped.<br>(c) Fields map from the real names: <code>address</code>, <code>ordinance_law</code>, <code>ordinance_description</code>, <code>disposition</code>, <code>ticket_issued_date</code>. Demolition <code>demo_date</code> is converted from epoch ms to an ISO date.<br>(d) <code>arcgis_helper</code> follows <code>exceededTransferLimit</code> and advances by the rows actually received. It also gained <code>where</code> and <code>out_fields</code> parameters, so the importer requests only its 8 fields (of 48) and filters on the server through the ADJUSTABLE <code>tickets_where</code>. The default is every geolocated ticket (902,995 rows); the yaml documents a date window (411,525 since 2021) and the <code>DATE '…'</code> syntax trap.</td><td><code>data_import/import_blight.py</code>, <code>data_import/arcgis_helper.py</code>, <code>configs/detroit.yaml</code></td><td><code>tests/test_detroit_parity.py</code>: 6 pass (city gating ×2, lat/lon placement, bbox rejection, real field mapping, paging follows the flag), run in a scratch venv. A <b>live run</b> of the fixed importer against the City of Detroit services over a 9-day ticket window downloaded 1,651 of 1,651 tickets (2 pages) and 1,272 of 1,272 demolitions (2 GeoJSON pages), with 0 missing addresses or codes.</td></tr>
+<tr><td><b>B-4 Police layer draws Chicago districts for Detroit.</b> <code>police_districts</code> (embedded CPD GeoJSON) was in the shared list.</td><td>Moved it into the Chicago-only branch as its first entry, so Chicago's order is identical. Other cities (Dayton, Cincinnati) stop getting it too. Detroit gets DPD precincts in P4.</td><td><code>map/hooks/useMapLayers.ts</code></td><td><code>map/hooks/__tests__/createDefaultLayers.test.ts</code> pins Chicago's 15 layers (id, group, visible, opacity, order) and asserts Detroit has no <code>police_districts</code>.</td></tr>
+<tr><td><b>B-5 Parks would paint every Detroit parcel green</b> (interim fix).</td><td>The <code>parks</code> layer is no longer offered for Detroit until it has its own table. The permanent fix is F-3 below.</td><td><code>map/hooks/useMapLayers.ts</code></td><td>Same test file: Detroit has no <code>parks</code>; Chicago still does.</td></tr>
+</table></div>
+<p class="muted">Housekeeping in the same edit:</p>
+<ul class="muted">
+<li><code>createDefaultLayers</code> is now exported for tests.</li>
+<li>Removed the unused <code>CHICAGO_ONLY_LAYERS</code>/<code>DETROIT_ONLY_LAYERS</code> sets, which were 2 ESLint errors and 2 tsc errors. The repo-wide tsc count dropped from 19 to 17.</li>
+<li>Added Big-O annotations to both touched files.</li>
+</ul>
+<p class="muted">The frontend <code>map</code>, <code>presets</code> and <code>api</code> tests pass (46). <code>backend/.venv</code> lacks pytest and httpx, and <code>pyproj</code> will not build on this macOS, so the backend tests ran in a throwaway scratchpad venv with <code>pyproj</code>/<code>psycopg2</code> stubbed. Neither is used by these tests.</p>
+
+<h3>13.2 Pending — the files are owned by the Chicago session</h3>
+
+<h4>F-1 Owner batch sends every address as Chicago, IL</h4>
+<p><b>Bug:</b> <code>routes/contacts.py:244</code> builds <code>OwnerQuery(…, city="Chicago", state="IL")</code> for every item. A Detroit batch would buy wrong-city Tracerfy answers (1–2 credits each) and save them under Chicago keys.</p>
+<p><b>Fix:</b></p>
+<ol>
+<li><b>Backend, <code>routes/contacts.py</code>:</b> add two fields to <code>BatchItem</code>. Both defaults keep today's clients unchanged.
+<pre>city: str = Field("Chicago", min_length=1, max_length=60, pattern=r"^[A-Za-z .'-]+$")
+state: str = Field("IL", pattern=r"^[A-Z]{2}$")</pre>
+Then use <code>city=i.city.strip(), state=i.state</code> at line 244, and drop the "Chicago only today" comment.</li>
+<li><b>Frontend, <code>contacts/ownerLookup.ts</code>:</b> <code>BatchItem</code> gains <code>city</code> and <code>state</code>, and <code>start()</code> sends them.</li>
+<li><b>Frontend, <code>contacts/OwnerBatchRunner.ts</code></b> (it already receives <code>city</code>, line 103): fill them from the city's postal defaults. Until P4 that is a small map (<code>chicago → CHICAGO/IL</code>, <code>detroit → DETROIT/MI</code>); after P4, use <code>profile.contacts.postalCity/postalState</code>.</li>
+</ol>
+<p><b>No data migration is needed.</b> Saved answers are keyed by <code>property_key(street, city, state)</code> (<code>owner_result_store.address_key</code>), so Detroit answers will be stored separately. No Detroit batch can have run yet, because the Detroit contact list is disabled.</p>
+<p><b>Tests:</b></p>
+<ul>
+<li><code>test_phase6_owner_batch_uses_item_city_state</code> (already skipped in <code>test_detroit_parity.py</code>).</li>
+<li>An item without city/state still produces Chicago, IL.</li>
+<li>Invalid state (<code>"Michigan"</code>) → 422.</li>
+</ul>
+
+<h4>F-2 Layers are never removed on city switch</h4>
+<p><b>Bug:</b> the "Add data layers" effect in <code>MapContainer.tsx</code> (≈ lines 174–214) only adds layers, and the visibility sync loops only over the current city's <code>layers</code>. When you switch Chicago → Detroit, wards, gang territory, federal properties and railroad RoW stay drawn and can no longer be toggled.</p>
+<p><b>Fix</b>, in <code>MapContainer.tsx</code>:</p>
+<ol>
+<li>Keep <code>addedRef = useRef(new Map&lt;string, string[]&gt;())</code>, mapping layerId → the sublayer ids it added.</li>
+<li>At the top of the add effect, find every id in <code>addedRef</code> that is not in <code>layers</code>. For each one:
+<ul>
+<li>Remove each of its sublayers (<code>map.getLayer(id)</code> first).</li>
+<li>Collect each removed sublayer's <code>.source</code>, then remove that source once no remaining style layer uses it.</li>
+<li>Delete the id from <code>addedRef</code>.</li>
+</ul></li>
+<li>Record ids after each <code>registry.add</code>.</li>
+</ol>
+<p>This is O(k) per switch, where k = sublayers removed. Sanborn and FloorPlan already clean up after themselves; leave them alone. This is what <code>removeCityLayers</code> in the skeleton will become (shared, also used by Dayton).</p>
+<p><b>Tests</b> (mock map):</p>
+<ul>
+<li>A Chicago → Detroit rerender calls <code>removeLayer</code> for every <code>wards-*</code>, <code>gang_territory-*</code>, <code>federal_properties-*</code> and <code>railroad_row-*</code> sublayer.</li>
+<li>Shared layers (buildings, railroads…) are not removed.</li>
+<li>Chicago → Detroit → Chicago re-adds the Chicago layers exactly once.</li>
+</ul>
+
+<h4>F-3 Detroit parks (permanent fix for B-5)</h4>
+<p><b>Needs:</b></p>
+<ul>
+<li>Migration 005 <code>parks</code> table (§4).</li>
+<li><code>DetroitParksImporter</code>.</li>
+<li>A shared park layer that takes its source-layer as a parameter (Chicago <code>parcels</code>, Detroit/Dayton <code>parks</code>).</li>
+<li>A city-aware source URL (<code>parks → martinTileUrl('parks')</code> for Detroit).</li>
+</ul>
+<p>The last two touch <code>getLayerSourceUrl</code>'s call site and <code>LAYER_REGISTRY</code> in <code>MapContainer.tsx</code>, which is why this is pending. After that, put <code>parks</code> back in Detroit's list and flip the test in <code>createDefaultLayers.test.ts</code>.</p>
+
+<h3>13.3 Also found while fixing (not yet fixed)</h3>
+<ul>
+<li><b>Paging fix reaches every Detroit ArcGIS import.</b> Buildings (SEMCOG), zoning, neighborhoods and DLBA use the same helper, so each would also have stopped after one page wherever the server's cap is below the importer's <code>page_size</code>. They now page correctly. Chicago is unaffected: no Chicago config sets <code>arcgis_featureserver</code>.</li>
+<li><b>Blight still open:</b>
+<ul>
+<li>Commercial_Demolitions is marked "(Deprecated)" upstream; find its replacement layer.</li>
+<li>The OSM "abandoned" source reads <code>.osm_abandoned.json</code>, which nothing writes. Either add an Overpass fetch step or drop the source.</li>
+<li>Choose the ticket window. All 903K points is heavy for the static PMTiles; the yaml shows a 5-year filter.</li>
+</ul></li>
+<li><b>Other cities</b> (Dayton, Cincinnati) still get the <code>parks</code> layer pointed at <code>parcels</code>. That is harmless while their parcels tables are empty, but the same trap applies once parcels are imported. The Dayton session has been told.</li>
+</ul>
+
+<h3>13.4 Cross-plan requests from the Dayton session (2026-10-02)</h3>
+<p>The Dayton plan (<code>docs/dayton_parity/</code>, branch <code>feat/dayton-skeleton</code>) waits on this plan's P1–P4 for the shared files. Its three requests are accepted into this design:</p>
+<ol>
+<li><b>P1: add a <code>railroad_row</code> table to migration 005</b> (MULTIPOLYGON; <code>pin</code>, <code>owner_name</code>, <code>carrier</code>, <code>ownership_type</code>). Both Detroit and Dayton derive it from parcels. Chicago keeps its embedded <code>railroadRowData.ts</code>. The P4 layer reads the table when the city profile says so.</li>
+<li><b>P3/P4: <code>StaticAssets</code> gets an optional shared basemap.</b> Add <code>basemapPmtiles?: string</code> at the build level, overriding the per-city one. A server build points every city at one regional Protomaps extract; a tablet build keeps a per-city clip. <code>export_city_static.py</code> gains <code>--basemap {city,regional,skip}</code>.</li>
+<li><b>P4: <code>registry.ts</code> reads the generated module <code>virtual:city-profiles</code></b> (type in <code>frontend/src/cities/virtual-city-profiles.d.ts</code>, produced by <code>frontend/vite/cityPackPlugin.ts</code>, both on the Dayton branch). A <code>VITE_CITIES=dayton</code> build then bundles only Dayton. The default build must still include every city, and the fail-closed null for an unknown slug stays.</li>
+</ol>
+<p>Shared helpers the Dayton plan reuses, all owned by Detroit P4 and moving out of <code>cities/detroit/</code>:</p>
+<ul>
+<li><code>removeCityLayers</code> (F-2).</li>
+<li>A park layer that takes its source-layer as a parameter (F-3).</li>
+<li>A boundary-outline layer that takes its table and label field (generalised from <code>addPolicePrecinctLayer</code>).</li>
+<li><code>FieldMap</code>/<code>pick</code>, promoted from <code>detroit/field_maps.py</code> to a shared module in P2.</li>
 </ul>
 </main>
 </body></html>

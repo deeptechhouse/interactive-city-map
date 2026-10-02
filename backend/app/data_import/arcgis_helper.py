@@ -33,12 +33,23 @@ class ArcGISFeatureServerClient:
         EPSG code of the source coordinate system. If not 4326, coordinates
         are reprojected to WGS84 automatically.
     page_size : int
-        Number of records per request. ArcGIS servers typically cap at
-        1000-2000; set this to match the server's maxRecordCount.
+        Number of records per request. The server may return FEWER than this
+        even when more rows exist (blight_tickets caps at 1000; GeoJSON output
+        caps Commercial_Demolitions at 1000 although its maxRecordCount is 2000).
+        Pagination therefore follows the server's ``exceededTransferLimit`` flag
+        and advances by the rows actually received — never by page_size.
     timeout : float
         HTTP request timeout in seconds per page.
+    where : str
+        SQL-92 filter sent to the server (default every row). Comes from city
+        config, never from user input.
+    out_fields : str
+        Comma-separated field list (default ``*``). Naming only the fields an
+        importer reads cuts payloads several-fold on wide layers (blight_tickets
+        has 48 fields; the importer reads 8).
     """
 
+    # O(1) time, O(1) space — n = 1 client (config + optional pyproj transformer)
     def __init__(
         self,
         base_url: str,
@@ -46,11 +57,15 @@ class ArcGISFeatureServerClient:
         page_size: int = 2000,
         timeout: float = 120.0,
         output_format: str = "geojson",
+        where: str = "1=1",
+        out_fields: str = "*",
     ):
         self._base_url = base_url.rstrip("/")
         self._source_srid = source_srid
         self._page_size = page_size
         self._timeout = timeout
+        self._where = where
+        self._out_fields = out_fields
         # Some ArcGIS Enterprise servers (e.g., SEMCOG) only support f=json,
         # not f=geojson. When output_format="json", we convert ArcGIS JSON
         # features to GeoJSON format ourselves.
@@ -66,7 +81,14 @@ class ArcGISFeatureServerClient:
             )
 
     def download_all(self) -> dict:
-        """Download all features with pagination, returning a GeoJSON FeatureCollection.
+        """O(n) time, O(n) space — n = features matching ``where``.
+
+        Download all features with pagination, returning a GeoJSON FeatureCollection.
+
+        TRAP (fixed 2026-10-02): this loop used to stop when a page held fewer
+        than page_size rows and advanced the offset by page_size. Servers that cap
+        below page_size (blight_tickets: 1000) therefore ended after ONE page —
+        1,000 of ~907K tickets — with no error.
 
         Returns
         -------
@@ -78,11 +100,12 @@ class ArcGISFeatureServerClient:
         total_downloaded = 0
 
         with httpx.Client(timeout=self._timeout, follow_redirects=True) as client:
+            # O(n) time, O(n) space — n = matching features, fetched n/p pages at a time (p = rows per page)
             while True:
                 # Build the paginated query URL
                 params = {
-                    "where": "1=1",
-                    "outFields": "*",
+                    "where": self._where,
+                    "outFields": self._out_fields,
                     "f": self._output_format,
                     "resultRecordCount": str(self._page_size),
                     "resultOffset": str(offset),
@@ -110,10 +133,14 @@ class ArcGISFeatureServerClient:
 
                 # Convert ArcGIS JSON to GeoJSON if needed
                 if self._output_format == "json":
+                    # bigo-lint: disable=BIGO006 — amortised: each feature is converted once overall (n)
+                    # O(p) time, O(p) space — p = features on this page
                     features = [self._arcgis_to_geojson(f) for f in features]
 
                 # Reproject geometries if needed
                 if self._transformer:
+                    # bigo-lint: disable=BIGO006 — amortised: each feature is reprojected once overall (n)
+                    # O(p) time, O(p) space — p = features on this page
                     features = [self._reproject_feature(f) for f in features]
 
                 all_features.extend(features)
@@ -125,11 +152,17 @@ class ArcGISFeatureServerClient:
                     total=total_downloaded,
                 )
 
-                # If we got fewer than page_size, we've reached the end
-                if len(features) < self._page_size:
+                # The flag sits at the top level for f=json and under "properties"
+                # for f=geojson. True = more rows exist even if this page was short.
+                exceeded = data.get("exceededTransferLimit")
+                if exceeded is None:
+                    exceeded = (data.get("properties") or {}).get("exceededTransferLimit")
+                # No flag (older servers) + short page = done. A short page WITH the
+                # flag means the server capped the page, not that the data ended.
+                if not exceeded and len(features) < self._page_size:
                     break
 
-                offset += self._page_size
+                offset += len(features)
 
                 # Brief pause to be polite to the server
                 time.sleep(0.5)
@@ -137,6 +170,7 @@ class ArcGISFeatureServerClient:
         self._log.info("download_complete", total_features=total_downloaded)
         return {"type": "FeatureCollection", "features": all_features}
 
+    # O(v) time, O(v) space — v = vertices in the feature
     def _arcgis_to_geojson(self, feature: dict) -> dict:
         """Convert an ArcGIS JSON feature to GeoJSON format.
 
@@ -170,6 +204,7 @@ class ArcGISFeatureServerClient:
             "geometry": geojson_geom,
         }
 
+    # O(v) time, O(v) space — v = vertices in the feature
     def _reproject_feature(self, feature: dict) -> dict:
         """Reproject a single GeoJSON feature's geometry to EPSG:4326."""
         geom_json = feature.get("geometry")
@@ -187,6 +222,7 @@ class ArcGISFeatureServerClient:
 
         return feature
 
+    # O(1) time, O(1) space — r = 1 count request
     def get_record_count(self) -> int:
         """Query the server for the total number of records (optional pre-check).
 
@@ -210,6 +246,7 @@ class ArcGISFeatureServerClient:
             self._log.warning("count_query_failed", error=str(exc))
             return -1
 
+    # O(f) time, O(f) space — f = fields in the layer metadata
     def get_server_info(self) -> dict:
         """Fetch FeatureServer layer metadata (maxRecordCount, fields, SRID, etc.).
 

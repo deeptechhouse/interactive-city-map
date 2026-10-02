@@ -7,7 +7,6 @@ Usage:
 """
 
 import argparse
-import json
 import sys
 import uuid
 from pathlib import Path
@@ -17,53 +16,14 @@ import structlog
 import yaml
 
 from app.data_import.base_importer import CACHE_DIR
-from app.data_import.import_buildings import BuildingsImporter
-from app.data_import.import_parcels import ParcelsImporter
-from app.data_import.import_pois import POIsImporter
-from app.data_import.import_railroads import RailroadsImporter
-from app.data_import.import_streets import StreetsImporter
-from app.data_import.import_transit import TransitImporter
-from app.data_import.import_waterways import WaterwaysImporter
-from app.data_import.import_zoning import ZoningImporter
-from app.data_import.import_neighborhoods import NeighborhoodsImporter
-from app.data_import.import_dlba import DLBAImporter
-from app.data_import.import_blight import BlightImporter
+from app.data_import.city_registry import UseCityLoaderError, importers_for
 
 logger = structlog.get_logger(__name__)
 
 # Default DB URL (same as app config)
 DEFAULT_DB_URL = "postgresql://citymap:citymap@localhost:5433/citymap"
 
-# Importers in dependency order
-IMPORTER_ORDER = [
-    "parcels",
-    "buildings",
-    "zoning",
-    "railroads",
-    "transit",
-    "waterways",
-    "pois",
-    "streets",
-    "neighborhoods",
-    "dlba_properties",
-    "blight_violations",
-]
-
-IMPORTER_CLASSES = {
-    "parcels": ParcelsImporter,
-    "buildings": BuildingsImporter,
-    "zoning": ZoningImporter,
-    "railroads": RailroadsImporter,
-    "transit": TransitImporter,
-    "waterways": WaterwaysImporter,
-    "pois": POIsImporter,
-    "streets": StreetsImporter,
-    "neighborhoods": NeighborhoodsImporter,
-    "dlba_properties": DLBAImporter,
-    "blight_violations": BlightImporter,
-}
-
-
+# O(b) time, O(b) space — b = bytes of the city YAML
 def _load_city_config(city_slug: str) -> dict:
     """Load city configuration from the YAML file."""
     config_dir = Path(__file__).parent / "configs"
@@ -74,6 +34,7 @@ def _load_city_config(city_slug: str) -> dict:
         return yaml.safe_load(f)
 
 
+# O(1) time, O(1) space — n = 1 city row (indexed slug lookup + insert)
 def _ensure_city_record(db_url: str, city_config: dict) -> str:
     """Insert the city record if it doesn't exist. Return the city ID."""
     city = city_config["city"]
@@ -122,6 +83,7 @@ def _ensure_city_record(db_url: str, city_config: dict) -> str:
         conn.close()
 
 
+# O(1) time, O(1) space — n = 1–2 config blocks
 def _get_importer_config(sources: dict, layer: str) -> dict:
     """Extract the config dict for a specific importer from sources."""
     if layer == "transit":
@@ -133,6 +95,7 @@ def _get_importer_config(sources: dict, layer: str) -> dict:
     return sources.get(layer, {})
 
 
+# O(f) time, O(1) space — f = cached files deleted
 def clear_cache():
     """Remove all cached download files."""
     if CACHE_DIR.exists():
@@ -142,6 +105,7 @@ def clear_cache():
         logger.info("cache_cleared", path=str(CACHE_DIR))
 
 
+# O(N) time, O(N) space — N = rows imported across the city's layers
 def main():
     parser = argparse.ArgumentParser(description="Import spatial data into PostGIS")
     parser.add_argument("--city", required=True, help="City slug (e.g., 'chicago')")
@@ -153,6 +117,15 @@ def main():
     if args.clear_cache:
         clear_cache()
 
+    # Which importers run for this city (city_registry.py). Detroit/Dayton are refused
+    # here — their rows come from scripts/load_city_db.py — BEFORE any city row is written.
+    try:
+        plan = importers_for(args.city)
+    except UseCityLoaderError as err:
+        print(str(err))
+        sys.exit(2)
+    classes = dict(plan)
+
     # Load config
     config = _load_city_config(args.city)
     sources = config.get("sources", {})
@@ -162,21 +135,22 @@ def main():
 
     # Determine which layers to run
     if args.only:
-        layers = [l.strip() for l in args.only.split(",") if l.strip()]
-        # Validate
+        # O(k) time, O(k) space — k = requested layers
+        layers = [x.strip() for x in args.only.split(",") if x.strip()]
+        # O(k) time, O(1) space — k = requested layers
         for layer in layers:
-            if layer not in IMPORTER_CLASSES:
-                print(f"Unknown layer: {layer}. Available: {', '.join(IMPORTER_ORDER)}")
+            if layer not in classes:
+                print(f"Unknown layer: {layer}. Available: {', '.join(classes)}")
                 sys.exit(1)
     else:
-        layers = IMPORTER_ORDER
+        layers = list(classes)
 
-    # Run importers
+    # Run importers in the plan's dependency order
     results: dict[str, int] = {}
-    for layer in IMPORTER_ORDER:
+    # O(N) time, O(N) space — N = rows imported across layers
+    for layer, cls in plan:
         if layer not in layers:
             continue
-        cls = IMPORTER_CLASSES[layer]
         importer_config = _get_importer_config(sources, layer)
         importer = cls(db_url=args.db_url, city_id=city_id, config=importer_config)
         count = importer.run()
@@ -187,6 +161,7 @@ def main():
     print(f"Import Results for {config['city']['name']}")
     print("=" * 50)
     total = 0
+    # O(l) time, O(1) space — l = layers reported
     for layer, count in results.items():
         status = f"{count:>8,} rows" if count > 0 else "  skipped"
         print(f"  {layer:<20} {status}")

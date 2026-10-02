@@ -6,7 +6,8 @@ railroad (CSX, NORFOLK SOUTHERN, CANADIAN NATIONAL / GRAND TRUNK, CPKC / SOO LIN
 CONRAIL, DETROIT CONNECTING). UNPROVEN: owner strings — list distinct matches and
 review by hand before trusting the pattern. Requires DetroitParcelsImporter first.
 
-STATUS — SKELETON (2026-10-02). Not referenced by run.py; wired in via city_registry.py.
+STATUS — SKELETON (2026-10-02). Not referenced by run.py or Detroit's StaticPlan yet
+    (Detroit loads into PostGIS through scripts/load_city_db.py → db_load.py).
 """
 
 from pathlib import Path

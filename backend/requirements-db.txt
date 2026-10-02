@@ -1,0 +1,28 @@
+# DATABASE mode (app.main against PostGIS + Martin) and the data importers — exact pins
+# (CLAUDE.md §17). Installed into backend/.venv-db by ./setup-db.sh.
+#
+# What this deliberately leaves out: the floor-plan / interior-extraction stack
+# (opencv, pytesseract, playwright, scikit-learn, Pillow, fiona) from pyproject.toml.
+# Serving the map and importing the three cities never imports those; add them only
+# when running the interior pipeline.
+#
+# Python 3.12 (not 3.14): asyncpg 0.29 ships no 3.14 wheels.
+-r requirements-server.txt
+sqlalchemy[asyncio]==2.0.35
+geoalchemy2==0.15.2
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+alembic==1.13.3
+# shapely 2.1.2 (GEOS 3.13), NOT pyproject's 2.0.6 (GEOS 3.11): the Dayton parcel join
+# fails on GEOS 3.11 with "TopologyException: side location conflict" (2026-10-02) — and
+# the static build (.venv-build) already uses 2.1.2, so both modes now join identically.
+shapely==2.1.2
+pyproj==3.7.0
+geojson==3.1.0
+structlog==24.4.0
+pyyaml==6.0.2
+python-dotenv==1.0.1
+python-multipart==0.0.12
+boto3==1.35.36
+pytest==8.3.3
+pytest-asyncio==0.24.0

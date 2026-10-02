@@ -3,7 +3,8 @@
 Used by enrich.py to attach businesses to buildings — the backend twin of the browser
 contact source (frontend/src/cities/detroit/contacts.ts).
 
-STATUS — SKELETON (2026-10-02). Not referenced by run.py; wired in via city_registry.py.
+STATUS — SKELETON (2026-10-02). Not referenced by run.py or Detroit's StaticPlan yet
+    (Detroit loads into PostGIS through scripts/load_city_db.py → db_load.py).
 """
 
 from pathlib import Path

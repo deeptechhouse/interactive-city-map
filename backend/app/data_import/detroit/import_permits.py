@@ -4,7 +4,8 @@ TRAP: detroit_interior.yaml points at a Socrata-style URL (xw2a-a7tf) but Detroi
 portal is now ArcGIS Hub — find the current permits FeatureServer first. Match to
 buildings WITH a city_id filter (the Chicago importer forgets it — audit 2026-10-02).
 
-STATUS — SKELETON (2026-10-02). Not referenced by run.py; wired in via city_registry.py.
+STATUS — SKELETON (2026-10-02). Not referenced by run.py or Detroit's StaticPlan yet
+    (Detroit loads into PostGIS through scripts/load_city_db.py → db_load.py).
 """
 
 from pathlib import Path

@@ -9,9 +9,23 @@ import pytest
 pending = pytest.mark.skip(reason="Detroit parity skeleton — implement in the named phase")
 
 
-@pending
 def test_phase2_chicago_importer_plan_unchanged():
     """importers_for('chicago') == today's order, minus blight/dlba/neighborhoods."""
+    from app.data_import.city_registry import importers_for
+
+    assert [layer for layer, _ in importers_for("chicago")] == [
+        "parcels", "buildings", "zoning", "railroads", "transit", "waterways", "pois", "streets",
+    ]
+
+
+def test_phase2_run_py_refuses_plan_loaded_cities():
+    """Detroit/Dayton rows come from scripts/load_city_db.py — run.py must not import them."""
+    from app.data_import.city_registry import UseCityLoaderError, importers_for
+
+    # O(c) time, O(1) space — c = 3 cities
+    for slug in ("detroit", "dayton", "atlantis"):
+        with pytest.raises(UseCityLoaderError):
+            importers_for(slug)
 
 
 def test_blight_never_runs_for_chicago(monkeypatch):

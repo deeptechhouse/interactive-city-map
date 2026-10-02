@@ -1,18 +1,10 @@
-"""Dayton's entry for city_registry: which importer handles each layer (PostGIS path).
+"""Dayton's importer override map — layer → importer class, None = skipped for Dayton.
 
-PURPOSE
-    city_registry.importers_for(slug) = DEFAULT_IMPORTERS overlaid with a city's overrides.
-    This module is Dayton's override map. It lives here, not in city_registry.py, so adding
-    Dayton needs exactly one line there:
-        CITY_OVERRIDES["dayton"] = dayton_importer_overrides()
-    A layer mapped to None is skipped for Dayton.
-
-    The static build does NOT use this map. It reads static_plan.STATIC_PLAN, which names
-    the same importer classes.
-
-ORDER MATTERS: parcels → buildings → zoning → boundaries → … → enrich. Enrichment joins
-    rows the earlier importers loaded. city_registry owns the order; this map only swaps
-    classes.
+STATUS (2026-10-02): NOT used to load the database. Dayton reaches PostGIS through its
+    StaticPlan (static_plan.py) via scripts/load_city_db.py → db_load.py, which keeps the
+    plan's enrich joins; city_registry.importers_for("dayton") refuses and points there.
+    This map is kept as the documented record of which Dayton class replaces each shared
+    importer and why a layer is skipped (DAYTON_SKIPPED_LAYERS); tests read it.
 
 The classes are imported lazily inside dayton_importer_overrides(), so importing this
 module cannot fail on a machine without shapely.

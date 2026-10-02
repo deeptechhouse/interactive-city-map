@@ -18,8 +18,9 @@ PURPOSE
 
 FLOW
     build_city(plan, sources, out_dir)
-      → for each TileLayer: importer.download() → transform() → layer.select(rows)
-      → plan.enrich(rows_by_tile_layer)          (spatial joins, e.g. buildings ← zoning)
+      → collect_rows(): each TileLayer's download() → transform() → select(), then
+        plan.enrich(rows_by_tile_layer)          (spatial joins, e.g. buildings ← zoning)
+        — also used by db_load.load_plan() to fill PostGIS for DATABASE mode
       → write NDJSON per tile layer → tippecanoe → <out_dir>/<layer_id>.pmtiles
 
 ARCHITECTURE
@@ -212,19 +213,22 @@ def run_tippecanoe(
     subprocess.run(cmd, check=True)
 
 
-def build_city(
+def collect_rows(
     plan: StaticPlan,
     sources: dict,
-    out_dir: Path,
     only: set[str] | None = None,
-) -> dict[str, int]:
-    """O(N log N) time, O(N) space — N = features across every built layer.
+) -> tuple[list[StaticLayer], dict[str, list[dict]]]:
+    """O(N) time, O(N) space — N = rows across every chosen layer (download/transform are linear).
 
-    Build the plan's layers (or just `only` layer ids). Returns tile-layer → feature count.
-    A failed importer leaves that layer out (logged) instead of aborting the city, the same
-    contract as BaseImporter.run().
+    download() → transform() → select() for each tile layer, then the plan's enrich joins.
+    Shared by build_city (→ PMTiles) and db_load.load_plan (→ PostGIS), so both modes get
+    identical rows. Returns (chosen static layers, tile-layer name → rows).
+
+    Importers are built with city_id = the SLUG: their download cache is keyed by it
+    (<tmp>/citymap_import_cache/<slug>_<layer>…), so the database load reuses the static
+    build's downloads. db_load swaps in the real cities.id UUID when it writes rows.
+    A failed importer leaves that layer out (logged) instead of aborting the city.
     """
-    out_dir.mkdir(parents=True, exist_ok=True)
     # O(L) time, O(L) space — L = layers in the plan
     chosen = [s for s in plan.layers if only is None or s.layer_id in only]
     rows: dict[str, list[dict]] = {}
@@ -253,6 +257,23 @@ def build_city(
 
     if plan.enrich:
         plan.enrich(rows)
+    return chosen, rows
+
+
+def build_city(
+    plan: StaticPlan,
+    sources: dict,
+    out_dir: Path,
+    only: set[str] | None = None,
+) -> dict[str, int]:
+    """O(N log N) time, O(N) space — N = features across every built layer.
+
+    Build the plan's layers (or just `only` layer ids). Returns tile-layer → feature count.
+    A failed importer leaves that layer out (logged) instead of aborting the city, the same
+    contract as BaseImporter.run().
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    chosen, rows = collect_rows(plan, sources, only)
 
     counts: dict[str, int] = {}
     with tempfile.TemporaryDirectory(prefix=f"static_{plan.slug}_") as tmp:

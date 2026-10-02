@@ -29,10 +29,13 @@ export function addGangTerritoryLayer(map: maplibregl.Map, config: LayerConfig):
     layout: { visibility: config.visible ? 'visible' : 'none' },
     paint: {
       'fill-color': gangColorExpression(),
+      // ADJUSTABLE: territory tint. Was 0.15 → 0.3, which vanished under the building
+      // footprints and transit lines (reported 2026-10-02). Above ~0.6 it hides the
+      // buildings inside a territory.
       'fill-opacity': [
         'interpolate', ['linear'], ['zoom'],
-        10, 0.15 * config.opacity,
-        14, 0.3 * config.opacity,
+        10, 0.35 * config.opacity,
+        14, 0.45 * config.opacity,
       ],
     },
   } as maplibregl.AddLayerObject);
@@ -47,9 +50,11 @@ export function addGangTerritoryLayer(map: maplibregl.Map, config: LayerConfig):
     },
     paint: {
       'line-color': gangColorExpression(),
-      'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1, 14, 2.5],
-      'line-opacity': config.opacity * 0.8,
-      'line-dasharray': [4, 2],
+      // ADJUSTABLE: border weight — thicker than ward/district lines so territories read
+      // on a busy map (was 1 → 2.5 px at 0.8 opacity, too faint).
+      'line-width': ['interpolate', ['linear'], ['zoom'], 10, 2, 14, 3.5],
+      'line-opacity': config.opacity,
+      'line-dasharray': [3, 1.5],
     },
   } as maplibregl.AddLayerObject);
 

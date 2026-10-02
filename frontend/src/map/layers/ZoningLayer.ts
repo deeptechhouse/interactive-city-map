@@ -1,6 +1,7 @@
 import type maplibregl from 'maplibre-gl';
 import type { LayerConfig } from '../../types/layer';
 import { ZONING_COLORS, ZONING_STROKE_COLORS } from '../../utils/colorSchemes';
+import { vectorSourceSpec } from '../../utils/layerSourceHelper';
 
 const SOURCE_ID = 'zoning-source';
 
@@ -23,12 +24,9 @@ function zoningStrokeColorExpression(): unknown {
 export function addZoningLayer(map: maplibregl.Map, config: LayerConfig): void {
   if (map.getSource(SOURCE_ID)) return;
 
-  const isPmtiles = config.sourceUrl.startsWith('pmtiles://');
   map.addSource(SOURCE_ID, {
     type: 'vector',
-    ...(isPmtiles ? { url: config.sourceUrl } : { tiles: [config.sourceUrl] }),
-    minzoom: 0,
-    maxzoom: 16,
+    ...vectorSourceSpec(config.sourceUrl),
   });
 
   map.addLayer({

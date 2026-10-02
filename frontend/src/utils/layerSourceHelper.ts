@@ -23,8 +23,6 @@ export function addDualModeSource(
   map.addSource(sourceId, {
     type: 'vector',
     ...vectorSourceSpec(tileUrl),
-    minzoom: 0,
-    maxzoom: 16,
   });
   return { isGeoJson: false };
 }
@@ -35,8 +33,16 @@ export function addDualModeSource(
  * for a pmtiles:// URL silently loads nothing — every per-city static layer is PMTiles.
  * O(1) time, O(1) space — n = 1 spec object.
  */
-export function vectorSourceSpec(tileUrl: string): { url: string } | { tiles: string[] } {
-  return tileUrl.startsWith('pmtiles://') ? { url: tileUrl } : { tiles: [tileUrl] };
+export function vectorSourceSpec(
+  tileUrl: string,
+): { url: string } | { tiles: string[]; minzoom: number; maxzoom: number } {
+  // PMTiles: NO explicit zooms — the archive header sets them. TRAP (2026-10-02): a
+  // hard-coded maxzoom 16 made MapLibre request z15/z16 tiles from archives that stop at
+  // z14/z15 (most Detroit/Dayton layers), so those layers vanished when zoomed in instead
+  // of overzooming. Chicago's archives all stop at z16, so Chicago is unchanged.
+  return tileUrl.startsWith('pmtiles://')
+    ? { url: tileUrl }
+    : { tiles: [tileUrl], minzoom: 0, maxzoom: 16 }; // Martin serves z0–16
 }
 
 /**

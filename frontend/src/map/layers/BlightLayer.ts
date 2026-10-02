@@ -32,8 +32,6 @@ export function addBlightLayer(map: maplibregl.Map, config: LayerConfig): void {
     map.addSource(BLIGHT_SOURCE, {
       type: 'vector',
       ...vectorSourceSpec(config.sourceUrl),
-      minzoom: 0,
-      maxzoom: 16,
     });
   }
 

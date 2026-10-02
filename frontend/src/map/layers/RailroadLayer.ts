@@ -5,6 +5,7 @@ import {
   RAILROAD_DEFAULT_COLOR,
   RAILROAD_STATUS_STYLES,
 } from '../../utils/colorSchemes';
+import { vectorSourceSpec } from '../../utils/layerSourceHelper';
 
 const SOURCE_ID = 'railroads-source';
 
@@ -20,12 +21,9 @@ function ownerColorExpression(): unknown {
 export function addRailroadLayer(map: maplibregl.Map, config: LayerConfig): void {
   if (map.getSource(SOURCE_ID)) return;
 
-  const isPmtiles = config.sourceUrl.startsWith('pmtiles://');
   map.addSource(SOURCE_ID, {
     type: 'vector',
-    ...(isPmtiles ? { url: config.sourceUrl } : { tiles: [config.sourceUrl] }),
-    minzoom: 0,
-    maxzoom: 16,
+    ...vectorSourceSpec(config.sourceUrl),
   });
 
   const statuses = Object.keys(RAILROAD_STATUS_STYLES);

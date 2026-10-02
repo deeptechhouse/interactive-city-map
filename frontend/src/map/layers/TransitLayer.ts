@@ -49,8 +49,6 @@ export function addTransitLayer(map: maplibregl.Map, config: LayerConfig): void 
       map.addSource(LINES_SOURCE_ID, {
         type: 'vector',
         ...vectorSourceSpec(linesUrl),
-        minzoom: 0,
-        maxzoom: 16,
       });
     }
 
@@ -58,8 +56,6 @@ export function addTransitLayer(map: maplibregl.Map, config: LayerConfig): void 
       map.addSource(STATIONS_SOURCE_ID, {
         type: 'vector',
         ...vectorSourceSpec(stationsUrl),
-        minzoom: 0,
-        maxzoom: 16,
       });
     }
   }

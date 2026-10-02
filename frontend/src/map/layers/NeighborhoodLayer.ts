@@ -16,8 +16,6 @@ export function addNeighborhoodLayer(map: maplibregl.Map, config: LayerConfig): 
   map.addSource(SOURCE_ID, {
     type: 'vector',
     ...vectorSourceSpec(config.sourceUrl),
-    minzoom: 0,
-    maxzoom: 16,
   });
 
   // Semi-transparent fill colored by a hash of neighborhood name

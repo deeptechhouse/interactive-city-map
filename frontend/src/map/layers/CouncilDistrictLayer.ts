@@ -40,8 +40,6 @@ export function addCouncilDistrictLayer(map: maplibregl.Map, config: LayerConfig
     map.addSource(SOURCE_ID, {
       type: 'vector',
       ...vectorSourceSpec(config.sourceUrl),
-      minzoom: 0,
-      maxzoom: 16,
     });
   } else {
     // Empty GeoJSON placeholder — will be populated with static data

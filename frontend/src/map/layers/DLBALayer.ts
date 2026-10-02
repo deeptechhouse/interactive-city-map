@@ -37,8 +37,6 @@ export function addDLBALayer(map: maplibregl.Map, config: LayerConfig): void {
   map.addSource(SOURCE_ID, {
     type: 'vector',
     ...vectorSourceSpec(config.sourceUrl),
-    minzoom: 0,
-    maxzoom: 16,
   });
 
   // Fill layer for polygonal parcels. The 2026 Detroit export is POINTS (one per Land Bank

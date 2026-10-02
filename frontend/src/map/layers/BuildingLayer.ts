@@ -1,6 +1,7 @@
 import type maplibregl from 'maplibre-gl';
 import type { LayerConfig } from '../../types/layer';
 import { BUILDING_CLASS_COLORS, BUILDING_DEFAULT_COLOR } from '../../utils/colorSchemes';
+import { vectorSourceSpec } from '../../utils/layerSourceHelper';
 
 const SOURCE_ID = 'buildings-source';
 
@@ -63,12 +64,9 @@ function buildingFillColorExpression(): unknown {
 export function addBuildingLayer(map: maplibregl.Map, config: LayerConfig): void {
   if (map.getSource(SOURCE_ID)) return;
 
-  const isPmtiles = config.sourceUrl.startsWith('pmtiles://');
   map.addSource(SOURCE_ID, {
     type: 'vector',
-    ...(isPmtiles ? { url: config.sourceUrl } : { tiles: [config.sourceUrl] }),
-    minzoom: 0,
-    maxzoom: 16,
+    ...vectorSourceSpec(config.sourceUrl),
   });
 
   // Main building fill — colored by type

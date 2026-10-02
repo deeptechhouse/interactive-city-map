@@ -1,24 +1,20 @@
 import type maplibregl from 'maplibre-gl';
 import type { LayerConfig } from '../../types/layer';
+import { addDualModeSource, sourceLayerProp } from '../../utils/layerSourceHelper';
+import { STATIC_MAJOR_STREETS } from './data/static_major_streets';
 
 const SOURCE_ID = 'major-streets-source';
 
 export function addMajorStreetsLayer(map: maplibregl.Map, config: LayerConfig): void {
-  if (map.getSource(SOURCE_ID)) return;
-
-  map.addSource(SOURCE_ID, {
-    type: 'vector',
-    tiles: [config.sourceUrl],
-    minzoom: 0,
-    maxzoom: 16,
-  });
+  const { isGeoJson } = addDualModeSource(map, SOURCE_ID, config.sourceUrl, 'major_streets', STATIC_MAJOR_STREETS);
+  const slp = sourceLayerProp('major_streets', isGeoJson);
 
   // Street line
   map.addLayer({
     id: `${config.id}-line`,
     type: 'line',
     source: SOURCE_ID,
-    'source-layer': 'major_streets',
+    ...slp,
     layout: {
       visibility: config.visible ? 'visible' : 'none',
       'line-cap': 'round',
@@ -41,7 +37,7 @@ export function addMajorStreetsLayer(map: maplibregl.Map, config: LayerConfig): 
     id: `${config.id}-label`,
     type: 'symbol',
     source: SOURCE_ID,
-    'source-layer': 'major_streets',
+    ...slp,
     layout: {
       visibility: config.visible ? 'visible' : 'none',
       'symbol-placement': 'line',

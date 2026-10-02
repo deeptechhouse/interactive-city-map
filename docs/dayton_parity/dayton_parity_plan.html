@@ -130,7 +130,7 @@ a{color:var(--accent2)}
 <tr><td><b>D2</b> Importers</td><td>
 <ul>
 <li>Implement <code>data_import/dayton/*</code>.</li>
-<li>Merge the fork's MapServer pagination into <code>arcgis_helper</code>.</li>
+<li>Rebase onto master's <code>arcgis_helper</code> first. On 2026-10-02 the Detroit session fixed paging: it now follows <code>exceededTransferLimit</code> and advances by the rows actually received. Before the fix it stopped after page 1 whenever the server cap was below <code>page_size</code>, which likely explains the fork's "80K+" partial building load. The fix also added <code>where=</code>/<code>out_fields=</code>. In date filters, use <code>DATE '2021-01-01'</code>; a bare string returns error 400 on paged queries. After that, merge any remaining MapServer-specific behaviour from the fork.</li>
 <li>Add <code>CITY_OVERRIDES["dayton"]</code> once <code>importers_for</code> is real.</li>
 <li>Run <code>run --city dayton</code>, then <code>enrich.run_all</code>.</li>
 <li>Compare counts against the D0 dump.</li>
@@ -190,7 +190,7 @@ a{color:var(--accent2)}
 <tr><td>Chicago session</td><td><code>phone_app.py</code> (becoming the map server), <code>config.py</code>, <code>routes/exports.py</code>, <code>api/*.ts</code> (path fix), <code>geoUtils.ts</code>, <code>contacts/**</code>, <code>discovery/**</code>, <code>focus/**</code>, <code>MapContainer.tsx</code>, <code>LayerPanel.tsx</code>, <code>start_map.sh</code>, <code>package.json</code>, <code>public/fonts/</code></td></tr>
 <tr><td>Shared, coordinate first</td><td><code>vite.config.ts</code> (D7 registers the plugin; the Chicago session may touch <code>base</code>), <code>dayton.yaml</code> (D1)</td></tr>
 </table></div>
-<p><b>Requests to raise with the Detroit owner:</b></p>
+<p><b>Requests to the Detroit owner (all three accepted 2026-10-02, recorded in detroit_tdd.html §13.4):</b></p>
 <ol>
 <li>Add a <code>railroad_row</code> table to migration 005.</li>
 <li>Add an optional shared-basemap field, or a per-build override, to <code>StaticAssets</code>.</li>

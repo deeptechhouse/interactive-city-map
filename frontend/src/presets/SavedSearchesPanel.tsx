@@ -119,6 +119,11 @@ export const SavedSearchesPanel: React.FC<SavedSearchesPanelProps> = ({ saved })
           ))}
         </ul>
       )}
+      {saved.storageNote && (
+        <p className="tools-warning" role="status">
+          {saved.storageNote}
+        </p>
+      )}
     </section>
   );
 };

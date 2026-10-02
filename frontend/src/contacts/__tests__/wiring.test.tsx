@@ -133,12 +133,12 @@ describe('phone lookup client', () => {
     const q = { name: 'A', address: 'B', lngLat: [-87, 41] as [number, number] };
     get.mockResolvedValueOnce({ phone: '(312) 555-0100', matched_name: 'x', provider: 'google', cached: false, website: 'a.com' });
     expect(await lookup.lookup(q)).toEqual({ status: 'found', phone: '(312) 555-0100', source: 'google', website: 'a.com' });
-    expect(get.mock.calls[0][0]).toBe('/contacts/phone?name=A&address=B&city=chicago&locality=Chicago&region=IL&lat=41&lon=-87');
+    expect(get.mock.calls[0][0]).toBe('/api/v1/contacts/phone?name=A&address=B&city=chicago&locality=Chicago&region=IL&lat=41&lon=-87');
 
     get.mockResolvedValueOnce({ phone: '1', matched_name: '', provider: 'foursquare', cached: true });
     expect(await lookup.lookup({ name: 'CRM', address: '740 WAUKEGAN RD', locality: 'DEERFIELD', region: 'IL' }))
       .toMatchObject({ status: 'found', website: '' });
-    expect(get.mock.calls[1][0]).toBe('/contacts/phone?name=CRM&address=740+WAUKEGAN+RD&city=chicago&locality=DEERFIELD&region=IL');
+    expect(get.mock.calls[1][0]).toBe('/api/v1/contacts/phone?name=CRM&address=740+WAUKEGAN+RD&city=chicago&locality=DEERFIELD&region=IL');
 
     get.mockResolvedValueOnce({ phone: '', matched_name: '', provider: '', cached: true });
     expect(await lookup.lookup(q)).toEqual({ status: 'not_found' });

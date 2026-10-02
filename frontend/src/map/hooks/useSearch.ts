@@ -73,7 +73,7 @@ export function useSearch(citySlug: string): UseSearchReturn {
           }
 
           const data = await apiClient.get<SearchResponse>(
-            `/api/cities/${citySlug}/search?${params.toString()}`,
+            `/api/v1/cities/${citySlug}/search?${params.toString()}`,
           );
 
           if (!controller.signal.aborted) {

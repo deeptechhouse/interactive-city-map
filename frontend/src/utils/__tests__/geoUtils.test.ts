@@ -36,10 +36,11 @@ describe('martinTileUrl', () => {
 });
 
 describe('apiBaseUrl', () => {
-  it('returns a string URL', () => {
+  it('is an origin (or "" = same server as the map) with no /api/v1 suffix', () => {
     const url = apiBaseUrl();
     expect(typeof url).toBe('string');
-    expect(url).toMatch(/^http/);
+    expect(url === '' || /^https?:\/\//.test(url)).toBe(true);
+    expect(url).not.toMatch(/\/api\/v1\/?$/);
   });
 });
 

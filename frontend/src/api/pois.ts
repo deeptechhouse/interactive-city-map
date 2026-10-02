@@ -9,13 +9,13 @@ export async function getPOIs(
 ): Promise<POI[]> {
   const bboxParam = bboxToParam(bbox);
   const categoryParam = category ? `&category=${encodeURIComponent(category)}` : '';
-  return apiClient.get<POI[]>(`/api/cities/${slug}/pois?bbox=${bboxParam}${categoryParam}`);
+  return apiClient.get<POI[]>(`/api/v1/cities/${slug}/pois?bbox=${bboxParam}${categoryParam}`);
 }
 
 export async function getPOI(id: string): Promise<POI> {
-  return apiClient.get<POI>(`/api/pois/${id}`);
+  return apiClient.get<POI>(`/api/v1/pois/${id}`);
 }
 
 export async function createPOI(data: POICreate): Promise<POI> {
-  return apiClient.post<POI>('/api/pois', data);
+  return apiClient.post<POI>('/api/v1/pois', data);
 }

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import type maplibregl from 'maplibre-gl';
 import { THEME } from '../../utils/colorSchemes';
+import { setSection } from '../../presets/searchState';
+import { useSearchSection } from '../../presets/SearchStateContext';
 
 interface POICategoryFilterProps {
   map: maplibregl.Map | null;
@@ -102,11 +104,12 @@ const styles = {
   },
 } as const;
 
+// Saved in presets — the key is persisted, never rename it. Value = VISIBLE categories.
+const ACTIVE_CATEGORIES_SECTION = setSection('pois.activeCategories', POI_CATEGORIES.map((c) => c.key), 'all');
+
 export const POICategoryFilter: React.FC<POICategoryFilterProps> = ({ map }) => {
   const [collapsed, setCollapsed] = useState(true);
-  const [activeCategories, setActiveCategories] = useState<Set<string>>(
-    () => new Set(POI_CATEGORIES.map(c => c.key)),
-  );
+  const [activeCategories, setActiveCategories] = useSearchSection(ACTIVE_CATEGORIES_SECTION);
 
   const toggleCategory = useCallback((key: string) => {
     setActiveCategories(prev => {
@@ -115,14 +118,14 @@ export const POICategoryFilter: React.FC<POICategoryFilterProps> = ({ map }) => 
       else next.add(key);
       return next;
     });
-  }, []);
+  }, [setActiveCategories]);
 
   const toggleAll = useCallback(() => {
     setActiveCategories(prev => {
       if (prev.size === POI_CATEGORIES.length) return new Set();
       return new Set(POI_CATEGORIES.map(c => c.key));
     });
-  }, []);
+  }, [setActiveCategories]);
 
   // Apply filter to POI layer
   useEffect(() => {

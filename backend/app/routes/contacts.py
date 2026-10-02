@@ -38,6 +38,7 @@ from app.adapters.http_json import ProviderUnavailable
 from app.adapters.owner_lookup import OwnerContactResult, OwnerQuery
 from app.adapters.tracerfy_batch import TracerfyBatchClient
 from app.adapters.phone_lookup import BusinessQuery
+from app.services.place_guard import check_city_slug, check_point, check_zip
 from app.services.owner_batch_service import MAX_BATCH_ITEMS, BatchNotFound, OwnerBatchService
 from app.services.owner_lookup_service import OwnerLookupService
 from app.services.owner_result_store import OwnerResultStore
@@ -144,6 +145,10 @@ async def lookup_phone(
     region: str = Query("IL", pattern=r"^[A-Za-z]{2}$"),
 ):
     """Find a phone number for one business. Returns phone '' when none matched."""
+    # Refuse wrong-city requests before any paid provider is called (place_guard.py).
+    reason = check_point(locality, region, lat, lon) or check_city_slug(city, lat, lon)
+    if reason:
+        raise HTTPException(status_code=422, detail=reason)
     service = get_phone_service()
     client_id = request.client.host if request.client else "unknown"
     query = BusinessQuery(
@@ -177,6 +182,9 @@ async def lookup_owner(
     refresh: bool = Query(False, description="Ignore the saved answer and pay for a fresh lookup"),
 ):
     """INSTANT skip trace of a PROPERTY address (5 credits per hit). Saved permanently."""
+    reason = check_zip(region, zip)
+    if reason:
+        raise HTTPException(status_code=422, detail=reason)
     query = OwnerQuery(
         street=street.strip(), city=locality.strip(), state=region.upper(), zip=zip, owner_name=owner_name.strip()
     )
@@ -255,6 +263,13 @@ async def start_owner_batch(request: Request, body: BatchRequest):
     service = get_batch_service()
     if not service.is_configured:
         raise HTTPException(status_code=503, detail="Owner batch lookup needs TRACERFY_API_KEY in .env.")
+    # Validate EVERY item before anything is submitted — one wrong-state ZIP rejects the
+    # whole batch, so no credits are spent on a half-wrong job (place_guard.py).
+    # O(b) time, O(1) space — b = batch items
+    for i in body.items:
+        reason = check_zip(i.state, i.zip)
+        if reason:
+            raise HTTPException(status_code=422, detail=f"{i.street}: {reason}")
     queries = []
     # O(b) time, O(b) space — b = batch items
     for i in body.items:

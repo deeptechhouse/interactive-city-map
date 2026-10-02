@@ -1,0 +1,13 @@
+# Map server (backend/app/map_server.py) — everything needed to run the map + lookups
+# WITHOUT Docker, the database or the heavy floor-plan stack. Exact pins (CLAUDE.md §17).
+#
+# fastapi 0.115.14 (→ starlette 0.46.x) is REQUIRED, not 0.115.0: the map's .pmtiles files
+# are read with HTTP Range requests, and only starlette ≥ 0.39 answers those with 206
+# partial content. With 0.115.0 every tile request downloaded the whole file (verified
+# 2026-10-02: 100-byte request → 10.8 MB response).
+fastapi==0.115.14
+starlette==0.46.2
+uvicorn==0.30.6
+httpx==0.27.2
+pydantic==2.9.2
+pydantic-settings==2.5.2

@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import type { Building, BuildingUpdate } from '../types/building';
 import { updateBuilding } from '../api/buildings';
 import { THEME } from '../utils/colorSchemes';
+import { INTERIORS_AVAILABLE } from '../utils/staticMode';
 
 interface BuildingDetailProps {
   building: Building;
@@ -183,7 +184,8 @@ export const BuildingDetail: React.FC<BuildingDetailProps> = ({
 
       <div style={styles.content}>
         {/* Badges */}
-        {building.has_interior && (
+        {/* Interiors need the database backend — hidden in static mode (staticMode.ts). */}
+        {building.has_interior && INTERIORS_AVAILABLE && (
           <div style={{ marginBottom: '16px' }}>
             <span style={{ ...styles.badge, ...styles.interiorBadge }}>
               Has Interior Map

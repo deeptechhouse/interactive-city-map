@@ -1,20 +1,57 @@
 import type maplibregl from 'maplibre-gl';
 import type { LayerConfig } from '../../types/layer';
 import { BUILDING_CLASS_COLORS, BUILDING_DEFAULT_COLOR } from '../../utils/colorSchemes';
+import { INTERIORS_AVAILABLE } from '../../utils/staticMode';
+
+type Filter = maplibregl.FilterSpecification;
+const NOT_HIDDEN = ['==', ['get', 'is_hidden'], false] as unknown as Filter;
+// Matches nothing — used to switch the interior-only styling off when interiors can't load.
+// is_hidden is a boolean, so it never equals this string. (['==', 1, 0] looks simpler but
+// MapLibre reads it as the legacy filter syntax and rejects it — caught by a test.)
+const NEVER = ['==', ['get', 'is_hidden'], '__never__'] as unknown as Filter;
+
+export type BuildingSublayer = 'fill' | 'stroke' | 'interior-stroke' | 'highlight' | 'label';
+
+/**
+ * Each sublayer's OWN filter — the single source for addLayer below AND for
+ * BuildingLegend, which narrows these by building type. (Before 2026-10-02 the legend
+ * replaced them with a bare is_hidden filter, so the dashed "interior" outline spread to
+ * every building once the legend ran.)
+ * O(1) time, O(1) space — n = 1 filter.
+ */
+export function buildingBaseFilter(sublayer: BuildingSublayer): Filter {
+  switch (sublayer) {
+    case 'stroke':
+      // Interior buildings get their own dashed stroke — unless interiors are off,
+      // in which case every building uses this normal stroke.
+      return INTERIORS_AVAILABLE
+        ? (['all', NOT_HIDDEN, ['==', ['get', 'has_interior'], false]] as unknown as Filter)
+        : NOT_HIDDEN;
+    case 'interior-stroke':
+      return INTERIORS_AVAILABLE
+        ? (['all', NOT_HIDDEN, ['==', ['get', 'has_interior'], true]] as unknown as Filter)
+        : NEVER;
+    case 'label':
+      return ['all', NOT_HIDDEN, ['any', ['has', 'name'], ['has', 'address']]] as unknown as Filter;
+    default:
+      return NOT_HIDDEN;
+  }
+}
 
 const SOURCE_ID = 'buildings-source';
 
+/** O(c) time, O(c) space — c = building classes in the colour table. */
 function buildingFillColorExpression(): unknown {
   // Data-driven color by property_class, with special cases for has_interior and owner_type
   const pairs: string[] = [];
+  // O(c) time, O(c) space — c = building classes.
   for (const [cls, color] of Object.entries(BUILDING_CLASS_COLORS)) {
     pairs.push(cls, color);
   }
   return [
     'case',
-    // Buildings with interior maps get a distinct teal tint
-    ['==', ['get', 'has_interior'], true],
-    '#0d9488',
+    // Buildings with interior maps get a distinct teal tint (only when interiors can load)
+    ...(INTERIORS_AVAILABLE ? [['==', ['get', 'has_interior'], true], '#0d9488'] : []),
     // Government-owned buildings get cyan
     ['==', ['get', 'owner_type'], 'government'],
     '#06b6d4',
@@ -41,6 +78,7 @@ function buildingFillColorExpression(): unknown {
   ];
 }
 
+/** Add the building sublayers once. O(1) time, O(1) space — n = 5 sublayers. */
 export function addBuildingLayer(map: maplibregl.Map, config: LayerConfig): void {
   if (map.getSource(SOURCE_ID)) return;
 
@@ -58,7 +96,7 @@ export function addBuildingLayer(map: maplibregl.Map, config: LayerConfig): void
     type: 'fill',
     source: SOURCE_ID,
     'source-layer': 'buildings',
-    filter: ['==', ['get', 'is_hidden'], false],
+    filter: NOT_HIDDEN,
     layout: {
       visibility: config.visible ? 'visible' : 'none',
     },
@@ -81,10 +119,7 @@ export function addBuildingLayer(map: maplibregl.Map, config: LayerConfig): void
     type: 'line',
     source: SOURCE_ID,
     'source-layer': 'buildings',
-    filter: ['all',
-      ['==', ['get', 'is_hidden'], false],
-      ['==', ['get', 'has_interior'], false],
-    ],
+    filter: buildingBaseFilter('stroke'),
     layout: {
       visibility: config.visible ? 'visible' : 'none',
     },
@@ -105,10 +140,7 @@ export function addBuildingLayer(map: maplibregl.Map, config: LayerConfig): void
     type: 'line',
     source: SOURCE_ID,
     'source-layer': 'buildings',
-    filter: ['all',
-      ['==', ['get', 'is_hidden'], false],
-      ['==', ['get', 'has_interior'], true],
-    ],
+    filter: buildingBaseFilter('interior-stroke'),
     layout: {
       visibility: config.visible ? 'visible' : 'none',
     },
@@ -126,7 +158,7 @@ export function addBuildingLayer(map: maplibregl.Map, config: LayerConfig): void
     type: 'fill',
     source: SOURCE_ID,
     'source-layer': 'buildings',
-    filter: ['==', ['get', 'is_hidden'], false],
+    filter: NOT_HIDDEN,
     layout: {
       visibility: config.visible ? 'visible' : 'none',
     },
@@ -148,13 +180,7 @@ export function addBuildingLayer(map: maplibregl.Map, config: LayerConfig): void
     source: SOURCE_ID,
     'source-layer': 'buildings',
     minzoom: 16,
-    filter: ['all',
-      ['==', ['get', 'is_hidden'], false],
-      ['any',
-        ['has', 'name'],
-        ['has', 'address'],
-      ],
-    ],
+    filter: buildingBaseFilter('label'),
     layout: {
       visibility: config.visible ? 'visible' : 'none',
       'text-field': ['coalesce', ['get', 'name'], ['get', 'address']],
@@ -178,6 +204,7 @@ export function addBuildingLayer(map: maplibregl.Map, config: LayerConfig): void
   });
 }
 
+/** O(1) time, O(1) space — n = 5 ids. */
 export function getBuildingLayerIds(configId: string): string[] {
   return [
     `${configId}-fill`,

@@ -29,6 +29,7 @@ import { getCity } from './api/cities';
 import { getCityDefaults } from './utils/geoUtils';
 import type { Building } from './types/building';
 import type { City } from './types/city';
+import { INTERIORS_AVAILABLE } from './utils/staticMode';
 
 /** Read city slug from URL search params (e.g., ?city=detroit), default to chicago */
 function getCitySlugFromUrl(): string {
@@ -171,7 +172,7 @@ function App() {
         />
       )}
 
-      {showInterior && (
+      {showInterior && INTERIORS_AVAILABLE && (
         <InteriorViewer
           buildingId={showInterior}
           mapInstance={mapInstance}

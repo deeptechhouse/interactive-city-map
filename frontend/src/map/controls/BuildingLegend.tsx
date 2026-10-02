@@ -3,8 +3,10 @@ import type maplibregl from 'maplibre-gl';
 import { THEME } from '../../utils/colorSchemes';
 import { setSection } from '../../presets/searchState';
 import { useSearchSection } from '../../presets/SearchStateContext';
+import { INTERIORS_AVAILABLE } from '../../utils/staticMode';
+import { buildingBaseFilter, type BuildingSublayer } from '../layers/BuildingLayer';
 
-const LEGEND_ITEMS = [
+const ALL_LEGEND_ITEMS = [
   { label: 'Residential', color: '#22c55e', key: 'R', zonePrefix: 'R' },
   { label: 'Commercial / Business', color: '#ef4444', key: 'C/B', zonePrefix: 'C' },
   { label: 'Manufacturing / Industrial', color: '#f59e0b', key: 'M', zonePrefix: 'M' },
@@ -14,6 +16,10 @@ const LEGEND_ITEMS = [
   { label: 'Has Interior Map', color: '#0d9488', key: 'INT', zonePrefix: null },
   { label: 'Other / Unknown', color: '#334155', key: '—', zonePrefix: null },
 ];
+
+// "Has Interior Map" only means something when interiors can load (staticMode.ts).
+// O(i) time, O(i) space — i = legend items (8).
+const LEGEND_ITEMS = ALL_LEGEND_ITEMS.filter((item) => item.key !== 'INT' || INTERIORS_AVAILABLE);
 
 const styles = {
   container: {
@@ -86,13 +92,21 @@ interface BuildingLegendProps {
 }
 
 // Saved in presets — the key is persisted, never rename it. Value = HIDDEN type keys.
+// O(i) time, O(i) space — i = legend items.
 const HIDDEN_TYPES_SECTION = setSection('buildings.hiddenTypes', LEGEND_ITEMS.map((i) => i.key), 'none');
 
-const BUILDING_LAYER_IDS = [
-  'buildings-fill', 'buildings-stroke', 'buildings-interior-stroke',
-  'buildings-highlight', 'buildings-label',
+// Map layer id → which building sublayer it is (its base filter comes from BuildingLayer).
+const BUILDING_LAYERS: [string, BuildingSublayer][] = [
+  ['buildings-fill', 'fill'],
+  ['buildings-stroke', 'stroke'],
+  ['buildings-interior-stroke', 'interior-stroke'],
+  ['buildings-highlight', 'highlight'],
+  ['buildings-label', 'label'],
 ];
 
+// bigo-allow: l and i are fixed (5 sublayers × 8 legend items) — at most 40 steps.
+/** Legend + building-type filter.
+ * O(l * i) time, O(i) space — l = building sublayers, i = legend items. */
 export const BuildingLegend: React.FC<BuildingLegendProps> = ({ map }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [hiddenTypes, setHiddenTypes] = useSearchSection(HIDDEN_TYPES_SECTION);
@@ -110,17 +124,22 @@ export const BuildingLegend: React.FC<BuildingLegendProps> = ({ map }) => {
   useEffect(() => {
     if (!map) return;
 
-    for (const layerId of BUILDING_LAYER_IDS) {
+    // bigo-allow: l (5 sublayers) and i (8 legend items) are fixed sizes — 40 steps at most.
+    // O(l * i) time, O(i) space — l = building sublayers, i = legend items.
+    for (const [layerId, sublayer] of BUILDING_LAYERS) {
       try {
         if (!map.getLayer(layerId)) continue;
+        // Each sublayer keeps its own filter (interior split, label rule); types only narrow it.
+        const base = buildingBaseFilter(sublayer);
 
         if (hiddenTypes.size === 0) {
-          // Show all — just the is_hidden filter
-          map.setFilter(layerId, ['==', ['get', 'is_hidden'], false]);
+          map.setFilter(layerId, base);
         } else {
           // Build exclusion filter based on zoning_code prefix
-          const conditions: unknown[] = [['==', ['get', 'is_hidden'], false]];
+          const conditions: unknown[] = [base];
 
+          // bigo-lint: disable=BIGO006 — runs once per sublayer; l × i is the fixed 5 × 8 bound above.
+          // O(i) time, O(1) space — i = legend items.
           for (const item of LEGEND_ITEMS) {
             if (!hiddenTypes.has(item.key)) continue;
 
@@ -154,15 +173,8 @@ export const BuildingLegend: React.FC<BuildingLegendProps> = ({ map }) => {
     );
   }
 
-  return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <span style={styles.title}>Building Types</span>
-        <button style={styles.toggleBtn} onClick={() => setCollapsed(true)} aria-label="Collapse legend">
-          &times;
-        </button>
-      </div>
-      {LEGEND_ITEMS.map((item) => (
+  // O(i) time, O(i) space — i = legend items.
+  const legendRows = LEGEND_ITEMS.map((item) => (
         <label key={item.key} style={{ ...styles.row, cursor: 'pointer' }}>
           <input
             type="checkbox"
@@ -173,7 +185,17 @@ export const BuildingLegend: React.FC<BuildingLegendProps> = ({ map }) => {
           <div style={{ ...styles.swatch, background: item.color, opacity: hiddenTypes.has(item.key) ? 0.3 : 1 }} />
           <span style={{ ...styles.label, opacity: hiddenTypes.has(item.key) ? 0.4 : 1 }}>{item.label}</span>
         </label>
-      ))}
+  ));
+
+  return (
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <span style={styles.title}>Building Types</span>
+        <button style={styles.toggleBtn} onClick={() => setCollapsed(true)} aria-label="Collapse legend">
+          &times;
+        </button>
+      </div>
+      {legendRows}
     </div>
   );
 };

@@ -52,6 +52,7 @@ _batch_service: Optional[OwnerBatchService] = None
 _store: Optional[OwnerResultStore] = None
 
 
+# O(1) time, O(1) space — n = 1 lazily created store (cached)
 def _get_store() -> OwnerResultStore:
     """One SQLite store per process, shared by the instant and batch paths."""
     global _store
@@ -60,6 +61,7 @@ def _get_store() -> OwnerResultStore:
     return _store
 
 
+# O(1) time, O(1) space — n = 1 cached service
 def get_phone_service() -> PhoneLookupService:
     """Lazy singleton — built on first use so tests can swap it via ``set_phone_service``."""
     global _service
@@ -68,12 +70,14 @@ def get_phone_service() -> PhoneLookupService:
     return _service
 
 
+# O(1) time, O(1) space — n = 1 assignment (tests swap in fakes)
 def set_phone_service(service: Optional[PhoneLookupService]) -> None:
     """Test hook: inject a service with fake providers (None resets to settings)."""
     global _service
     _service = service
 
 
+# O(1) time, O(1) space — n = 1 cached service
 def get_owner_service() -> OwnerLookupService:
     """Lazy singleton, like get_phone_service."""
     global _owner_service
@@ -82,12 +86,14 @@ def get_owner_service() -> OwnerLookupService:
     return _owner_service
 
 
+# O(1) time, O(1) space — n = 1 assignment (tests swap in fakes)
 def set_owner_service(service: Optional[OwnerLookupService]) -> None:
     """Test hook (None resets to settings)."""
     global _owner_service
     _owner_service = service
 
 
+# O(1) time, O(1) space — n = 1 cached service
 def get_batch_service() -> OwnerBatchService:
     global _batch_service
     if _batch_service is None:
@@ -95,12 +101,14 @@ def get_batch_service() -> OwnerBatchService:
     return _batch_service
 
 
+# O(1) time, O(1) space — n = 1 assignment (tests swap in fakes)
 def set_batch_service(service: Optional[OwnerBatchService]) -> None:
     """Test hook (None resets to settings)."""
     global _batch_service
     _batch_service = service
 
 
+# O(1) time, O(1) space — n = 1 error mapped to an HTTP status
 def _provider_error(err: ProviderUnavailable) -> HTTPException:
     """Map a provider failure to a clear client error. 402 = the paid account is empty."""
     if err.status == 402:
@@ -122,6 +130,7 @@ _MAX_TEXT = 200
 
 
 @router.get("/contacts/phone")
+# O(1) time, O(1) space — n = 1 provider lookup (cached, rate-limited)
 async def lookup_phone(
     request: Request,
     name: str = Query(..., min_length=1, max_length=_MAX_TEXT),
@@ -157,6 +166,7 @@ async def lookup_phone(
 
 
 @router.get("/contacts/owner")
+# O(1) time, O(1) space — n = 1 paid owner lookup
 async def lookup_owner(
     request: Request,
     street: str = Query(..., min_length=1, max_length=_MAX_TEXT),
@@ -180,10 +190,12 @@ async def lookup_owner(
     return {**_owner_json(answer.result, answer.looked_up_at), "cached": answer.cached}
 
 
+# O(p + e) time, O(p + e) space — p = phones; e = emails on the result
 def _owner_json(result: OwnerContactResult, looked_up_at: str) -> dict:
     """Wire format for one owner result (instant and batch share it)."""
     return {
         "person_name": result.person_name,
+        # O(p) time, O(p) space — p = phones
         "phones": [{"number": p.number, "type": p.type, "dnc": p.dnc} for p in result.phones],
         "emails": list(result.emails),
         "provider": result.provider,
@@ -200,6 +212,11 @@ _NAME_PART = r"^[^\W\d_][^\W\d_ .'-]*(?:[ .'-]+[^\W\d_]+)*\.?$"
 class BatchItem(BaseModel):
     street: str = Field(..., min_length=1, max_length=_MAX_TEXT)
     zip: str = Field("", pattern=r"^(\d{5}(-\d{4})?)?$")
+    # Where the building is. Defaults keep pre-multi-city clients (Chicago) unchanged.
+    # TRAP (fixed 2026-10-02): these were hard-coded to Chicago/IL in the route, so a
+    # Detroit batch would have bought Tracerfy answers for "<street>, Chicago, IL".
+    city: str = Field("Chicago", min_length=1, max_length=60, pattern=r"^[A-Za-z .'-]+$")
+    state: str = Field("IL", pattern=r"^[A-Z]{2}$")
     # Optional trusted owner name → cheaper 1-credit name trace. Both or neither.
     first_name: str = Field("", max_length=60)
     last_name: str = Field("", max_length=60)
@@ -210,16 +227,19 @@ class BatchRequest(BaseModel):
     refresh: bool = False  # re-buy answers that are already saved
 
 
+# O(n) time, O(1) space — n = characters in the name part (one regex match)
 def _valid_name(part: str) -> bool:
     return bool(re.match(_NAME_PART, part.strip()))
 
 
+# O(r) time, O(r) space — r = results in the batch status
 def _batch_json(status) -> dict:
     return {
         "job_id": status.job_id,
         "pending": status.pending,
         "submitted": status.submitted,
         "by_name": status.by_name,
+        # O(r) time, O(r) space — r = results (each with a few phones/emails)
         "results": [
             {"street": r.query.street, "zip": r.query.zip, "cached": r.cached, **_owner_json(r.result, r.looked_up_at)}
             for r in status.results
@@ -228,20 +248,24 @@ def _batch_json(status) -> dict:
 
 
 @router.post("/contacts/owner/batch")
+# O(b) time, O(b) space — b = batch items (≤ MAX_BATCH_ITEMS)
 async def start_owner_batch(request: Request, body: BatchRequest):
     """Look up many building owners in ONE Tracerfy batch (2 credits per hit).
     Saved answers come back immediately; the rest arrive via the job_id poll."""
     service = get_batch_service()
     if not service.is_configured:
         raise HTTPException(status_code=503, detail="Owner batch lookup needs TRACERFY_API_KEY in .env.")
-    # Chicago only today — the map's contact list only resolves Chicago buildings.
     queries = []
+    # O(b) time, O(b) space — b = batch items
     for i in body.items:
         first, last = i.first_name.strip(), i.last_name.strip()
         if not (first and last and _valid_name(first) and _valid_name(last)):
             first = last = ""  # half a name, or not a name → owner discovery by address
         queries.append(
-            OwnerQuery(street=i.street.strip(), city="Chicago", state="IL", zip=i.zip, first_name=first, last_name=last)
+            OwnerQuery(
+                street=i.street.strip(), city=i.city.strip(), state=i.state, zip=i.zip,
+                first_name=first, last_name=last,
+            )
         )
     client_id = request.client.host if request.client else "unknown"
     try:
@@ -256,6 +280,7 @@ async def start_owner_batch(request: Request, body: BatchRequest):
 
 
 @router.get("/contacts/owner/batch/{job_id}")
+# O(r) time, O(r) space — r = results reported so far
 async def poll_owner_batch(job_id: str = Path(..., pattern=r"^[0-9a-f]{32}$")):
     """Poll a batch. ``pending`` until Tracerfy finishes; then every result, saved."""
     try:
@@ -268,6 +293,7 @@ async def poll_owner_batch(job_id: str = Path(..., pattern=r"^[0-9a-f]{32}$")):
 
 
 @router.get("/contacts/providers")
+# O(k) time, O(k) space — k = configured providers for the city
 async def phone_providers(city: str = Query("chicago", pattern=r"^[a-z_-]{1,40}$")):
     """List the phone providers that are configured (have keys) for ``city``, in order."""
     return {

@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     phone_lookup_providers: str = "foursquare,google"
     # ADJUSTABLE: per-city override, "city=prov1,prov2;city2=..." (Chicago → Google first,
     # chosen 2026-10-01 for better US business coverage).
-    phone_lookup_providers_by_city: str = "chicago=google,foursquare"
+    phone_lookup_providers_by_city: str = "chicago=google,foursquare;detroit=google,foursquare;dayton=google,foursquare"
     # ADJUSTABLE: max phone lookups per client IP per minute. Each lookup can cost money;
     # one building with many businesses uses one lookup per business.
     phone_lookup_rate_per_minute: int = 60

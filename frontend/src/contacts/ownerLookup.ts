@@ -135,6 +135,10 @@ export interface BatchItem {
   zip: string;
   firstName?: string;
   lastName?: string;
+  /** City/state of the building (e.g. "Detroit", "MI"). The backend defaults to
+   *  Chicago, IL when absent, so they must be sent for every other city. */
+  city?: string;
+  state?: string;
 }
 
 interface BatchJson {
@@ -175,6 +179,8 @@ export class BackendOwnerBatchApi implements OwnerBatchApi {
         zip: VALID_ZIP.test(i.zip) ? i.zip : '',
         first_name: (i.firstName ?? '').slice(0, 60),
         last_name: (i.lastName ?? '').slice(0, 60),
+        ...(i.city ? { city: i.city.slice(0, 60) } : {}),
+        ...(i.state ? { state: i.state.slice(0, 2).toUpperCase() } : {}),
       })),
     };
     try {

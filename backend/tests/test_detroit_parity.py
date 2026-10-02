@@ -215,14 +215,66 @@ def test_phase2_enrichment_updates_only_detroit_rows():
     """Every enrich.* UPDATE leaves Chicago rows untouched (city_id filter)."""
 
 
-@pending
-def test_phase6_owner_batch_uses_item_city_state():
-    """BatchItem with city=DETROIT, state=MI reaches Tracerfy as Detroit, not Chicago, IL."""
+def _batch_client(captured: list):
+    """FastAPI app with the contacts router and a fake batch service recording queries."""
+    from types import SimpleNamespace
+
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from app.routes import contacts
+
+    class FakeBatchService:
+        is_configured = True
+
+        # O(q) time, O(q) space — q = queries recorded
+        async def start(self, queries, client_id, refresh=False):
+            captured.extend(queries)
+            return SimpleNamespace(job_id="a" * 32, pending=True, submitted=len(queries),
+                                   by_name=0, results=[])
+
+    contacts.set_batch_service(FakeBatchService())
+    app = FastAPI()
+    app.include_router(contacts.router, prefix="/api/v1")
+    return TestClient(app), contacts
 
 
-@pending
-def test_phase6_phone_lookup_detroit_provider_order():
-    """PHONE_LOOKUP_PROVIDERS_BY_CITY includes detroit=google,foursquare."""
+def test_owner_batch_uses_item_city_state():
+    """Regression (TDD §13 F-1, fixed 2026-10-02): the route hard-coded Chicago, IL, so a
+    Detroit batch would have bought Tracerfy answers for the wrong city."""
+    captured: list = []
+    client, contacts = _batch_client(captured)
+    try:
+        resp = client.post("/api/v1/contacts/owner/batch", json={"items": [
+            {"street": "1331 BROADWAY ST", "zip": "48226", "city": "Detroit", "state": "MI"},
+            {"street": "1001 W NORTH AVE", "zip": "60642"},  # old client: no city/state
+        ]})
+        assert resp.status_code == 200
+        assert [(q.city, q.state) for q in captured] == [("Detroit", "MI"), ("Chicago", "IL")]
+    finally:
+        contacts.set_batch_service(None)
+
+
+def test_owner_batch_rejects_bad_state():
+    client, contacts = _batch_client([])
+    try:
+        resp = client.post("/api/v1/contacts/owner/batch", json={"items": [
+            {"street": "1 MAIN ST", "city": "Detroit", "state": "Michigan"},
+        ]})
+        assert resp.status_code == 422
+    finally:
+        contacts.set_batch_service(None)
+
+
+def test_phone_lookup_provider_order_for_new_cities():
+    """Default config gives Detroit and Dayton Google first, like Chicago."""
+    from app.config import Settings
+    from app.services.phone_lookup_service import parse_city_providers
+
+    by_city = parse_city_providers(Settings.model_fields["phone_lookup_providers_by_city"].default)
+    assert by_city["detroit"] == ["google", "foursquare"]
+    assert by_city["dayton"] == ["google", "foursquare"]
+    assert by_city["chicago"] == ["google", "foursquare"]
 
 
 # --- Blight data-shape regressions (live services checked 2026-10-02) -------------------

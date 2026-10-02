@@ -22,6 +22,7 @@
 import { loadJson, saveJson } from '../utils/safeStorage';
 import type { BatchCandidate, ContactListStore } from './ContactListStore';
 import type { OwnerBatchApi } from './ownerLookup';
+import { getCityProfile } from '../cities/registry';
 
 // ADJUSTABLE: how often to check a running batch. Tracerfy rate-limits its status
 // endpoint ("Retry in intervals of 20 seconds"); below ~20 s checks are wasted.
@@ -95,6 +96,8 @@ export class OwnerBatchRunner {
   private readonly listeners = new Set<() => void>();
   private timer: unknown = null;
   private readonly storageKey: string;
+  /** City/state sent with every batch item — from the city profile (Detroit, MI…). */
+  private readonly place: { city: string; state: string };
   private onComplete: (() => Promise<string>) | null = null;
 
   constructor(
@@ -105,6 +108,8 @@ export class OwnerBatchRunner {
     private readonly now: () => number = Date.now,
   ) {
     this.storageKey = `citymap.ownerBatch.v1.${city}`;
+    const profile = getCityProfile(city);
+    this.place = { city: profile?.name ?? 'Chicago', state: profile?.state ?? 'IL' };
     this.state = parseSavedBatch(loadJson(this.storageKey));
     if (this.state.phase === 'running' || this.state.phase === 'starting') {
       // Page was closed mid-batch: resume. 'starting' never got a job id → nothing to resume.
@@ -181,7 +186,7 @@ export class OwnerBatchRunner {
     this.store.markOwnersPending(buildingIds);
 
     const reply = await this.api.start(
-      items.map(({ street, zip, firstName, lastName }) => ({ street, zip, firstName, lastName })),
+      items.map(({ street, zip, firstName, lastName }) => ({ street, zip, firstName, lastName, ...this.place })),
       refresh,
     );
     if (!reply.ok) return this.fail(reply.reason);

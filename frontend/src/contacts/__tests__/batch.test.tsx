@@ -123,11 +123,18 @@ describe('OwnerBatchRunner', () => {
     const runner = new OwnerBatchRunner(store, api, 'chicago', timer);
     expect(runner.pendingCount()).toBe(1);
     await runner.start();
-    expect(api.start).toHaveBeenCalledWith([{ street: '1001 W NORTH AVE', zip: '60642', firstName: '', lastName: '' }], false);
+    expect(api.start).toHaveBeenCalledWith([{ street: '1001 W NORTH AVE', zip: '60642', firstName: '', lastName: '', city: 'Chicago', state: 'IL' }], false);
     expect(runner.getSnapshot()).toMatchObject({ phase: 'done', found: 1, total: 1, reused: 1 });
     expect(timer.scheduled).toBe(false);
     await runner.start(); // nothing left → no-op
     expect(api.start).toHaveBeenCalledTimes(1);
+  });
+
+  it('a Detroit batch is sent as Detroit, MI (TDD §13 F-1)', async () => {
+    const store = new ContactListStore(null, 'detroit', [building('b1', '1331 BROADWAY ST')]);
+    const api = apiStub({ ok: true, jobId: '', pending: false, submitted: 0, results: [] });
+    await new OwnerBatchRunner(store, api, 'detroit', manualTimer()).start();
+    expect(api.start.mock.calls[0][0][0]).toMatchObject({ street: '1331 BROADWAY ST', city: 'Detroit', state: 'MI' });
   });
 
   it('queued job → polls until done, applies results, saves state', async () => {
@@ -218,7 +225,7 @@ describe('OwnerBatchRunner', () => {
     ]);
     const api = apiStub({ ok: true, jobId: '', pending: false, submitted: 0, results: [] });
     await new OwnerBatchRunner(store, api, 'chicago', manualTimer()).recheck('b1');
-    expect(api.start).toHaveBeenCalledWith([{ street: '1001 W NORTH AVE', zip: '', firstName: '', lastName: '' }], true);
+    expect(api.start).toHaveBeenCalledWith([{ street: '1001 W NORTH AVE', zip: '', firstName: '', lastName: '', city: 'Chicago', state: 'IL' }], true);
   });
 
   it('parseSavedBatch rejects junk', () => {
@@ -286,6 +293,10 @@ describe('BackendOwnerBatchApi', () => {
     expect(url).toBe('http://localhost:8000/api/v1/contacts/owner/batch');
     expect(init).toMatchObject({ method: 'POST' });
     expect(JSON.parse(String((init as RequestInit).body))).toEqual({ refresh: false, items: [{ street: 'S', zip: '', first_name: '', last_name: '' }] });
+    // A city/state on the item is sent (TDD §13 F-1 — the backend defaults to Chicago, IL).
+    await createOwnerBatchApi('http://localhost:8000/api/v1/').start([{ street: 'S', zip: '', city: 'Detroit', state: 'mi' }], false);
+    const [, init2] = fetchMock.mock.calls.at(-1)!;
+    expect(JSON.parse(String((init2 as RequestInit).body)).items[0]).toMatchObject({ city: 'Detroit', state: 'MI' });
   });
 });
 
@@ -394,7 +405,7 @@ describe('name split in the batch', () => {
     fireEvent.click(screen.getByText(/Look up owners \(2\)/));
     await new Promise((res) => setTimeout(res, 0));
     r.rerender(ui());
-    expect(api.start.mock.calls[0][0][0]).toEqual({ street: '1 ST', zip: '60618', firstName: 'THOMAS', lastName: 'LIZAK' });
+    expect(api.start.mock.calls[0][0][0]).toEqual({ street: '1 ST', zip: '60618', firstName: 'THOMAS', lastName: 'LIZAK', city: 'Chicago', state: 'IL' });
     expect(screen.getByText(/Owner found by name/)).toBeTruthy();
   });
 

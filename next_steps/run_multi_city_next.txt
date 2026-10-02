@@ -1,0 +1,1 @@
+cd /Users/aaandy/_andy_ai_projects_2026/interactive-city-map-multicity && claude "Read next_steps/multi_city_next.html and docs/multi_city/human_test_guide.html, then continue the multi-city work on branch feat/multi-city starting with task 1."

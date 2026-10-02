@@ -38,10 +38,17 @@ Layered architecture: React + MapLibre GL frontend communicates with a FastAPI b
 | `frontend/src/api/` | API Client | Typed fetch wrappers for backend endpoints (buildings, cities, floorPlans, pois, client) |
 | `frontend/src/types/` | Type Defs | TypeScript interfaces (building, city, layer, poi) |
 | `frontend/src/utils/` | Utilities | Color schemes, geo utility functions |
+| `frontend/src/cities/` | City Profiles | One `CityProfile` per city (`chicago/`, `detroit/`, `dayton/`) + `registry.ts` — shared code asks the profile, never "which city?" |
+| `frontend/src/map/cityLayerLifecycle.ts` | Map Engine | Removes the previous city's layers + sources on city switch |
+| `backend/app/data_import/detroit/`, `dayton/` | Pipeline | City importers (live-verified field maps) + `static_plan.py` (what goes in each PMTiles) |
+| `backend/app/data_import/static_build.py` | Pipeline | Runs a city's importers without a database → `frontend/public/data/<city>/*.pmtiles` |
 | `docs/` | Documentation | Guides and references (Sanborn georeferencing guide) |
 | `.github/workflows/` | CI/CD | GitHub Actions pipeline |
 
 ## Key Entry Points
+
+- **Add / rebuild a city (static data):** `backend/scripts/export_city_static.py --city <slug>` → `frontend/public/data/<slug>/`; profile in `frontend/src/cities/<slug>/index.ts`, registered in `frontend/src/cities/registry.ts`
+- **Multi-city test guide:** `docs/multi_city/human_test_guide.html`
 
 - **Backend start:** `backend/app/main.py` — FastAPI app with CORS, health check, and all route registrations
 - **Backend config:** `backend/app/config.py` — Pydantic settings loaded from environment / `.env`

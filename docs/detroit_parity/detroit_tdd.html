@@ -256,6 +256,13 @@ a{color:var(--accent2)}
 </ul>
 <p class="muted">The frontend <code>map</code>, <code>presets</code> and <code>api</code> tests pass (46). <code>backend/.venv</code> lacks pytest and httpx, and <code>pyproj</code> will not build on this macOS, so the backend tests ran in a throwaway scratchpad venv with <code>pyproj</code>/<code>psycopg2</code> stubbed. Neither is used by these tests.</p>
 
+<div class="callout info"><b>Update 2026-10-02 (later):</b> with the Chicago work merged and finished, F-1, F-2 and F-3 below are <b>implemented on <code>feat/multi-city</code></b>.
+<ul>
+<li><b>F-1:</b> <code>BatchItem.city/state</code> plus the runner sending them from the profile.</li>
+<li><b>F-2:</b> <code>map/cityLayerLifecycle.ts</code> together with MapContainer's per-city <code>addedRef</code>.</li>
+<li><b>F-3:</b> a <code>parks</code> source-layer for Detroit and Dayton via <code>profile.sourceLayers</code>.</li>
+</ul>
+Test guide: <a href="../multi_city/human_test_guide.html">multi_city/human_test_guide.html</a>.</div>
 <h3>13.2 Pending — the files are owned by the Chicago session</h3>
 
 <h4>F-1 Owner batch sends every address as Chicago, IL</h4>

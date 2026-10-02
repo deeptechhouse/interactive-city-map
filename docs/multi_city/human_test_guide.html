@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Multi-City Test Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f4ef;--panel:#fff;--ink:#1d2430;--muted:#5b6474;--line:#ddd8cc;--accent:#b4531f;--accent2:#1f5f8b;--ok:#2f7d4a;--part:#a86b00;--bad:#b42318;--na:#6b7280;--code:#f1ede4}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#13171d;--panel:#1b2129;--ink:#e6e8ec;--muted:#9aa3b2;--line:#2c3440;--accent:#e08a4f;--accent2:#6fb1de;--ok:#5cc28a;--part:#e0a83a;--bad:#f07a6e;--na:#9aa3b2;--code:#222a34}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 "IBM Plex Sans",system-ui,sans-serif}
+header{background:linear-gradient(120deg,#1d2430,#2b3a4d);color:#f4efe6;padding:40px 16px 28px;border-bottom:6px solid var(--accent)}
+header .wrap,main{max-width:1080px;margin:0 auto}main{padding:8px 16px 64px}
+h1{font:600 30px/1.2 "IBM Plex Sans Condensed","IBM Plex Sans",sans-serif;margin:0 0 6px;letter-spacing:.2px}header p{margin:0;color:#c9cfd8}
+h2{font:600 21px/1.3 "IBM Plex Sans Condensed",sans-serif;margin:40px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--line)}h2 .n{color:var(--accent);margin-right:8px}
+h3{font-size:16px;margin:24px 0 6px}
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);font-size:13.5px;margin:10px 0}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{background:var(--code);font-weight:600}
+.scroll{overflow-x:auto}
+code,pre{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12.5px;background:var(--code);border-radius:4px}code{padding:1px 5px}pre{padding:12px 14px;overflow-x:auto;border:1px solid var(--line)}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600;color:#fff;white-space:nowrap}
+.ok{background:var(--ok)}.part{background:var(--part)}.bad{background:var(--bad)}.na{background:var(--na)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent2);padding:12px 14px;border-radius:6px}.card b{display:block;font-size:26px;line-height:1.1}.card span{color:var(--muted);font-size:13px}
+.callout{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--bad);padding:10px 14px;border-radius:6px;margin:12px 0}.callout.info{border-left-color:var(--accent2)}
+.muted{color:var(--muted)}ul,ol{padding-left:22px}li{margin:3px 0}
+nav.toc{background:var(--panel);border:1px solid var(--line);padding:10px 16px;border-radius:6px;margin-top:20px;font-size:14px}nav.toc a{color:var(--accent2)}
+a{color:var(--accent2)}
+</style></head><body>
+<header><div class="wrap">
+<h1>Multi-City Map — Human Test Guide</h1>
+<p>Chicago + Detroit + Dayton on branch <code style="color:#1d2430">feat/multi-city</code> · 2026-10-02 · TDDs: <a style="color:#f0b07f" href="../detroit_parity/detroit_tdd.html">Detroit</a> · <a style="color:#f0b07f" href="../dayton_parity/dayton_tdd.html">Dayton</a> · <a style="color:#f0b07f" href="multi_city_tdd.html">combined</a></p>
+</div></header>
+<main>
+<div class="callout info"><b>Where this lives:</b> worktree <code>../interactive-city-map-multicity</code>, branch <code>feat/multi-city</code>. Master (your Chicago research copy) is untouched. Main was merged into the branch on 2026-10-02, so the branch also has every Chicago change pushed that day.</div>
+
+<h2><span class="n">1</span>Start it</h2>
+<p>Pick one mode. Both use ports that avoid the Chicago copy (5173 / 8000).</p>
+<h3>Development mode (hot reload)</h3>
+<pre>cd /Users/aaandy/_andy_ai_projects_2026/interactive-city-map-multicity
+MAP_PORT=5180 PHONE_PORT=8010 ./start_map.sh</pre>
+<p>This opens <code>http://localhost:5180</code>. Switch city with the selector at the top left, or go straight to <code>?city=detroit</code> or <code>?city=dayton</code>.</p>
+<h3>Built mode (the way the Mac mini runs it)</h3>
+<pre>cd /Users/aaandy/_andy_ai_projects_2026/interactive-city-map-multicity
+PORT=8020 ./run.sh</pre>
+<p>The first run builds the map into <code>frontend/dist-local/</code>. That copy includes every city's data, about 280 MB.</p>
+<h3>Phone numbers (optional)</h3>
+<p>Business phone lookups need your Google and Foursquare keys. The worktree has no <code>.env</code>; to enable them, run <code>cp ../interactive-city-map/.env .</code> from the worktree. Without keys, everything else works and phones show "no listing found".</p>
+
+<h2><span class="n">2</span>What to check</h2>
+<table>
+<tr><th>Check</th><th>Chicago</th><th>Detroit</th><th>Dayton</th></tr>
+<tr><td>Map opens on the city with its basemap</td><td>✓ unchanged</td><td>✓</td><td>✓</td></tr>
+<tr><td>Buildings coloured by zoning; click → popup (address, zoning, year, owner, PIN)</td><td>✓</td><td>✓ 240,704 (from z11)</td><td>✓ 232,220 (from z12)</td></tr>
+<tr><td>Zoning Districts layer + zoning-type filter in the city's own codes</td><td>Title 17</td><td>R1–R6, B1–B6, M1–M5, SD…</td><td>S/E/M family (ER-4, …)</td></tr>
+<tr><td>Transit lines in their own colours, plus stops</td><td>CTA</td><td>DDOT, SMART, QLine, People Mover</td><td>GDRTA</td></tr>
+<tr><td>Railroads + filter (owners and ownership types for the city)</td><td>✓</td><td>✓</td><td>✓</td></tr>
+<tr><td>Waterways, parks, major street labels, POIs</td><td>✓</td><td>✓ (waterways clipped to the city)</td><td>✓</td></tr>
+<tr><td>Boundary layers (click for a popup)</td><td>police districts, wards</td><td>precincts, council districts, neighborhoods</td><td>police areas, neighborhoods</td></tr>
+<tr><td>City-only layers</td><td>gang territory, federal, railroad ROW, Sanborn</td><td>DLBA land bank, blight (tickets since 2021)</td><td>—</td></tr>
+<tr><td>Tools → Focus areas (gray-out outside a selection)</td><td>zips / districts / wards</td><td>zips / precincts / council districts</td><td>zips / police areas / neighborhoods</td></tr>
+<tr><td>Contact list: "+ Contact list" on a building → owner + businesses</td><td>Cook County + licences</td><td>Assessor + BSEED licences</td><td>Montgomery Auditor + OSM businesses</td></tr>
+<tr><td>Export CSV shows the city's own city/state</td><td>CHICAGO, IL</td><td>DETROIT, MI</td><td>DAYTON, OH</td></tr>
+<tr><td>Switch Chicago → Detroit → Dayton → Chicago: no leftover layers</td><td colspan="3">✓ automated test passes</td></tr>
+</table>
+<p class="muted">Paid owner batch (Tracerfy): it now sends each city's own city/state (TDD §13 F-1). It still costs credits, so test it on one building first.</p>
+
+<h2><span class="n">3</span>Automated results (2026-10-02)</h2>
+<ul>
+<li><b>Frontend tests:</b> 276/276 pass. This excludes <code>src/interior</code>, whose 51 tests fail with the existing "document is not defined" problem, which was there before this work.</li>
+<li><b>Backend:</b> 153 tests pass across parity, owner batch, owner lookup, phone and exports.</li>
+<li><b>tsc:</b> 11 errors, all pre-existing and none in new code. That is down from 18 on the branch base.</li>
+<li><b>bigo-lint:</b> clean on every file touched.</li>
+<li><b>Headless browser, each city:</b> zero page errors. Chicago's only error is the existing Sanborn request to MinIO, which isn't running.</li>
+<li><b>Headless browser, city switching:</b> Chicago → Detroit → Dayton → Chicago → Detroit passes. Each switch loads the right basemap, leaves no stray layers and no other city's sources.</li>
+<li><b>Headless browser, building clicks:</b> a Detroit building and a Dayton building each open a full popup.</li>
+</ul>
+
+<h2><span class="n">4</span>Known gaps (not blockers for testing)</h2>
+<ul>
+<li><b>Sanborn, interior maps, railroad right-of-way, federal properties</b> exist only for Chicago (later plan phases).</li>
+<li><b>Discovery</b> (business-type browser) is Chicago-only; it uses Chicago licence data.</li>
+<li><b>POIs:</b> Detroit has 304 and Dayton 344, because the shared OSM category map is narrow.</li>
+<li><b>Dayton owner names</b> on building tiles show only the first line ("… AND"); the contact panel shows the full name.</li>
+<li><b>Dev mode with Postgres/Martin</b> for Detroit/Dayton is not wired yet (<code>city_registry</code> / <code>run.py</code>). Static mode is the tested path.</li>
+<li><b>Building tiles include owner names</b> (public assessor records), the same as Chicago.</li>
+<li><b>Blight</b> covers tickets issued since 2021 (411K). The window is ADJUSTABLE in <code>detroit.yaml</code>.</li>
+</ul>
+
+<h2><span class="n">5</span>Rebuilding city data</h2>
+<pre>cd backend
+python3 -m venv .venv-build &amp;&amp; .venv-build/bin/pip3 install httpx shapely structlog pyyaml psycopg2-binary   # once
+brew install tippecanoe pmtiles                                                                         # once
+.venv-build/bin/python -m scripts.export_city_static --city detroit            # ~15 min; downloads are cached
+.venv-build/bin/python -m scripts.export_city_static --city dayton --basemap skip   # ~18 min
+.venv-build/bin/python -m app.data_import.detroit.frontend_vocab                # after a Detroit rebuild</pre>
+<p>Build buildings together with zoning (<code>--layers buildings,zoning</code>), because the zoning tags are joined within one run. <code>--city chicago</code> is refused, so Chicago's hand-built files are never touched.</p>
+</main>
+</body></html>

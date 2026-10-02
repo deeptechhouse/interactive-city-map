@@ -1,20 +1,36 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Multi-City Next Steps</title>
-<style>:root{--bg:#f6f4ef;--ink:#1d2430;--code:#f1ede4;--accent:#5b4bb4}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#13171d;--ink:#e6e8ec;--code:#222a34;--accent:#a99cf0}}:root[data-theme="dark"]{--bg:#13171d;--ink:#e6e8ec;--code:#222a34;--accent:#a99cf0}body{margin:0 auto;max-width:900px;padding:24px 16px;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,sans-serif}h1{border-bottom:4px solid var(--accent)}code{background:var(--code);padding:1px 5px;border-radius:4px}</style></head><body>
-<h1>Agent prompt: multi-city parity (Detroit + Dayton), Wave 0</h1>
-<p><b>Read first:</b></p>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Multi-City Next Steps</title>
+<style>
+:root{--bg:#f6f4ef;--ink:#1d2430;--muted:#5b6474;--line:#ddd8cc;--code:#f1ede4}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#13171d;--ink:#e6e8ec;--muted:#9aa3b2;--line:#2c3440;--code:#222a34}}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,sans-serif}main{max-width:900px;margin:0 auto;padding:24px 16px}
+code,pre{font-family:ui-monospace,monospace;background:var(--code);border-radius:4px;padding:1px 5px}h2{border-bottom:1px solid var(--line)}
+</style></head><body><main>
+<h1>Next steps — multi-city map (feat/multi-city)</h1>
+<p><b>Context for the agent.</b></p>
 <ul>
-<li><code>docs/multi_city/multi_city_tdd.html</code> (combined design + joint plan)</li>
-<li>Its §2 (Chicago safety rules) and §8 (ownership and branches)</li>
-<li>The four per-city documents linked from its header</li>
+<li><b>Where:</b> worktree <code>/Users/aaandy/_andy_ai_projects_2026/interactive-city-map-multicity</code>, branch <code>feat/multi-city</code>.</li>
+<li><b>State:</b> Chicago, Detroit and Dayton are human-testable in static mode. Read <code>docs/multi_city/human_test_guide.html</code>, <code>docs/multi_city/multi_city_tdd.html</code> and <code>docs/detroit_parity/detroit_tdd.html</code> §13 first.</li>
+<li><b>Never</b> edit master directly. Master is Chicago's research copy, and it reaches main only through a user-approved merge.</li>
 </ul>
-<p><b>Hard rule:</b> the Chicago map is used for research. Do not edit <code>master</code>, the master working tree, or <code>frontend/public/data/</code>. Do not stop a running <code>./start_map.sh</code>. Run <code>ListAgents</code> and confirm file ownership with the Chicago and Detroit sessions before starting.</p>
+<h2>Tasks, in order</h2>
 <ol>
-<li>Ask the user whether the Chicago session has committed its work. If it has, create <code>feat/multi-city</code> from master in a new worktree. Commit the multi-city work in progress there; take it from master's working tree only if it is still uncommitted.</li>
-<li>Rebase the Dayton files from <code>feat/dayton-skeleton</code> onto <code>feat/multi-city</code>. They are new files only, so there should be no conflicts.</li>
-<li>Add the Chicago pin tests listed in §2.2: importer order, <code>buildZoningFilter</code>, ContactResolver wiring, basemap URL, and <code>getLayerSourceUrl</code> per layer. Check each one passes against the current code.</li>
-<li>Fix the backend venv (pytest, httpx, ruff, pyproj).</li>
-<li>Ask the user to start Docker for the old Dayton fork, then <code>pg_dump</code> its database to <code>backups/dayton_fork_YYYY-MM-DD.dump</code>.</li>
+<li><b>Act on the user's manual test findings first</b> (ask for them if not supplied).</li>
+<li><b>Dev mode for the new cities (combined plan W1–W2):</b>
+<ul>
+<li>Implement migration 005 (draft in <code>backend/alembic/drafts/</code>; include <code>railroad_row</code>).</li>
+<li>Implement <code>city_registry.importers_for()</code> with the Detroit and Dayton overrides, and switch <code>run.py</code> to it.</li>
+<li>Pin Chicago's importer order with a test first.</li>
+</ul></li>
+<li><b>City packs (W7):</b> make <code>registry.ts</code> read <code>virtual:city-profiles</code> (<code>frontend/vite/cityPackPlugin.ts</code>), and add <code>build:static:&lt;city&gt;</code>.</li>
+<li><b>Data quality:</b>
+<ul>
+<li>Widen the shared POI category map (Detroit has 304 POIs, Dayton 344).</li>
+<li>Join Dayton <code>OWNER_NA_1</code> into building owner names.</li>
+<li>Find the replacement for Detroit Commercial_Demolitions (marked deprecated).</li>
+</ul></li>
+<li><b>Extras (W8):</b> Sanborn sheets for Detroit and Dayton, railroad right-of-way, interiors.</li>
+<li><b>W9:</b> §8 verification (<code>/code-review</code>, SAST, coverage ≥90% on new modules), then a merge to main on a day the user chooses.</li>
 </ol>
-<p><b>Gate:</b> all Chicago pins are green on <code>feat/multi-city</code>; the type-check shows no new errors; the dump restores into a scratch database. Then continue with W1 as §7 describes.</p>
-</body></html>
+</main></body></html>

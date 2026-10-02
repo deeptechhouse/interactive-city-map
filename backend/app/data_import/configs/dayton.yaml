@@ -1,44 +1,73 @@
+# Dayton, OH — data sources. Every URL below was checked live on 2026-10-02
+# (fields + counts in app/data_import/dayton/field_maps.py). Importers fall back to the
+# field_maps.py URLs when a `url` is missing, so this file and field_maps must agree.
 city:
   name: Dayton
   slug: dayton
   state: OH
   center: [-84.1916, 39.7589]
   default_zoom: 12
+  # Profile bounds (west,south),(east,north). Same as frontend DAYTON_PROFILE.bounds and
+  # dayton/_sources.DAYTON_BBOX — keep the three in sync.
   bounds: [[-84.35, 39.65], [-84.05, 39.85]]
 
 sources:
-  zoning:
-    # Montgomery County / City of Dayton open data portal
-    url: "https://data-mcohio.opendata.arcgis.com/datasets/zoning-districts.geojson"
-    note: "Montgomery County open data — verify current endpoint at data-mcohio.opendata.arcgis.com"
   buildings:
-    # Microsoft Building Footprints — Ohio state file
-    url: "https://usbuildingdata.blob.core.windows.net/usbuildings-v2/Ohio.geojson.zip"
-    fallback_url: "https://data-mcohio.opendata.arcgis.com/datasets/building-footprints.geojson"
-    note: "Microsoft footprints cover entire state; clip to city bbox during import"
+    # City of Dayton footprints, county-wide (338,321); envelope-filtered to the bbox (230,328).
+    # No address field — address/owner/year come from the parcel join (dayton/enrich.py).
+    url: "https://maps.daytonohio.gov/gisservices/rest/services/Viewer/MapLayers_Citywide/MapServer/307"
+    fallback_url: "https://minedbuildings.z5.web.core.windows.net/legacy/usbuildings-v2/Ohio.geojson.zip"
+    note: "fallback not wired; Microsoft Ohio file is ~5M features and must be clipped first"
+
+  zoning:
+    # 970 polygons. Current code = NEW_ZONE (DISTRICT is the pre-2006 code).
+    url: "https://maps.daytonohio.gov/gisservices/rest/services/Viewer/MapLayers_Citywide/MapServer/203"
+
+  parcels:
+    # Parcel polygons ⋈ Montgomery County (OH) Auditor CAMA — owner, address, appraisal.
+    # 273,627 county-wide. Spatial queries are refused, so the importer pages the county.
+    url: "https://maps.daytonohio.gov/gisservices/rest/services/Viewer/MapLayers_Citywide/MapServer/9"
+    # TRAP: services6.arcgis.com/EbVsqZ18sv1kVJ3k/.../Montgomery_County_Parcels is
+    # Montgomery County, NEW YORK. Never use it for Dayton.
+
   transit_lines:
-    # Greater Dayton RTA GTFS feed
-    url: "https://transitfeeds.com/p/greater-dayton-rta/660/latest/download"
-    fallback_url: "https://www.transit.land/feeds/f-dnh-greaterdaytonrta"
-    note: "GTFS zip — extract shapes.txt for route geometries"
+    # Greater Dayton RTA single GTFS feed (bus + electric trolleybus). The `*_gtfs_url` key
+    # sends import_transit down its GTFS path; the prefix becomes system "GDRTA".
+    gdrta_gtfs_url: "http://proc.greaterdaytonrta.org/gtfs/google_transit.zip"
+
   transit_stations:
-    # Greater Dayton RTA stops from GTFS
-    url: "https://transitfeeds.com/p/greater-dayton-rta/660/latest/download"
-    note: "Extract stops.txt from GTFS zip for station/stop points"
+    gdrta_gtfs_url: "http://proc.greaterdaytonrta.org/gtfs/google_transit.zip"
+
   waterways:
-    # USGS National Hydrography Dataset — Great Miami River, Stillwater River, Mad River, Wolf Creek
-    url: "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/6/query?where=1%3D1&geometry=-84.35%2C39.65%2C-84.05%2C39.85&geometryType=esriGeometryEnvelope&outFields=*&f=geojson"
-    note: "NHD flowlines clipped to Dayton bbox; includes Great Miami, Stillwater, and Mad rivers"
+    # USGS NHD large-scale flowlines; 560 in the bbox (174 named). Paged + envelope in
+    # DaytonWaterwaysImporter.
+    url: "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/6"
+
   parks:
-    # Five Rivers MetroParks and city parks
-    url: "https://data-mcohio.opendata.arcgis.com/datasets/parks.geojson"
-    note: "Montgomery County parks data — verify endpoint at data-mcohio.opendata.arcgis.com"
-  railroads:
-    fra_url: "https://data-usdot.opendata.arcgis.com/datasets/north-american-rail-network-lines.geojson"
+    # OSM leisure=park|nature_reserve|garden (no public Five Rivers MetroParks GIS layer found).
     osm_overpass_bbox: "39.65,-84.35,39.85,-84.05"
+
+  railroads:
+    osm_overpass_bbox: "39.65,-84.35,39.85,-84.05"
+
   pois:
     osm_overpass_bbox: "39.65,-84.35,39.85,-84.05"
-  parcels:
-    note: "Montgomery County Auditor parcel data — requires manual download or ArcGIS REST API from mcrealgis.org"
+
+  police_precincts:
+    # Dayton PD areas: 4 (Central, East, West, airport). Already EPSG:4326.
+    url: "https://maps.daytonohio.gov/gisservices/rest/services/Police/PoliceAreas/MapServer/0"
+
+  neighborhoods:
+    # 97 features; the 31 "… - OUTSIDE CITY" fillers are dropped → 66.
+    url: "https://maps.daytonohio.gov/gisservices/rest/services/Viewer/MapLayers_Citywide/MapServer/310"
+
+  zip_codes:
+    # 2020 ZCTAs, prefix 453/454, kept only where they overlap the city outline.
+    url: "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/PUMA_TAD_TAZ_UGA_ZCTA/MapServer/1"
+
+  major_streets:
+    # Centerlines filtered to FHWA functional class 11/12/14/16 (interstate → minor arterial).
+    url: "https://maps.daytonohio.gov/gisservices/rest/services/Viewer/MapLayers_Citywide/MapServer/312"
+
   streets:
-    note: "Streets come from basemap tiles; TIGER/Line import is optional"
+    note: "replaced by major_streets (DaytonMajorStreetsImporter); basemap draws the rest"

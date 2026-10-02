@@ -2,44 +2,111 @@
  * Detroit layer list + tile sources.
  *
  * PURPOSE
- *   Replaces the `citySlug === 'detroit'` branch of useMapLayers.createDefaultLayers and
- *   decides, per layer, where Detroit's data comes from in dev mode (Martin) and static
- *   mode (per-city PMTiles under public/data/detroit/ or bundled GeoJSON).
- *
- * STATUS — SKELETON. Bodies are stubs.
+ *   Decides which layers Detroit offers and, per layer, where its data comes from in dev
+ *   mode (Martin over PostGIS) and static mode (PMTiles under public/data/detroit/, written
+ *   by backend/scripts/export_city_static.py from app/data_import/detroit/static_plan.py).
  *
  * TRAPS
- *   - Parks: Chicago's ParkLayer paints the *whole* `parcels` source-layer green, because
- *     Chicago's parcels table only holds parks. Detroit's parcels table will hold ~378K
- *     real parcels, so Detroit parks MUST come from the dedicated `parks` table
- *     (migration 005) via DetroitParkLayer — never from `parcels`.
- *   - Police districts: the shared list offers `police_districts`, which is embedded CPD
- *     (Chicago) GeoJSON. Detroit must offer `police_precincts` (DPD, 12 precincts)
- *     instead, or Chicago polygons are drawn off-screen under a Detroit label.
- *   - Static mode: a layer with no static asset must be *left out* of the list, not given
- *     '' — MapContainer adds a broken vector source for '' (MapContainer.tsx:196).
+ *   - Parks: Chicago's ParkLayer paints the whole `parcels` source-layer green, because
+ *     Chicago's parcels table only holds parks. Detroit's parcels are ~378K real parcels,
+ *     so Detroit parks come from the dedicated `parks` table / tile layer — the profile
+ *     sets sourceLayers.parks = 'parks', and the dev source is martinTileUrl('parks').
+ *   - Police: the shared `police_districts` layer is embedded Chicago CPD GeoJSON. Detroit
+ *     offers `police_precincts` (DPD, 12) instead; `wards` → `council_districts` (7, 2026).
+ *   - Static mode: a layer with no static asset is LEFT OUT of the list, never given '' —
+ *     MapContainer adds a broken vector source for ''.
+ *   - Blight tiles are named `blight_violations` (the PostGIS table) but the layer id is
+ *     `abandoned_blight`; the file is abandoned_blight.pmtiles.
  *
- * LAYER PARITY TARGET (Chicago → Detroit):
- *   railroads, transit, waterways, zoning, buildings, pois, major_streets, zip_codes,
- *   parks                         → same ids, Detroit data
- *   police_districts              → police_precincts (DPD)
- *   wards                         → council_districts (7 districts, 2026 map)
- *   railroad_row                  → railroad_row (derived from Detroit parcels owned by
- *                                   railroads — see import_railroad_row in the backend)
- *   sanborn                       → sanborn (Detroit LoC sheets, Phase 7)
- *   gang_territory                → NOT OFFERED — no official public dataset for Detroit
- *   federal_properties            → federal_properties (GSA inventory, optional Phase 8)
- *   Detroit-only: neighborhoods, dlba_properties, abandoned_blight
+ * NOT OFFERED (no Detroit dataset yet): sanborn, railroad_row, federal_properties,
+ *   gang_territory.
+ *
+ * TO ADD A LAYER: add a StaticLayer in the backend static plan, rebuild, then add a row to
+ *   DETROIT_LAYERS, its id to DETROIT_STATIC_LAYER_IDS and its table to DEV_TABLES.
  */
 import type { LayerState } from '../../types/layer';
-import { notImplemented } from '../CityProfile';
+import { martinTileUrl } from '../../utils/geoUtils';
+
+/** Layer rows in LayerPanel order, grouped like Chicago's list. */
+const DETROIT_LAYERS: readonly LayerState[] = [
+  // Infrastructure
+  { id: 'railroads', name: 'Railroads', group: 'infrastructure', visible: true, opacity: 1 },
+  { id: 'transit', name: 'Transit (DDOT/SMART/QLine/PM)', group: 'infrastructure', visible: true, opacity: 1 },
+  { id: 'waterways', name: 'Waterways', group: 'infrastructure', visible: true, opacity: 1 },
+  // Zoning & ownership
+  { id: 'zoning', name: 'Zoning Districts', group: 'zoning', visible: false, opacity: 1 },
+  { id: 'buildings', name: 'Buildings', group: 'zoning', visible: true, opacity: 1 },
+  // Points of interest
+  { id: 'pois', name: 'Points of Interest', group: 'poi', visible: true, opacity: 1 },
+  // Streets + boundaries
+  { id: 'major_streets', name: 'Major Street Labels', group: 'infrastructure', visible: true, opacity: 1 },
+  { id: 'zip_codes', name: 'Zip Codes', group: 'zoning', visible: false, opacity: 1 },
+  // Parks
+  { id: 'parks', name: 'Parks & Green Space', group: 'parks', visible: true, opacity: 1 },
+  // Government
+  { id: 'police_precincts', name: 'Police Precincts (DPD)', group: 'government', visible: false, opacity: 1 },
+  { id: 'council_districts', name: 'Council Districts', group: 'government', visible: false, opacity: 1 },
+  { id: 'neighborhoods', name: 'Neighborhoods', group: 'government', visible: false, opacity: 1 },
+  { id: 'dlba_properties', name: 'DLBA Land Bank', group: 'government', visible: false, opacity: 1 },
+  // Safety
+  { id: 'abandoned_blight', name: 'Blight Tickets (2021+)', group: 'safety', visible: false, opacity: 1 },
+];
+
+/** Every layer id Detroit offers, in LayerPanel order. */
+// O(l) time, O(l) space — l = Detroit layers (14)
+export const DETROIT_LAYER_IDS: readonly string[] = DETROIT_LAYERS.map((l) => l.id);
+
+/**
+ * Layer ids with a file under public/data/detroit/ (static export of 2026-10-02 — every
+ * layer in the backend STATIC_PLAN was produced). Remove an id here if its file is
+ * deleted, or static mode will request a missing archive.
+ */
+export const DETROIT_STATIC_LAYER_IDS: ReadonlySet<string> = new Set([
+  'railroads',
+  'transit',
+  'waterways',
+  'zoning',
+  'buildings',
+  'pois',
+  'major_streets',
+  'zip_codes',
+  'parks',
+  'police_precincts',
+  'council_districts',
+  'neighborhoods',
+  'dlba_properties',
+  'abandoned_blight',
+]);
+
+/** Layer id → PostGIS table Martin serves in dev mode. */
+const DEV_TABLES: Readonly<Record<string, string>> = {
+  railroads: 'railroads',
+  transit: 'transit_lines',
+  waterways: 'waterways',
+  zoning: 'zoning_districts',
+  buildings: 'buildings',
+  pois: 'pois',
+  major_streets: 'major_streets',
+  zip_codes: 'zip_codes',
+  parks: 'parks', // NOT 'parcels' — see TRAPS
+  police_precincts: 'police_precincts',
+  council_districts: 'council_districts',
+  neighborhoods: 'neighborhoods',
+  dlba_properties: 'dlba_properties',
+  abandoned_blight: 'blight_violations',
+};
 
 /**
  * Ordered layer states for the LayerPanel. `isStatic` drops layers with no static asset.
- * O(l) time, O(l) space — l = Detroit layers (~19).
+ * Returns fresh objects so callers may mutate their copy.
+ * O(l) time, O(l) space — l = Detroit layers (14).
  */
 export function detroitLayerStates(isStatic: boolean): LayerState[] {
-  return notImplemented('detroitLayerStates', isStatic);
+  return DETROIT_LAYERS
+    // O(l) time, O(l) space — l = layers
+    .filter((l) => !isStatic || DETROIT_STATIC_LAYER_IDS.has(l.id))
+    // O(l) time, O(l) space — l = layers kept
+    .map((l) => ({ ...l }));
 }
 
 /**
@@ -47,13 +114,19 @@ export function detroitLayerStates(isStatic: boolean): LayerState[] {
  * O(l) time, O(l) space — l = Detroit layers.
  */
 export function detroitDevSources(): Record<string, string> {
-  return notImplemented('detroitDevSources');
+  const out: Record<string, string> = {};
+  // O(l) time, O(l) space — l = layers with a dev table
+  for (const [id, table] of Object.entries(DEV_TABLES)) out[id] = martinTileUrl(table);
+  return out;
 }
 
 /**
- * Static-mode PMTiles URLs by layer id, all under `./data/detroit/`.
+ * Static-mode PMTiles URLs by layer id, all under `./data/detroit/`. Only produced files.
  * O(l) time, O(l) space — l = Detroit layers.
  */
 export function detroitStaticSources(): Record<string, string> {
-  return notImplemented('detroitStaticSources');
+  const out: Record<string, string> = {};
+  // O(l) time, O(l) space — l = layers with a static file
+  for (const id of DETROIT_STATIC_LAYER_IDS) out[id] = `pmtiles://./data/detroit/${id}.pmtiles`;
+  return out;
 }

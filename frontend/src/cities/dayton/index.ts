@@ -15,9 +15,9 @@
  *     .focus                                → useFocusArea
  *     .contacts                             → ContactResolver.forCity
  *
- * STATUS — SKELETON (2026-10-02). Nothing imports this file, so it cannot change Chicago
- *   or Detroit behaviour. `focus` and `contacts` stay null until plan phases D5/D6 so the
- *   UI shows "not available for Dayton yet" rather than another city's data.
+ * STATUS — implemented 2026-10-02 (static data built under public/data/dayton/). Focus
+ *   (zip / police area / neighborhood) and contacts (Montgomery County Auditor owners +
+ *   OSM businesses) are wired.
  *
  * MODULARITY: this file must import only from ../CityProfile, shared utils, and
  *   ./ siblings — never from ../chicago or ../detroit. A Dayton-only build
@@ -34,6 +34,8 @@ import {
   DAYTON_TRANSIT_COLORS,
 } from './taxonomies';
 import { IS_STATIC } from '../../utils/staticMode';
+import { DAYTON_FOCUS } from './focus';
+import { daytonContactSources } from './contacts';
 
 export const DAYTON_PROFILE: CityProfile = {
   slug: 'dayton',
@@ -50,18 +52,17 @@ export const DAYTON_PROFILE: CityProfile = {
 
   layers: () => daytonLayerStates(IS_STATIC),
   devSources: daytonDevSources,
-  // O(l) time, O(l) space — l = Dayton layers (getter so the stub only throws when read).
-  get staticAssets() {
-    return { basemapPmtiles: './data/dayton/basemap.pmtiles', layerPmtiles: daytonStaticSources() };
-  },
+  staticAssets: { basemapPmtiles: './data/dayton/basemap.pmtiles', layerPmtiles: daytonStaticSources() },
 
   popups: DAYTON_POPUPS,
+  // Dayton tiles name parks 'parks' (Chicago's live in 'parcels').
+  sourceLayers: { parks: 'parks' },
   zoning: DAYTON_ZONE_CLASSES,
   railroadOwners: DAYTON_RAILROAD_OWNERS,
   railroadOwnershipTypes: DAYTON_RAILROAD_OWNERSHIP_TYPES,
   transitColors: DAYTON_TRANSIT_COLORS,
   poiCategoryCounts: DAYTON_POI_CATEGORY_COUNTS,
 
-  focus: null, // → DAYTON_FOCUS (./focus) in plan D5
-  contacts: null, // → daytonContactSources() (./contacts) in plan D6
+  focus: DAYTON_FOCUS,
+  contacts: daytonContactSources(),
 };

@@ -19,7 +19,11 @@ sources:
     source_srid: 2898
     page_size: 2000
     output_format: "json"
-    note: "SEMCOG building footprints 2020 — layer ID 60 (not 0). ~300K+ features for Detroit. 26 building type classifications. Server may only support f=json (not f=geojson), requiring client-side conversion."
+    # ADJUSTABLE: server-side city clip. SEMCOG codes Detroit as planning sub-areas
+    # city_id 501–555 (244,010 footprints; 240,697 standing — checked 2026-10-02).
+    # Widen only on purpose: the layer covers all of SE Michigan (1.67M rows).
+    where: "city_id BETWEEN 501 AND 555 AND demolished IS NULL"
+    note: "SEMCOG building footprints 2020 — layer ID 60 (not 0). Region-wide; filtered to Detroit by `where`. Server only supports f=json; arcgis_helper converts. Fields verified 2026-10-02: gid, address, ref_name, year_built, stories, apn (lower case)."
 
   # =========================================================================
   # DETROIT OPEN DATA PORTAL — ArcGIS Hub (data.detroitmi.gov)
@@ -35,7 +39,7 @@ sources:
   parcels:
     arcgis_featureserver: true
     url: "https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/parcel_file_current/FeatureServer/0/query"
-    note: "Current parcels from Office of the Assessor — 378K+ records, daily updates, 2024 tax year boundaries"
+    note: "Office of the Assessor — 377,940 rows (2026-10-02), maxRecordCount 1000. Static build pulls parcel_id + taxpayer_1 only (no geometry) to put owner_name on buildings."
 
   police_precincts:
     arcgis_featureserver: true
@@ -60,7 +64,11 @@ sources:
   zip_codes:
     arcgis_featureserver: true
     url: "https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/City_of_Detroit_Zip_Code_List/FeatureServer/0/query"
-    note: "WARNING: This may be a non-spatial table (tabular ZIP list, no polygon geometry). For ZIP boundary polygons, use US Census TIGER/Line ZCTA data filtered to Detroit bbox instead."
+    note: "Checked 2026-10-02: a non-spatial TABLE (ZIP_CODE, 39 mailing ZIPs incl. suburbs). Polygons come from polygon_url (TIGERweb ZCTAs), kept where >=1% lies in the city (detroit/import_boundaries.py)."
+    # Base query URL; the importer adds the bbox envelope with inSR=4326 (without it the
+    # envelope is read as Web Mercator).
+    polygon_url: "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2023/MapServer/2/query"
+    bbox: [[-83.30, 42.20], [-82.90, 42.50]]
     fallback_url: "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2023/MapServer/2/query?where=1%3D1&geometry=-83.30%2C42.20%2C-82.90%2C42.50&geometryType=esriGeometryEnvelope&outFields=*&f=geojson"
 
   dlba_properties:
@@ -79,7 +87,9 @@ sources:
     #   "latitude IS NOT NULL AND ticket_issued_date >= DATE '2021-01-01'"   (411,525 rows)
     # TRAP: write DATE '…'. A bare '2021-01-01' works for counts but the paged query
     # fails with "ArcGIS error 400: Unable to perform query" (checked 2026-10-02).
-    tickets_where: "latitude IS NOT NULL AND longitude IS NOT NULL"
+    # STATIC BUILD CHOICE (2026-10-02): tickets issued since 2021 only (411,525 rows). The
+    # full 903K-row history is too heavy for a hand-tested static map.
+    tickets_where: "latitude IS NOT NULL AND ticket_issued_date >= DATE '2021-01-01'"
     page_size: 1000          # server maxRecordCount for blight_tickets
     bbox: [[-83.30, 42.20], [-82.90, 42.50]]   # same as city.bounds; drops 0,0 / stray points
     note: "Tickets carry location in latitude/longitude, not geometry. Commercial_Demolitions is marked Deprecated upstream."
@@ -134,6 +144,11 @@ sources:
   # =========================================================================
   # STREETS — major labeled streets come from static data, not import
   # =========================================================================
+  # Read by detroit/import_major_streets.py (OSM Overpass; labels curated in that file).
+  major_streets:
+    osm_overpass_bbox: "42.20,-83.30,42.50,-82.90"
+    note: "Named arterials + freeways, merged per label and clipped to the city (council-district union)."
+
   streets:
     note: "Streets come from basemap tiles; Detroit's radial spoke avenues (Woodward, Michigan, Grand River, Gratiot, Jefferson, Fort) added as static major_streets data"
 

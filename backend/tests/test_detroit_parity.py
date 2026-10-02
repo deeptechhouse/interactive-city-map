@@ -55,19 +55,159 @@ def test_blight_reads_detroit_urls_from_config(monkeypatch, tmp_path):
     assert calls == ["https://t.example/q", "https://d.example/q"]
 
 
-@pending
-def test_phase2_semcog_multipart_buildings_split():
-    """A 2-part SEMCOG feature becomes 2 building rows, not 1 polygon with a false hole."""
+def _square(x0: float, y0: float, size: float, clockwise: bool) -> list[list[float]]:
+    """O(1) time, O(1) space — v = 5 ring vertices. ArcGIS outer rings run clockwise."""
+    ring = [[x0, y0], [x0 + size, y0], [x0 + size, y0 + size], [x0, y0 + size], [x0, y0]]
+    return ring[::-1] if clockwise else ring
 
 
-@pending
+def test_phase2_semcog_multipart_buildings_split(tmp_path):
+    """A 2-part SEMCOG feature becomes 2 building rows, not 1 polygon with a false hole;
+    a real courtyard (counter-clockwise ring inside an outer ring) stays a hole."""
+    import json
+
+    from app.data_import.detroit.import_buildings import DetroitBuildingsImporter
+
+    two_parts = {"type": "Polygon", "coordinates": [
+        _square(0, 0, 1, clockwise=True), _square(5, 5, 1, clockwise=True)]}
+    courtyard = {"type": "Polygon", "coordinates": [
+        _square(10, 10, 4, clockwise=True), _square(11, 11, 1, clockwise=False)]}
+    raw = tmp_path / "b.geojson"
+    raw.write_text(json.dumps({"features": [
+        {"geometry": two_parts, "properties": {"gid": 7, "address": "1 MAIN ST",
+                                               "year_built": 0, "stories": 2, "apn": "01."}},
+        {"geometry": courtyard, "properties": {"gid": 8, "address": "2 MAIN ST"}},
+    ]}))
+    rows = DetroitBuildingsImporter("", "detroit", {}).transform(raw)
+    assert [r["id"] for r in rows] == ["det-bldg-7-0", "det-bldg-7-1", "det-bldg-8"]
+    assert rows[0]["year_built"] is None  # SEMCOG 0 = unknown
+    assert rows[0]["floors"] == 2 and rows[0]["parcel_pin"] == "01."
+    assert all(r["is_hidden"] is False and r["has_interior"] is False for r in rows)
+    assert len(json.loads(rows[2]["geom_json"])["coordinates"]) == 2  # outer + hole
+
+
+# The 29 ZONING_REV codes on the live Zoning_1 layer (2026-10-02) and their classes.
+_DETROIT_CODES = {
+    **{f"R{i}": "residential" for i in range(1, 7)},
+    **{f"B{i}": "commercial" for i in range(1, 7)},
+    **{f"M{i}": "manufacturing" for i in range(1, 6)},
+    "MKT": "manufacturing", "TM": "manufacturing", "W1": "waterfront", "PCA": "commercial",
+    "PC": "special", "PD": "special", "PR": "special", "P1": "special", "SD5": "special",
+    "SD1": "mixed", "SD2": "mixed", "SD4": "mixed",
+}
+
+
 def test_phase2_detroit_zoning_classes_match_frontend_keys():
     """Every zone_class the Detroit importer emits exists in DETROIT_ZONE_CLASSES."""
+    import re
+    from pathlib import Path
+
+    from app.data_import.detroit.import_zoning import classify_detroit_zone
+
+    zoning_ts = (Path(__file__).resolve().parents[2]
+                 / "frontend/src/cities/detroit/zoning.ts").read_text()
+    frontend_keys = set(re.findall(r"^    key: '([a-z]+)',", zoning_ts, flags=re.M))
+    assert {"residential", "commercial", "manufacturing", "mixed", "special",
+            "waterfront", "other"} <= frontend_keys
+    # O(c) time, O(1) space — c = codes (29)
+    for code, expected in _DETROIT_CODES.items():
+        assert classify_detroit_zone(code) == expected, code
+        assert expected in frontend_keys
+    assert classify_detroit_zone("TM") != "transportation"  # the Chicago-prefix trap
+    assert classify_detroit_zone("ZZ9") == "other"
+    assert classify_detroit_zone(None) == "other"
 
 
-@pending
-def test_phase2_nhd_upper_case_fields_map_to_name():
-    """GNIS_NAME → name; no Detroit waterway imports with a null name when NHD has one."""
+def test_phase2_nhd_upper_case_fields_map_to_name(tmp_path):
+    """GNIS_NAME → name; no Detroit waterway imports with a null name when NHD has one.
+    NHD answered lower case on 2026-10-02, upper case before — both must work."""
+    import json
+
+    from app.data_import.detroit.import_area_overrides import DetroitWaterwaysImporter
+
+    line = {"type": "LineString", "coordinates": [[-83.1, 42.3], [-83.0, 42.3]]}
+    raw = tmp_path / "w.geojson"
+    raw.write_text(json.dumps({"features": [
+        {"geometry": line, "properties": {"GNIS_NAME": "Detroit River", "FTYPE": 460}},
+        {"geometry": line, "properties": {"gnis_name": "River Rouge", "ftype": 460}},
+        {"geometry": line, "properties": {"gnis_name": None}},
+    ]}))
+    rows = DetroitWaterwaysImporter("", "detroit", {}).transform(raw)
+    assert [r["name"] for r in rows] == ["Detroit River", "River Rouge", None]
+    assert rows[0]["waterway_type"] == "460"
+
+
+def test_detroit_dlba_reads_live_field_names(tmp_path):
+    """DLBA points: address is in `name`, status in `inventory_status_socrata`."""
+    import json
+
+    from app.data_import.detroit.import_area_overrides import DetroitDLBAImporter
+
+    raw = tmp_path / "d.geojson"
+    raw.write_text(json.dumps({"features": [{
+        "geometry": {"type": "Point", "coordinates": [-82.98, 42.41]},
+        "properties": {"name": "12787 Fournier", "parcel_id": "21012883-4",
+                       "inventory_status_socrata": "Neighborhood Lot For Sale",
+                       "council_district": 4, "neighborhood": "Eden Gardens"}}]}))
+    (row,) = DetroitDLBAImporter("", "detroit", {}).transform(raw)
+    assert row["address"] == "12787 Fournier"
+    assert row["status"] == "Neighborhood Lot For Sale"
+    assert row["property_type"] == "lot"
+    assert row["council_district"] == "4"
+
+
+def test_detroit_precinct_and_district_ids_are_plain_text(tmp_path):
+    """DPD names are zero-padded ("09"); ids must be "9" so focus options sort/label cleanly."""
+    import json
+
+    from app.data_import.detroit.import_boundaries import (
+        DetroitCouncilDistrictsImporter, DetroitPolicePrecinctsImporter,
+    )
+
+    square = {"type": "Polygon", "coordinates": [_square(0, 0, 1, clockwise=True)]}
+    raw = tmp_path / "p.geojson"
+    raw.write_text(json.dumps({"features": [
+        {"geometry": square, "properties": {"name": "09", "district_number": 3}}]}))
+    (precinct,) = DetroitPolicePrecinctsImporter("", "detroit", {}).transform(raw)
+    assert (precinct["precinct"], precinct["name"]) == ("9", "Precinct 9")
+    (district,) = DetroitCouncilDistrictsImporter("", "detroit", {}).transform(raw)
+    assert district["district_number"] == "3"
+    assert json.loads(district["geom_json"])["type"] == "MultiPolygon"
+
+
+def test_detroit_railroad_owner_marks():
+    from app.data_import.detroit.static_plan import classify_railroad_owner
+
+    assert classify_railroad_owner("Consolidated Rail Corporation") == ("CRSH", "private_terminal")
+    assert classify_railroad_owner("Canadian Pacific Kansas City") == ("CP", "private_class1")
+    assert classify_railroad_owner("Ford Motor Company") == ("IND", "private_industrial")
+    assert classify_railroad_owner(None) == ("_other", "unknown")
+    assert classify_railroad_owner("Some Spur Co") == ("Some Spur Co", "unknown")
+
+
+def test_detroit_enrich_tags_zoning_and_owner():
+    import json
+
+    from app.data_import.detroit.static_plan import enrich_detroit
+
+    def poly(x0: float, size: float) -> str:
+        """O(1) time, O(1) space — v = 5 vertices."""
+        return json.dumps({"type": "Polygon", "coordinates": [_square(x0, 0, size, clockwise=False)]})
+
+    rows = {
+        "buildings": [
+            {"geom_json": poly(1, 1), "parcel_pin": "01."},
+            {"geom_json": poly(50, 1), "parcel_pin": "99."},
+        ],
+        "zoning_districts": [{"geom_json": poly(0, 10), "zone_code": "B4",
+                              "zone_class": "commercial"}],
+        "parcel_owners": [{"parcel_pin": "01.", "owner_name": "ACME LLC"}],
+    }
+    enrich_detroit(rows)
+    first, second = rows["buildings"]
+    assert (first["zoning_code"], first["zone_class"], first["owner_name"]) == (
+        "B4", "commercial", "ACME LLC")
+    assert "zoning_code" not in second and "owner_name" not in second
 
 
 @pending

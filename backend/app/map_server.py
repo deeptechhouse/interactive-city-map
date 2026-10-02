@@ -18,7 +18,7 @@ doesn't call them.
 RUN:     ./run.sh                       (repo root; builds nothing, just serves)
 DEV:     ./start_map.sh                 (Vite hot reload on :5173 + this server for /api)
 ACCESS:  binds 127.0.0.1 only. Other devices reach it through `tailscale serve`
-         (HTTPS, your tailnet only) — see scripts/macmini/ and docs/run_and_host.html.
+         (HTTPS, your tailnet only) — see scripts/macmini/install-autostart.sh.
 
 ARCHITECTURE: wiring only — routes live in app/routes/, logic in app/services/.
 """

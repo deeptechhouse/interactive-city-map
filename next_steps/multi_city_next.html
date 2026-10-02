@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Multi-City Next Steps</title>
+<style>:root{--bg:#f6f4ef;--ink:#1d2430;--code:#f1ede4;--accent:#5b4bb4}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#13171d;--ink:#e6e8ec;--code:#222a34;--accent:#a99cf0}}:root[data-theme="dark"]{--bg:#13171d;--ink:#e6e8ec;--code:#222a34;--accent:#a99cf0}body{margin:0 auto;max-width:900px;padding:24px 16px;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,sans-serif}h1{border-bottom:4px solid var(--accent)}code{background:var(--code);padding:1px 5px;border-radius:4px}</style></head><body>
+<h1>Agent prompt: multi-city parity (Detroit + Dayton), Wave 0</h1>
+<p><b>Read first:</b></p>
+<ul>
+<li><code>docs/multi_city/multi_city_tdd.html</code> (combined design + joint plan)</li>
+<li>Its §2 (Chicago safety rules) and §8 (ownership and branches)</li>
+<li>The four per-city documents linked from its header</li>
+</ul>
+<p><b>Hard rule:</b> the Chicago map is used for research. Do not edit <code>master</code>, the master working tree, or <code>frontend/public/data/</code>. Do not stop a running <code>./start_map.sh</code>. Run <code>ListAgents</code> and confirm file ownership with the Chicago and Detroit sessions before starting.</p>
+<ol>
+<li>Ask the user whether the Chicago session has committed its work. If it has, create <code>feat/multi-city</code> from master in a new worktree. Commit the multi-city work in progress there; take it from master's working tree only if it is still uncommitted.</li>
+<li>Rebase the Dayton files from <code>feat/dayton-skeleton</code> onto <code>feat/multi-city</code>. They are new files only, so there should be no conflicts.</li>
+<li>Add the Chicago pin tests listed in §2.2: importer order, <code>buildZoningFilter</code>, ContactResolver wiring, basemap URL, and <code>getLayerSourceUrl</code> per layer. Check each one passes against the current code.</li>
+<li>Fix the backend venv (pytest, httpx, ruff, pyproj).</li>
+<li>Ask the user to start Docker for the old Dayton fork, then <code>pg_dump</code> its database to <code>backups/dayton_fork_YYYY-MM-DD.dump</code>.</li>
+</ol>
+<p><b>Gate:</b> all Chicago pins are green on <code>feat/multi-city</code>; the type-check shows no new errors; the dump restores into a scratch database. Then continue with W1 as §7 describes.</p>
+</body></html>

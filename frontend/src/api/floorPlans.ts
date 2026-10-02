@@ -10,7 +10,7 @@ export interface FloorPlan {
 }
 
 export async function getFloorPlans(buildingId: string): Promise<FloorPlan[]> {
-  return apiClient.get<FloorPlan[]>(`/api/buildings/${buildingId}/floor-plans`);
+  return apiClient.get<FloorPlan[]>(`/api/v1/buildings/${buildingId}/floor-plans`);
 }
 
 export async function uploadFloorPlan(
@@ -22,7 +22,7 @@ export async function uploadFloorPlan(
   formData.append('level', level.toString());
   formData.append('file', file);
   return apiClient.uploadFile<FloorPlan>(
-    `/api/buildings/${buildingId}/floor-plans`,
+    `/api/v1/buildings/${buildingId}/floor-plans`,
     formData,
   );
 }

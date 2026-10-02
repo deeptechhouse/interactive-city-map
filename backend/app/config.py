@@ -1,3 +1,5 @@
+from pathlib import Path  # OO file paths
+
 from pydantic_settings import BaseSettings
 
 
@@ -36,6 +38,9 @@ class Settings(BaseSettings):
     # ADJUSTABLE: folder the contact-list CSV is saved to (routes/exports.py). "~" is
     # expanded. Set to "" to turn saving-to-a-folder off (e.g. on a hosted server).
     csv_export_dir: str = "~/Desktop"
+    # Map server (app/map_server.py). ADJUSTABLE.
+    # Folder with the BUILT map (npm run build:local). "" = API only (dev, Vite serves the map).
+    map_dist_dir: str = str(Path(__file__).resolve().parents[2] / "frontend" / "dist-local")
     pelias_url: str = "http://localhost:4000"
     app_env: str = "development"
     app_port: int = 8000

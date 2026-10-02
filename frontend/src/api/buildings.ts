@@ -3,7 +3,7 @@ import type { Building, BuildingUpdate } from '../types/building';
 import { bboxToParam } from '../utils/geoUtils';
 
 export async function getBuilding(id: string): Promise<Building> {
-  return apiClient.get<Building>(`/api/buildings/${id}`);
+  return apiClient.get<Building>(`/api/v1/buildings/${id}`);
 }
 
 export async function getBuildingsByBbox(
@@ -11,9 +11,9 @@ export async function getBuildingsByBbox(
   bbox: [number, number, number, number],
 ): Promise<Building[]> {
   const bboxParam = bboxToParam(bbox);
-  return apiClient.get<Building[]>(`/api/cities/${slug}/buildings?bbox=${bboxParam}`);
+  return apiClient.get<Building[]>(`/api/v1/cities/${slug}/buildings?bbox=${bboxParam}`);
 }
 
 export async function updateBuilding(id: string, data: BuildingUpdate): Promise<Building> {
-  return apiClient.patch<Building>(`/api/buildings/${id}`, data);
+  return apiClient.patch<Building>(`/api/v1/buildings/${id}`, data);
 }

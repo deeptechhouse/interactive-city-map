@@ -37,7 +37,7 @@ export function builtInCities(): City[] {
 export async function getCities(): Promise<City[]> {
   if (IS_STATIC) return builtInCities();
   try {
-    const cities = await apiClient.get<City[]>('/api/cities');
+    const cities = await apiClient.get<City[]>('/api/v1/cities');
     return cities.length ? cities : builtInCities();
   } catch {
     return builtInCities();
@@ -46,5 +46,5 @@ export async function getCities(): Promise<City[]> {
 
 /** One city from the backend (one HTTP call). O(1) time, O(1) space — n = 1 city. */
 export async function getCity(slug: string): Promise<City> {
-  return apiClient.get<City>(`/api/cities/${slug}`);
+  return apiClient.get<City>(`/api/v1/cities/${slug}`);
 }

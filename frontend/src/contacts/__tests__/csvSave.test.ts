@@ -37,3 +37,14 @@ describe('saveCsv', () => {
     expect(download).toHaveBeenCalled();
   });
 });
+
+describe('remote devices (Tailscale)', () => {
+  it('downloads on the device instead of saving to the server Desktop', async () => {
+    const post = vi.fn();
+    const download = vi.fn();
+    const r = await saveCsv(LIST, post as never, download, 'mac-mini.tail1234.ts.net');
+    expect(post).not.toHaveBeenCalled();
+    expect(download).toHaveBeenCalledWith(LIST);
+    expect(saveMessage(r)).toBe('CSV downloaded to this device.');
+  });
+});

@@ -49,7 +49,10 @@ Layered architecture: React + MapLibre GL frontend communicates with a FastAPI b
 - **API routes:** `backend/app/routes/` — each file registers a FastAPI `APIRouter`
 - **Data import CLI:** `python -m app.data_import.run --city chicago` (run from `backend/`)
 - **Contact-list phone API:** `backend/app/routes/contacts.py` → `services/phone_lookup_service.py` (cache, rate limit, per-city provider order) → `adapters/phone_lookup.py`
-- **Phone/owner lookup server without Docker:** `backend/app/phone_app.py`, started with the map by `./start_map.sh`
+- **Run the map (no Docker, one process):** `./setup.sh` once, then `./run.sh` → `backend/app/map_server.py` serves `frontend/dist-local` + `/api/v1`. Mac mini: `scripts/copy-to.sh`, `scripts/macmini/install-autostart.sh` (launchd + `tailscale serve`)
+- **Development:** `./start_map.sh` (Vite :5173 + map server API :8000). `backend/app/phone_app.py` is an alias of the map server
+- **Offline assets:** `frontend/public/fonts/` (from `frontend/scripts/fetch-fonts.mjs`); boundary refresh `frontend/scripts/refresh-boundaries.mjs`
+- **Business-type discovery (free):** `frontend/src/discovery/` — licence types per area → magenta candidates → paid lookup of the curated set
 - **Owner skip trace — batch (the GUI path):** `POST/GET /api/v1/contacts/owner/batch` → `services/owner_batch_service.py` (name trace 1 credit / address trace 2 credits / name misses re-sent by address) → `adapters/tracerfy_batch.py`; frontend `contacts/OwnerBatchRunner.ts`, name rules `contacts/ownerNames.ts`
 - **Owner skip trace — instant (wired, hidden in GUI, 5 credits/hit):** `GET /api/v1/contacts/owner` → `services/owner_lookup_service.py` → `adapters/owner_lookup.py`
 - **CSV to Desktop:** `POST /api/v1/contacts/export` → `backend/app/routes/exports.py` (local callers only, server-chosen filename, `CSV_EXPORT_DIR`, default `~/Desktop`); frontend `contacts/csvSave.ts` — runs automatically when an owner batch finishes and on Export CSV

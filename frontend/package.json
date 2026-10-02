@@ -9,7 +9,8 @@
     "build:static": "VITE_STATIC_MODE=true vite build --outDir dist-static && cp -r public/data dist-static/",
     "build:offline": "VITE_STATIC_MODE=true VITE_OFFLINE=true vite build --outDir dist-offline && cp -r public/data dist-offline/",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:local": "VITE_STATIC_MODE=true VITE_PHONE_API_URL=/api/v1 vite build --outDir dist-local --emptyOutDir"
   },
   "dependencies": {
     "@deck.gl/core": "^9.2.11",

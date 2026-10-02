@@ -76,3 +76,6 @@ frontend/dist-offline/
 
 # Owner lookup cache — contains personal contact data (skip-trace results). Never commit.
 backend/data/
+
+# Built map served by the map server (npm run build:local) — regenerate, never commit.
+frontend/dist-local/

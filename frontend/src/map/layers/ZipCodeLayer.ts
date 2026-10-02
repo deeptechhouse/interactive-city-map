@@ -1,24 +1,20 @@
 import type maplibregl from 'maplibre-gl';
 import type { LayerConfig } from '../../types/layer';
+import { addDualModeSource, sourceLayerProp } from '../../utils/layerSourceHelper';
+import { STATIC_ZIP_CODES } from './data/static_zip_codes';
 
 const SOURCE_ID = 'zipcodes-source';
 
 export function addZipCodeLayer(map: maplibregl.Map, config: LayerConfig): void {
-  if (map.getSource(SOURCE_ID)) return;
-
-  map.addSource(SOURCE_ID, {
-    type: 'vector',
-    tiles: [config.sourceUrl],
-    minzoom: 0,
-    maxzoom: 16,
-  });
+  const { isGeoJson } = addDualModeSource(map, SOURCE_ID, config.sourceUrl, 'zip_codes', STATIC_ZIP_CODES);
+  const slp = sourceLayerProp('zip_codes', isGeoJson);
 
   // Zip code boundary outlines
   map.addLayer({
     id: `${config.id}-stroke`,
     type: 'line',
     source: SOURCE_ID,
-    'source-layer': 'zip_codes',
+    ...slp,
     layout: {
       visibility: config.visible ? 'visible' : 'none',
     },
@@ -40,7 +36,7 @@ export function addZipCodeLayer(map: maplibregl.Map, config: LayerConfig): void 
     id: `${config.id}-label`,
     type: 'symbol',
     source: SOURCE_ID,
-    'source-layer': 'zip_codes',
+    ...slp,
     layout: {
       visibility: config.visible ? 'visible' : 'none',
       'text-field': ['get', 'zip_code'],

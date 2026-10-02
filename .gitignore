@@ -64,3 +64,12 @@ htmlcov/
 *.key
 credentials.json
 .htpasswd
+
+# PMTiles data files (too large for git)
+frontend/public/data/*.pmtiles
+frontend/dist-static/
+frontend/dist-offline/
+.venv-*/
+
+# Owner lookup cache — contains personal contact data (skip-trace results). Never commit.
+backend/data/

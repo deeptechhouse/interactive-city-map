@@ -4,7 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { layers as protomapsLayers, namedTheme } from 'protomaps-themes-base';
 import { Protocol } from 'pmtiles';
 
-import { CHICAGO_CENTER, CHICAGO_ZOOM } from '../utils/geoUtils';
+import { CHICAGO_CENTER, CHICAGO_ZOOM, getCityDefaults } from '../utils/geoUtils';
 import { IS_STATIC } from '../utils/staticMode';
 import type { LayerConfig, LayerState } from '../types/layer';
 import { getLayerSourceUrl } from './hooks/useMapLayers';
@@ -28,6 +28,10 @@ import { addGangTerritoryLayer, getGangTerritoryLayerIds } from './layers/GangTe
 import { GANG_INFO } from './layers/data/gangTerritoryData';
 import { addFederalPropertyLayer, getFederalPropertyLayerIds } from './layers/FederalPropertyLayer';
 import { addRailroadRowLayer, getRailroadRowLayerIds } from './layers/RailroadRowLayer';
+import { addNeighborhoodLayer, getNeighborhoodLayerIds } from './layers/NeighborhoodLayer';
+import { addCouncilDistrictLayer, getCouncilDistrictLayerIds } from './layers/CouncilDistrictLayer';
+import { addDLBALayer, getDLBALayerIds } from './layers/DLBALayer';
+import { addBlightLayer, getBlightLayerIds } from './layers/BlightLayer';
 
 // Register PMTiles protocol once
 const protocol = new Protocol();
@@ -56,6 +60,11 @@ const LAYER_REGISTRY: Record<
   gang_territory: { add: addGangTerritoryLayer, getIds: getGangTerritoryLayerIds },
   federal_properties: { add: addFederalPropertyLayer, getIds: getFederalPropertyLayerIds },
   railroad_row: { add: addRailroadRowLayer, getIds: getRailroadRowLayerIds },
+  // Detroit-specific layers
+  neighborhoods: { add: addNeighborhoodLayer, getIds: getNeighborhoodLayerIds },
+  council_districts: { add: addCouncilDistrictLayer, getIds: getCouncilDistrictLayerIds },
+  dlba_properties: { add: addDLBALayer, getIds: getDLBALayerIds },
+  abandoned_blight: { add: addBlightLayer, getIds: getBlightLayerIds },
 };
 
 export interface ClickedBuildingInfo {
@@ -63,13 +72,31 @@ export interface ClickedBuildingInfo {
   properties: Record<string, unknown>;
 }
 
-interface MapContainerProps {
-  layers: LayerState[];
-  onMapReady?: (map: maplibregl.Map) => void;
-  onBuildingClick?: (info: ClickedBuildingInfo) => void;
+/** A building chosen for the contact list (selection mode click or popup button). */
+export interface BuildingSelectInfo {
+  id: string;
+  address: string;
+  lngLat: [number, number];
 }
 
-export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady, onBuildingClick }) => {
+interface MapContainerProps {
+  layers: LayerState[];
+  citySlug?: string;
+  cityCenter?: [number, number];
+  cityZoom?: number;
+  onMapReady?: (map: maplibregl.Map) => void;
+  onBuildingClick?: (info: ClickedBuildingInfo) => void;
+  /** When true, clicking a building adds/removes it from the contact list instead of opening a popup. */
+  selectionMode?: boolean;
+  onBuildingSelect?: (info: BuildingSelectInfo) => void;
+  /** A discovery marker was clicked (its building key) — the discovery panel removes it. */
+  onCandidateClick?: (key: string) => void;
+}
+
+export const MapContainer: React.FC<MapContainerProps> = ({
+  layers, citySlug, cityCenter, cityZoom, onMapReady, onBuildingClick,
+  selectionMode = false, onBuildingSelect, onCandidateClick,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -102,11 +129,14 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady, 
       layers: protomapsLayers('protomaps', namedTheme('dark')),
     };
 
+    const initialCenter = cityCenter ?? CHICAGO_CENTER;
+    const initialZoom = cityZoom ?? CHICAGO_ZOOM;
+
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: basemapStyle,
-      center: CHICAGO_CENTER,
-      zoom: CHICAGO_ZOOM,
+      center: initialCenter,
+      zoom: initialZoom,
       minZoom: 3,
       maxZoom: 20,
     });
@@ -133,6 +163,13 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady, 
     };
   }, []);
 
+  // Fly to new city when cityCenter/cityZoom changes (city switch)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded || !cityCenter) return;
+    map.flyTo({ center: cityCenter, zoom: cityZoom ?? 11, duration: 1500 });
+  }, [cityCenter?.[0], cityCenter?.[1], cityZoom]);
+
   // Add data layers once map is loaded
   useEffect(() => {
     const map = mapRef.current;
@@ -146,7 +183,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady, 
       // Layers that use embedded GeoJSON or special sources (no Martin tile URL needed)
       const nonTileLayers = new Set([
         'sanborn', 'police_districts', 'wards', 'gang_territory',
-        'federal_properties', 'railroad_row',
+        'federal_properties', 'railroad_row', 'council_districts',
       ]);
       // In static mode, medium layers (railroads, transit, waterways, etc.) also return ''
       // because they will use embedded GeoJSON — allow them through
@@ -228,7 +265,26 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady, 
     if (!map || !clickInfo.clickedFeature || !clickInfo.position) return;
 
     const props = clickInfo.clickedFeature.properties ?? {};
+    // Discovery marker: un-select that building, no popup.
+    if (clickInfo.featureType === 'candidate') {
+      if (typeof props.key === 'string') onCandidateClick?.(props.key);
+      return;
+    }
     const isBldg = clickInfo.featureType === 'building';
+    const lngLat = map.unproject([clickInfo.position.x, clickInfo.position.y]);
+    const selectInfo: BuildingSelectInfo | null = isBldg && props.id
+      ? {
+        id: String(props.id),
+        address: typeof props.address === 'string' ? props.address : '',
+        lngLat: [lngLat.lng, lngLat.lat],
+      }
+      : null;
+
+    // Selection mode: a building click toggles it in the contact list — no popup.
+    if (selectionMode && selectInfo) {
+      onBuildingSelect?.(selectInfo);
+      return;
+    }
 
     let html: string;
     if (isBldg) {
@@ -252,13 +308,17 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady, 
     }
 
     const popup = new maplibregl.Popup({ closeOnClick: true, maxWidth: '360px' })
-      .setLngLat(map.unproject([clickInfo.position.x, clickInfo.position.y]))
+      .setLngLat(lngLat)
       .setHTML(html)
       .addTo(map);
 
-    // Wire up "Open Details" button in building popups
+    // Wire up "Open Details" / "Add to contact list" buttons in building popups
     if (isBldg && props.id) {
       const el = popup.getElement();
+      el?.querySelector('[data-action="add-to-list"]')?.addEventListener('click', () => {
+        popup.remove();
+        if (selectInfo) onBuildingSelect?.(selectInfo);
+      });
       const detailBtn = el?.querySelector('[data-action="open-details"]');
       if (detailBtn) {
         detailBtn.addEventListener('click', () => {
@@ -274,6 +334,9 @@ export const MapContainer: React.FC<MapContainerProps> = ({ layers, onMapReady, 
     return () => {
       popup.remove();
     };
+    // selectionMode / onBuildingSelect are deliberately NOT deps: toggling the mode must
+    // not replay the last click (which would add/remove the last-clicked building).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clickInfo, onBuildingClick]);
 
   return <div ref={containerRef} className="map-container" />;
@@ -329,6 +392,9 @@ function buildBuildingPopup(p: Record<string, unknown>): string {
     <div style="margin-top: 10px; display: flex; gap: 6px;">
       <button data-action="open-details" style="flex:1; padding: 6px 12px; background: #58a6ff; color: #0d1117; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
         ${p.has_interior ? 'View Interior &amp; Details' : 'Open Details'}
+      </button>
+      <button data-action="add-to-list" style="flex:1; padding: 6px 12px; background: #21262d; color: #f0b429; border: 1px solid #f0b429; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
+        + Contact list
       </button>
     </div>
   </div>`;

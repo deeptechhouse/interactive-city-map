@@ -44,6 +44,7 @@ export const ZONING_COLORS: Record<string, string> = {
   residential: '#90EE90',
   mixed: '#DDA0DD',
   special: '#FFD700',
+  transportation: '#7DD3FC',
 };
 
 /** Zoning stroke colors (darker shade of fill) */
@@ -53,6 +54,7 @@ export const ZONING_STROKE_COLORS: Record<string, string> = {
   residential: '#5CB85C',
   mixed: '#AA66AA',
   special: '#CCA800',
+  transportation: '#38A3D1',
 };
 
 /** POI category colors */

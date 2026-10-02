@@ -66,6 +66,15 @@ class ZoningImporter(BaseImporter):
         if not url:
             raise ValueError("No zoning URL configured")
 
+        # Use ArcGIS FeatureServer client if configured (e.g., Detroit)
+        if self._config.get("arcgis_featureserver"):
+            from app.data_import.arcgis_helper import ArcGISFeatureServerClient
+            source_srid = self._config.get("source_srid", 4326)
+            page_size = self._config.get("page_size", 2000)
+            client = ArcGISFeatureServerClient(url, source_srid=source_srid, page_size=page_size)
+            data = client.download_all()
+            return self._save_json_cache(data)
+
         data = self._http_get_json(url)
         return self._save_json_cache(data)
 

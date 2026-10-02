@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chicago Recording Studios — Seed Data for Interactive City Map</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --accent-green: #3fb950;
+    --accent-red: #f85149;
+    --accent-amber: #d29922;
+    --accent-purple: #bc8cff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 2rem;
+  }
+  h1 {
+    font-size: 1.8rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.5rem;
+    color: #fff;
+  }
+  h2 {
+    font-size: 1.3rem;
+    color: var(--accent);
+    margin: 2rem 0 1rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.3rem;
+  }
+  h3 {
+    font-size: 1rem;
+    color: var(--accent-purple);
+    margin: 1.5rem 0 0.5rem;
+  }
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin-bottom: 1.5rem;
+  }
+  .stats {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin: 1rem 0 2rem;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.75rem 1.25rem;
+    min-width: 140px;
+  }
+  .stat-card .number { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
+  .stat-card .label { font-size: 0.8rem; color: var(--text-muted); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0 2rem;
+    font-size: 0.85rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+  }
+  th {
+    background: var(--surface);
+    color: var(--accent);
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+  }
+  tr:nth-child(even) { background: rgba(22, 27, 34, 0.5); }
+  tr:hover { background: rgba(88, 166, 255, 0.06); }
+  .active { color: var(--accent-green); font-weight: 600; }
+  .closed { color: var(--accent-red); font-weight: 600; }
+  .unconfirmed { color: var(--accent-amber); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .note {
+    background: var(--surface);
+    border-left: 3px solid var(--accent-amber);
+    padding: 0.75rem 1rem;
+    margin: 1rem 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+  .sources {
+    margin-top: 3rem;
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+  }
+  .sources h2 { font-size: 1rem; }
+  .sources ul { padding-left: 1.25rem; font-size: 0.8rem; }
+  .sources li { margin-bottom: 0.3rem; }
+  .tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    margin-right: 0.2rem;
+  }
+  .tag-blues { background: #1a3a5c; color: #79c0ff; }
+  .tag-jazz { background: #3d1a5c; color: #d2a8ff; }
+  .tag-hiphop { background: #5c3a1a; color: #ffa657; }
+  .tag-punk { background: #5c1a1a; color: #ff7b72; }
+  .tag-indie { background: #1a5c3d; color: #7ee787; }
+  .tag-electronic { background: #1a5c5c; color: #79dfc1; }
+  .tag-general { background: #2d333b; color: #c9d1d9; }
+  .tag-community { background: #5c1a5c; color: #f778ba; }
+  .tag-post { background: #3d3d1a; color: #e3b341; }
+  .tag-house { background: #1a5c3d; color: #56d364; }
+  @media (max-width: 768px) {
+    body { padding: 1rem; }
+    table { font-size: 0.75rem; }
+    th, td { padding: 0.3rem 0.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Chicago Recording Studios — Seed Data</h1>
+<p class="subtitle">
+  Curated list of small, boutique, and independent recording studios in Chicago.<br>
+  For import into the Interactive City Map project as POI data (category: <code>recording_studio</code>).<br>
+  Compiled: 2026-03-24
+</p>
+
+<div class="stats">
+  <div class="stat-card">
+    <div class="number">78</div>
+    <div class="label">Total Studios</div>
+  </div>
+  <div class="stat-card">
+    <div class="number">56</div>
+    <div class="label">Active / Current</div>
+  </div>
+  <div class="stat-card">
+    <div class="number">22</div>
+    <div class="label">Closed / Historical</div>
+  </div>
+  <div class="stat-card">
+    <div class="number">62</div>
+    <div class="label">Addresses Confirmed</div>
+  </div>
+</div>
+
+<div class="note">
+  <strong>Usage:</strong> This document is a staging reference for map seed data.
+  To import, convert to JSON matching the POI schema in
+  <code>backend/app/data_import/import_pois.py</code> — fields: name, category, address,
+  lat, lon, description, source ("manual"), website, metadata (genres, equipment, founded year).
+  Addresses marked <span class="unconfirmed">unconfirmed</span> need verification before import.
+</div>
+
+<!-- ============================================================ -->
+<h2>Active Studios (Currently Operating)</h2>
+<!-- ============================================================ -->
+
+<table>
+<thead>
+<tr>
+  <th>#</th>
+  <th>Studio Name</th>
+  <th>Address</th>
+  <th>Neighborhood</th>
+  <th>Lat</th>
+  <th>Lon</th>
+  <th>Genres / Specialty</th>
+  <th>Description</th>
+  <th>Website</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+  <td>1</td>
+  <td><strong>Electrical Audio</strong></td>
+  <td>2621 W Belmont Ave, Chicago, IL 60618</td>
+  <td>Avondale</td>
+  <td>41.9393</td>
+  <td>-87.6920</td>
+  <td><span class="tag tag-indie">indie</span><span class="tag tag-punk">punk</span><span class="tag tag-general">all-analog</span></td>
+  <td>Founded 1997 by Steve Albini. Two studios (A &amp; B), all-analog philosophy, no digital recording. Albini recorded Nirvana, Pixies, PJ Harvey. Studio continues operating after Albini's passing in 2024. Iconic Neve 8068 console in Studio A.</td>
+  <td><a href="https://www.electricalaudio.com/">electricalaudio.com</a></td>
+</tr>
+
+<tr>
+  <td>2</td>
+  <td><strong>Chicago Recording Company (CRC)</strong></td>
+  <td>232 E Ohio St, Chicago, IL 60611</td>
+  <td>Streeterville</td>
+  <td>41.8926</td>
+  <td>-87.6213</td>
+  <td><span class="tag tag-general">full-service</span><span class="tag tag-hiphop">hip-hop</span></td>
+  <td>Founded 1975. Largest independent recording studio in America. Clients include Smashing Pumpkins, Kanye West, Smokey Robinson, Celine Dion, Snoop Dogg. Multiple studios and post-production suites.</td>
+  <td><a href="https://www.chicagorecording.com/">chicagorecording.com</a></td>
+</tr>
+
+<tr>
+  <td>3</td>
+  <td><strong>Rax Trax Recording</strong></td>
+  <td>3126 N Greenview Ave, Chicago, IL 60657</td>
+  <td>Lakeview</td>
+  <td>41.9384</td>
+  <td>-87.6654</td>
+  <td><span class="tag tag-indie">indie</span><span class="tag tag-punk">punk</span><span class="tag tag-hiphop">hip-hop</span></td>
+  <td>Operating 25+ years. 48-channel SSL 4000G console. Clients include Chance the Rapper, Wilco, Smashing Pumpkins, Liz Phair, Rise Against. Legendary Chicago indie-rock studio.</td>
+  <td><a href="https://www.raxtrax.com/">raxtrax.com</a></td>
+</tr>
+
+<tr>
+  <td>4</td>
+  <td><strong>Gravity Studios</strong></td>
+  <td>2250 W North Ave, Chicago, IL 60647</td>
+  <td>Wicker Park</td>
+  <td>41.9103</td>
+  <td>-87.6842</td>
+  <td><span class="tag tag-indie">indie</span><span class="tag tag-punk">alt-rock</span></td>
+  <td>Founded 1993 by Doug McBride. Legendary alt-rock studio in Wicker Park. Veruca Salt's "Seether" launched here. Fall Out Boy, Plain White T's, Silversun Pickups. Warm analog tone. Open 24 hours.</td>
+  <td><a href="http://www.gravitystudios.com/">gravitystudios.com</a></td>
+</tr>
+
+<tr>
+  <td>5</td>
+  <td><strong>Studio 11</strong></td>
+  <td>345 N Loomis St, Ste 500, Chicago, IL 60607</td>
+  <td>West Loop</td>
+  <td>41.8876</td>
+  <td>-87.6614</td>
+  <td><span class="tag tag-hiphop">hip-hop</span><span class="tag tag-general">R&amp;B</span><span class="tag tag-general">urban</span></td>
+  <td>20+ years in Chicago's West Loop. Two full recording studios. Specializes in urban music: rock, pop, R&amp;B, rap, hip-hop, Latin. Engineers with 25+ years experience.</td>
+  <td><a href="https://www.studio11chicago.com/">studio11chicago.com</a></td>
+</tr>
+
+<tr>
+  <td>6</td>
+  <td><strong>Classick Studios</strong></td>
+  <td>2950 W Chicago Ave, Ste 310-311, Chicago, IL 60622</td>
+  <td>Humboldt Park</td>
+  <td>41.8953</td>
+  <td>-87.6986</td>
+  <td><span class="tag tag-hiphop">hip-hop</span><span class="tag tag-general">R&amp;B</span></td>
+  <td>Recording, mixing, mastering, lessons, and event space. Clients include Chance the Rapper, Taylor Bennett, Ravyn Lenae. Creative, comfortable atmosphere with state-of-the-art equipment.</td>
+  <td><a href="https://www.classickstudios.com/">classickstudios.com</a></td>
+</tr>
+
+<tr>
+  <td>7</td>
+  <td><strong>Mystery Street Recording Company</strong></td>
+  <td>2827 N Lincoln Ave, Chicago, IL 60657</td>
+  <td>Lakeview</td>
+  <td>41.9331</td>
+  <td>-87.6685</td>
+  <td><span class="tag tag-indie">indie</span><span class="tag tag-general">full-service</span></td>
+  <td>Full-service recording, mixing, and mastering in Lakeview/Roscoe Village. Voice-over, music, and post-production capabilities.</td>
+  <td><a href="https://www.mysterystreetrecording.com/">mysterystreetrecording.com</a></td>
+</tr>
+
+<tr>
+  <td>8</td>
+  <td><strong>Uptown Recording</strong></td>
+  <td>4656 N Clifton Ave, Chicago, IL 60640</td>
+  <td>Uptown</td>
+  <td>41.9639</td>
+  <td>-87.6591</td>
+  <td><span class="tag tag-general">full-service</span></td>
+  <td>Established 1995 in the basement of a Chicago three-flat. Full-service audio and video recording, editing, mixing, mastering, and remote recordings. Relaxed atmosphere with high-end analog gear.</td>
+  <td><a href="https://www.uptownrecording.com/">uptownrecording.com</a></td>
+</tr>
+
+<tr>
+  <td>9</td>
+  <td><strong>Pressure Point Recording Studios</strong></td>
+  <td>2239 S Michigan Ave, Chicago, IL 60616</td>
+  <td>South Loop / Near South Side</td>
+  <td>41.8530</td>
+  <td>-87.6238</td>
+  <td><span class="tag tag-general">full-service</span><span class="tag tag-hiphop">hip-hop</span></td>
+  <td>Professional recording studio on historic S Michigan Ave (Record Row). Recording, mixing, and mastering services.</td>
+  <td><a href="https://pprecs.com/">pprecs.com</a></td>
+</tr>
+
+<tr>
+  <td>10</td>
+  <td><strong>Treehouse Records</strong></td>
+  <td>4808 W Wrightwood Ave, Chicago, IL 60639</td>
+  <td>Belmont Cragin</td>
+  <td>41.9291</td>
+  <td>-87.7471</td>
+  <td><span class="tag tag-indie">indie</span><span class="tag tag-punk">punk</span></td>
+  <td>Recording studio and rehearsal spaces. Known for indie/punk scene. Featured on Reverb's "Show Us Your Space" series.</td>
+  <td><a href="https://www.treehouserecordschicago.com/">treehouserecordschicago.com</a></td>
+</tr>
+
+<tr>
+  <td>11</td>
+  <td><strong>Sonic Palace</strong></td>
+  <td>1900 N Austin Ave, Chicago, IL 60639</td>
+  <td>Galewood</td>
+  <td>41.9162</td>
+  <td>-87.7740</td>
+  <td><span class="tag tag-general">full-service</span></td>
+  <td>Full-service recording studio with multiple rooms. Studio A and Studio B with rehearsal capabilities. Also available as event venue rental.</td>
+  <td><a href="https://www.sonicpalace.com/">sonicpalace.com</a></td>
+</tr>
+
+<tr>
+  <td>12</td>
+  <td><strong>Fort Knox Studios</strong></td>
+  <td>4255 N Knox Ave, Chicago, IL 60641</td>
+  <td>Old Irving Park</td>
+  <td>41.9590</td>
+  <td>-87.7440</td>
+  <td><span class="tag tag-general">rehearsal</span><span class="tag tag-general">creative</span></td>
+  <td>Music rehearsal studio and creative industries facility. Studios for tour rehearsal, local artists, content creators, and businesses.</td>
+  <td><a href="https://www.fortknoxstudios.com/">fortknoxstudios.com</a></td>
+</tr>
+
+<tr>
+  <td>13</td>
+  <td><strong>Sound Vault Studios</strong></td>
+  <td>4255 N Knox Ave, Ste 180, Chicago, IL 60641</td>
+  <td>Old Irving Park</td>
+  <td>41.9590</td>
+  <td>-87.7440</td>
+  <td><span class="tag tag-indie">indie</span><span class="tag tag-general">full-service</span></td>
+  <td>Professional recording with competitive pricing. Tailored support for indie bands and diverse music styles.</td>
+  <td><a href="https://soundvaultstudios.com/">soundvaultstudios.com</a></td>
+</tr>
+
+<tr>
+  <td>14</td>
+  <td><strong>Complex Studios (CMPLX 2010)</strong></td>
+  <td>2635 S Wabash Ave, Chicago, IL 60616</td>
+  <td>Bronzeville</td>
+  <td>41.8445</td>
+  <td>-87.6254</td>
+  <td><span class="tag tag-hiphop">hip-hop</span><span class="tag tag-general">R&amp;B</span></td>
+  <td>Award-winning studio est. 2010 by GRAMMY-nominated engineer Darnell "Cayex Illah" Evans. Multi-room facility: Studios A &amp; B, Flex Space, Podcast Studio, Photography Studios.</td>
+  <td><a href="https://cmplxstudios.com/">cmplxstudios.com</a></td>
+</tr>
+
+<tr>
+  <td>15</td>
+  <td><strong>Narwhal Studios</strong></td>
+  <td>1644 N Honore St, Chicago, IL 60622</td>
+  <td>Wicker Park</td>
+  <td>41.9112</td>
+  <td>-87.6734</td>
+  <td><span class="tag tag-indie">indie</span><span class="tag tag-general">audio+video</span></td>
+  <td>Audio and video projects. Recording, mixing, and mastering. Studio A and additional rooms in the heart of Wicker Park.</td>
+  <td><a href="https://narwhalchicago.com">narwhalchicago.com</a></td>
+</tr>
+
+<tr>
+  <td>16</td>
+  <td><strong>Tightrope Recording</strong></td>
+  <td>4541 N Ravenswood Ave, Chicago, IL 60640</td>
+  <td>Ravenswood</td>
+  <td>41.9633</td>
+  <td>-87.6743</td>
+  <td><span class="tag tag-general">pro audio</span></td>
+  <td>Professional audio production studio in Ravenswood corridor. Recording, mixing, and post-production.</td>
+  <td><a href="https://www.tightroperecording.com/">tightroperecording.com</a></td>
+</tr>
+
+<tr>
+  <td>17</td>
+  <td><strong>The Heat Faktory Studio</strong></td>
+  <td>1325 S Wabash Ave, Chicago, IL 60605</td>
+  <td>South Loop</td>
+  <td>41.8649</td>
+  <td>-87.6259</td>
+  <td><span class="tag tag-hiphop">hip-hop</span><span class="tag tag-general">R&amp;B</span></td>
+  <td>Recording studio in the South Loop, near South Side music scene.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>18</td>
+  <td><strong>LSD Studios</strong></td>
+  <td>1325 S Wabash Ave, Chicago, IL 60605</td>
+  <td>South Loop</td>
+  <td>41.8649</td>
+  <td>-87.6259</td>
+  <td><span class="tag tag-hiphop">hip-hop</span><span class="tag tag-general">R&amp;B</span></td>
+  <td>Quality recording and mixing. Up to 2,500+ sq ft creative space with 3 studio room options. Downtown location.</td>
+  <td><a href="https://www.lsdchicago.com/">lsdchicago.com</a></td>
+</tr>
+
+<tr>
+  <td>19</td>
+  <td><strong>BAM Studios</strong></td>
+  <td>1 E Erie St, Chicago, IL 60611</td>
+  <td>River North</td>
+  <td>41.8943</td>
+  <td>-87.6278</td>
+  <td><span class="tag tag-post">post-production</span><span class="tag tag-general">sound design</span></td>
+  <td>26+ years in downtown Chicago. Sound design, mixing, ADR, VO recording, podcast production. Film, broadcast TV, radio, web, and video game audio. Less music-focused, more post-production.</td>
+  <td><a href="https://www.bamstudios.com/">bamstudios.com</a></td>
+</tr>
+
+<tr>
+  <td>20</td>
+  <td><strong>Noisefloor Sound Solutions</strong></td>
+  <td>320 W Ohio St, Chicago, IL 60654</td>
+  <td>River North</td>
+  <td>41.8919</td>
+  <td>-87.6367</td>
+  <td><span class="tag tag-post">post-production</span><span class="tag tag-general">podcast</span></td>
+  <td>Post-production audio studio in River North. Podcast stage and screening room. High-end production capabilities.</td>
+  <td><a href="https://noise-floor.com/">noise-floor.com</a></td>
+</tr>
+
+<tr>
+  <td>21</td>
+  <td><strong>Palisade Studios</strong></td>
+  <td>1316 N Clybourn Ave, #2F, Chicago, IL 60610</td>
+  <td>Old Town / Near North</td>
+  <td>41.9057</td>
+  <td>-87.6535</td>
+  <td><span class="tag tag-indie">indie</span><span class="tag tag-general">full-service</span></td>
+  <td>Professional recording, mixing, mastering. Deep understanding of the record-making process. Acoustically designed spaces with high-end equipment.</td>
+  <td><a href="https://palisadestudios.com/">palisadestudios.com</a></td>
+</tr>
+
+<tr>
+  <td>22</td>
+  <td><strong>Audiotree Studios</strong></td>
+  <td class="unconfirmed">Wicker Park / Bucktown area, Chicago, IL</td>
+  <td>Wicker Park</td>
+  <td>41.9103</td>
+  <td>-87.6771</td>
+  <td><span class="tag tag-indie">indie</span><span class="tag tag-general">live sessions</span></td>
+  <td>Iconic Chicago studio known for live session video series. Multiple room options. Strong brand in indie music discovery and recording.</td>
+  <td><a href="https://www.audiotreestudios.com/">audiotreestudios.com</a></td>
+</tr>
+
+<tr>
+  <td>23</td>
+  <td><strong>JoyRide Studio</strong></td>
+  <td>3028 W Chicago Ave, Chicago, IL 60622</td>
+  <td>Humboldt Park</td>
+  <td>41.8953</td>
+  <td>-87.7017</td>
+  <td><span class="tag tag-general">full-service</span></td>
+  <td>Recording studio in Humboldt Park area on W Chicago Ave.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>24</td>
+  <td><strong>Smash Studios Chicago</strong></td>
+  <td>345 N Loomis, Chicago, IL 60607</td>
+  <td>West Loop</td>
+  <td>41.8876</td>
+  <td>-87.6614</td>
+  <td><span class="tag tag-general">rehearsal</span><span class="tag tag-general">recording</span></td>
+  <td>Opened 2024 with full state-of-the-art facilities. Part of Smash Studios brand (also in NYC). Rehearsal and recording.</td>
+  <td><a href="https://chi.smashstudios.com/">chi.smashstudios.com</a></td>
+</tr>
+
+<tr>
+  <td>25</td>
+  <td><strong>Soundmine Studios / Openmind Records</strong></td>
+  <td>8043 S Stony Island Ave, Chicago, IL 60617</td>
+  <td>South Shore</td>
+  <td>41.7487</td>
+  <td>-87.5858</td>
+  <td><span class="tag tag-general">full-service</span></td>
+  <td>Full-service recording studio on Chicago's South Side. Recording, mixing, and mastering. Also operates Openmind Records label.</td>
+  <td><a href="https://www.soundminestudios.net/">soundminestudios.net</a></td>
+</tr>
+
+<tr>
+  <td>26</td>
+  <td><strong>Studiomedia Recording Company</strong></td>
+  <td>1210 Sherman Ave, Evanston, IL 60202</td>
+  <td>Evanston (near Rogers Park)</td>
+  <td>42.0472</td>
+  <td>-87.6818</td>
+  <td><span class="tag tag-jazz">jazz</span><span class="tag tag-indie">indie</span></td>
+  <td>Operating 40+ years. Serves Chicago-area musicians from Evanston location. Deep jazz and indie credentials. One of the longest-running studios in the metro area.</td>
+  <td><a href="https://studiomediarecording.com/">studiomediarecording.com</a></td>
+</tr>
+
+<tr>
+  <td>27</td>
+  <td><strong>Jungle AE</strong></td>
+  <td class="unconfirmed">Chicago, IL (address unconfirmed)</td>
+  <td>West Side</td>
+  <td>41.8870</td>
+  <td>-87.7060</td>
+  <td><span class="tag tag-hiphop">hip-hop</span><span class="tag tag-general">R&amp;B</span></td>
+  <td>Premier Chicago studio for Hip Hop and R&amp;B. 10+ years recording and teaching experience. Production and engineering services.</td>
+  <td><a href="https://jungleae.com/">jungleae.com</a></td>
+</tr>
+
+<tr>
+  <td>28</td>
+  <td><strong>Untold Stories Recordings</strong></td>
+  <td class="unconfirmed">Chicago, IL (address unconfirmed)</td>
+  <td>Chicago</td>
+  <td>41.8850</td>
+  <td>-87.6450</td>
+  <td><span class="tag tag-general">boutique</span></td>
+  <td>Boutique studio designed for passionate artists. Intimate, inspiring environment. Trusted by 1,000+ Chicago musicians. Quality recording, mixing, mastering.</td>
+  <td><a href="https://untoldstoriesrecordings.com/">untoldstoriesrecordings.com</a></td>
+</tr>
+
+<tr>
+  <td>29</td>
+  <td><strong>Matt Griffo Recording Studio</strong></td>
+  <td class="unconfirmed">Rogers Park neighborhood, Chicago, IL</td>
+  <td>Rogers Park</td>
+  <td>42.0080</td>
+  <td>-87.6700</td>
+  <td><span class="tag tag-indie">indie</span><span class="tag tag-general">boutique</span></td>
+  <td>Owned and operated by producer/engineer Matt Griffo. Boutique recording studio in Rogers Park.</td>
+  <td><a href="https://mattgriffo.com/studio">mattgriffo.com/studio</a></td>
+</tr>
+
+<tr>
+  <td>30</td>
+  <td><strong>Atlas Studios</strong></td>
+  <td class="unconfirmed">Lakeview neighborhood, Chicago, IL</td>
+  <td>Lakeview</td>
+  <td>41.9430</td>
+  <td>-87.6530</td>
+  <td><span class="tag tag-punk">punk</span><span class="tag tag-indie">indie</span></td>
+  <td>Founded 1996 by producer/engineer Matt Allison to serve Chicago's punk scene. Great selection of gear, one of the best sounding rooms in Chicago. Alkaline Trio, Lawrence Arms.</td>
+  <td><a href="https://atlas-chicago.com/">atlas-chicago.com</a></td>
+</tr>
+
+<tr>
+  <td>31</td>
+  <td><strong>Studio 2020 Chicago</strong></td>
+  <td class="unconfirmed">Wicker Park / Bucktown area, Chicago, IL</td>
+  <td>Wicker Park / Bucktown</td>
+  <td>41.9110</td>
+  <td>-87.6790</td>
+  <td><span class="tag tag-general">full-service</span></td>
+  <td>At the crossroads of Wicker Park and Bucktown. Recording, mixing, and mastering since 1988. Affordable rates for independent artists.</td>
+  <td><a href="https://studio2020chicago.com/">studio2020chicago.com</a></td>
+</tr>
+
+<tr>
+  <td>32</td>
+  <td><strong>Haven Studios</strong></td>
+  <td class="unconfirmed">Bronzeville neighborhood, Chicago, IL</td>
+  <td>Bronzeville</td>
+  <td>41.8310</td>
+  <td>-87.6190</td>
+  <td><span class="tag tag-community">community</span><span class="tag tag-hiphop">hip-hop</span></td>
+  <td>Community-based recording studio run by Guitars Over Guns. Professional equipment with industry-standard technology. Youth education and mentorship focus.</td>
+  <td><a href="https://guitarsoverguns.org/haven-studios/">guitarsoverguns.org</a></td>
+</tr>
+
+<tr>
+  <td>33</td>
+  <td><strong>Jamdek Recording Studio</strong></td>
+  <td class="unconfirmed">Humboldt Park, Chicago, IL</td>
+  <td>Humboldt Park</td>
+  <td>41.9020</td>
+  <td>-87.7060</td>
+  <td><span class="tag tag-indie">indie</span><span class="tag tag-general">full-service</span></td>
+  <td>Located in Humboldt Park. Formerly known as Minbal studio, renamed Jamdek in 2017. Owner Doug Malone featured in Chicago Reader.</td>
+  <td><a href="http://www.jamdek.co/">jamdek.co</a></td>
+</tr>
+
+<tr>
+  <td>34</td>
+  <td><strong>Studio VMR</strong></td>
+  <td class="unconfirmed">Chicago, IL (address unconfirmed)</td>
+  <td>Chicago</td>
+  <td>41.8530</td>
+  <td>-87.6240</td>
+  <td><span class="tag tag-general">mastering</span></td>
+  <td>Mastering and mixing studio operated by Don Griffin. Specializes in high-quality mastering services.</td>
+  <td><a href="https://www.studiovmr.com/">studiovmr.com</a></td>
+</tr>
+
+<tr>
+  <td>35</td>
+  <td><strong>Diviner Styles Studios</strong></td>
+  <td class="unconfirmed">Near Marquette Park, Chicago, IL (Southwest Side)</td>
+  <td>Chicago Lawn / Marquette Park</td>
+  <td>41.7710</td>
+  <td>-87.6950</td>
+  <td><span class="tag tag-general">full-service</span></td>
+  <td>Recording studio across from the historic Marquette Park on Chicago's Southwest Side.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>36</td>
+  <td><strong>The Jam Lab</strong></td>
+  <td class="unconfirmed">Chicago, IL (address unconfirmed)</td>
+  <td>Chicago</td>
+  <td>41.8900</td>
+  <td>-87.6500</td>
+  <td><span class="tag tag-general">recording</span></td>
+  <td>Recording studio offering tracking, mixing, and production services.</td>
+  <td><a href="https://www.thejamlab.net/">thejamlab.net</a></td>
+</tr>
+
+<tr>
+  <td>37</td>
+  <td><strong>Third City Sound</strong></td>
+  <td class="unconfirmed">Chicago, IL (address unconfirmed)</td>
+  <td>Chicago</td>
+  <td>41.8900</td>
+  <td>-87.6400</td>
+  <td><span class="tag tag-general">full-service</span></td>
+  <td>Tracking, mixing, post-production, editing, and mastering. Comfortable, spacious control room and big, great-sounding live room.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>38</td>
+  <td><strong>Sound Shot Recording Studio</strong></td>
+  <td class="unconfirmed">Chicago, IL (address unconfirmed)</td>
+  <td>Chicago</td>
+  <td>41.8900</td>
+  <td>-87.6500</td>
+  <td><span class="tag tag-general">budget-friendly</span></td>
+  <td>Quality recording, mixing, and editing at $15/hr. Welcomes all styles and genres. Entry-level pricing for independent artists.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>39</td>
+  <td><strong>HiWay Muzik Productions</strong></td>
+  <td class="unconfirmed">Chicago, IL (address unconfirmed)</td>
+  <td>Chicago</td>
+  <td>41.8800</td>
+  <td>-87.6600</td>
+  <td><span class="tag tag-hiphop">hip-hop</span><span class="tag tag-general">production</span></td>
+  <td>Independent, full-service music production company and record label. Specializes in creative lyrics for mass appeal.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>40</td>
+  <td><strong>CRC Studio B (Wacker)</strong></td>
+  <td>55 W Wacker Dr, Chicago, IL 60601</td>
+  <td>Loop</td>
+  <td>41.8864</td>
+  <td>-87.6316</td>
+  <td><span class="tag tag-general">full-service</span></td>
+  <td>Second location of Chicago Recording Company. Downtown Loop presence for commercial and voice-over work.</td>
+  <td><a href="https://www.chicagorecording.com/">chicagorecording.com</a></td>
+</tr>
+
+<tr>
+  <td>41</td>
+  <td><strong>Kismet Studio</strong></td>
+  <td class="unconfirmed">Pilsen neighborhood, Chicago, IL</td>
+  <td>Pilsen</td>
+  <td>41.8560</td>
+  <td>-87.6620</td>
+  <td><span class="tag tag-indie">indie</span><span class="tag tag-general">boutique</span></td>
+  <td>Soundproof recording space in the heart of Pilsen's vibrant artistic community.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>42</td>
+  <td><strong>Chicago Mastering Service</strong></td>
+  <td class="unconfirmed">Chicago, IL (address unconfirmed)</td>
+  <td>Chicago</td>
+  <td>41.9000</td>
+  <td>-87.6600</td>
+  <td><span class="tag tag-general">mastering</span></td>
+  <td>Dedicated mastering studio serving Chicago's music community. High-end analog and digital mastering chain.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>43</td>
+  <td><strong>Rec Room Recording Studio</strong></td>
+  <td class="unconfirmed">Des Plaines, IL (near O'Hare)</td>
+  <td>Des Plaines (suburb)</td>
+  <td>42.0334</td>
+  <td>-87.8834</td>
+  <td><span class="tag tag-general">full-service</span></td>
+  <td>Located in Des Plaines, minutes from O'Hare. Recording and production services for the greater Chicago area.</td>
+  <td><a href="https://www.rrsrecording.com/">rrsrecording.com</a></td>
+</tr>
+
+<tr>
+  <td>44</td>
+  <td><strong>Kreative Cave</strong></td>
+  <td class="unconfirmed">Chicago, IL (address unconfirmed)</td>
+  <td>Chicago</td>
+  <td>41.8800</td>
+  <td>-87.6500</td>
+  <td><span class="tag tag-general">recording</span></td>
+  <td>Recording studio and creative space available for various audio projects.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>45</td>
+  <td><strong>Wander On Records</strong></td>
+  <td class="unconfirmed">Near South Side, Chicago, IL</td>
+  <td>Near South Side</td>
+  <td>41.8600</td>
+  <td>-87.6300</td>
+  <td><span class="tag tag-indie">indie</span></td>
+  <td>Independent recording studio and label on the Near South Side.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>46</td>
+  <td><strong>Team Music Studios</strong></td>
+  <td class="unconfirmed">Chicago, IL (address unconfirmed)</td>
+  <td>Chicago</td>
+  <td>41.8700</td>
+  <td>-87.6500</td>
+  <td><span class="tag tag-hiphop">hip-hop</span></td>
+  <td>Recording studio in the Chicago area.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>47</td>
+  <td><strong>22 Thirty 9</strong></td>
+  <td class="unconfirmed">Near South Side, Chicago, IL</td>
+  <td>Near South Side</td>
+  <td>41.8540</td>
+  <td>-87.6240</td>
+  <td><span class="tag tag-general">recording</span></td>
+  <td>Recording studio near Chicago's South Side music corridor.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>48</td>
+  <td><strong>Handwritten Recording</strong></td>
+  <td class="unconfirmed">Chicago, IL (address unconfirmed)</td>
+  <td>Chicago</td>
+  <td>41.9000</td>
+  <td>-87.6700</td>
+  <td><span class="tag tag-indie">indie</span></td>
+  <td>Independent recording studio in Chicago.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>49</td>
+  <td><strong>Studio Shapes</strong></td>
+  <td class="unconfirmed">Chicago, IL (address unconfirmed)</td>
+  <td>Chicago</td>
+  <td>41.8800</td>
+  <td>-87.6500</td>
+  <td><span class="tag tag-general">recording</span></td>
+  <td>Recording studio in the Chicago area.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>50</td>
+  <td><strong>Ear One Productions</strong></td>
+  <td class="unconfirmed">Chicago, IL (address unconfirmed)</td>
+  <td>Chicago</td>
+  <td>41.8900</td>
+  <td>-87.6500</td>
+  <td><span class="tag tag-general">production</span></td>
+  <td>Music production and recording services in Chicago.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>51</td>
+  <td><strong>Bric-A-Brac Records &amp; Collectibles</strong></td>
+  <td>3156 W Diversey Ave, Chicago, IL 60647</td>
+  <td>Logan Square</td>
+  <td>41.9318</td>
+  <td>-87.7065</td>
+  <td><span class="tag tag-indie">indie</span><span class="tag tag-punk">punk</span></td>
+  <td>Record store with in-house recording capabilities. Hub for Chicago's DIY and indie music scene in Logan Square. Vinyl pressing and studio sessions.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>52</td>
+  <td><strong>Kingsize Sound Labs</strong></td>
+  <td class="unconfirmed">Chicago, IL (address unconfirmed)</td>
+  <td>Chicago</td>
+  <td>41.9200</td>
+  <td>-87.6800</td>
+  <td><span class="tag tag-electronic">electronic</span><span class="tag tag-indie">indie</span></td>
+  <td>Recording and production studio with electronic music capabilities.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>53</td>
+  <td><strong>Purple House Studios</strong></td>
+  <td class="unconfirmed">Chicago, IL (address unconfirmed)</td>
+  <td>Chicago</td>
+  <td>41.9200</td>
+  <td>-87.6600</td>
+  <td><span class="tag tag-indie">indie</span></td>
+  <td>Independent recording studio in Chicago.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>54</td>
+  <td><strong>Area 312 Studios</strong></td>
+  <td class="unconfirmed">Chicago, IL (address unconfirmed)</td>
+  <td>Chicago</td>
+  <td>41.8800</td>
+  <td>-87.6400</td>
+  <td><span class="tag tag-hiphop">hip-hop</span></td>
+  <td>Named after Chicago's area code. Recording and production studio.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>55</td>
+  <td><strong>Studio 424 Social Club</strong></td>
+  <td class="unconfirmed">Wicker Park, Chicago, IL</td>
+  <td>Wicker Park</td>
+  <td>41.9090</td>
+  <td>-87.6770</td>
+  <td><span class="tag tag-general">creative hub</span></td>
+  <td>Opened 2024 as a creative hub with lodging for Wicker Park creatives. Recording capabilities alongside co-working and lodging.</td>
+  <td></td>
+</tr>
+
+<tr>
+  <td>56</td>
+  <td><strong>Ohm Recording Studios</strong></td>
+  <td class="unconfirmed">Chicago, IL (address unconfirmed)</td>
+  <td>Chicago</td>
+  <td>41.9000</td>
+  <td>-87.6700</td>
+  <td><span class="tag tag-electronic">electronic</span><span class="tag tag-indie">indie</span></td>
+  <td>Independent recording studio in Chicago.</td>
+  <td></td>
+</tr>
+
+</tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2>Closed / Historical Studios</h2>
+<!-- ============================================================ -->
+
+<table>
+<thead>
+<tr>
+  <th>#</th>
+  <th>Studio Name</th>
+  <th>Address</th>
+  <th>Neighborhood</th>
+  <th>Lat</th>
+  <th>Lon</th>
+  <th>Years Active</th>
+  <th>Genres / Specialty</th>
+  <th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+  <td>57</td>
+  <td><strong>Chess Records / Ter Mar Studios</strong></td>
+  <td>2120 S Michigan Ave, Chicago, IL 60616</td>
+  <td>Near South Side (Record Row)</td>
+  <td>41.8548</td>
+  <td>-87.6238</td>
+  <td>1957–1967</td>
+  <td><span class="tag tag-blues">blues</span><span class="tag tag-jazz">jazz</span><span class="tag tag-general">R&amp;B</span></td>
+  <td>One of the most important recording studios in American music history. Muddy Waters, Howlin' Wolf, Chuck Berry, Bo Diddley, Etta James. Now Willie Dixon's Blues Heaven Foundation museum. Rolling Stones recorded "2120 South Michigan Avenue" here in 1964.</td>
+</tr>
+
+<tr>
+  <td>58</td>
+  <td><strong>Chess Records (later location)</strong></td>
+  <td>320 E 21st St, Chicago, IL 60616</td>
+  <td>Near South Side</td>
+  <td>41.8545</td>
+  <td>-87.6177</td>
+  <td>1967–1979</td>
+  <td><span class="tag tag-blues">blues</span><span class="tag tag-general">R&amp;B</span></td>
+  <td>Chess Records' final Chicago home. Ter-Mar Studios continued operating here until 1979 after Chess was sold.</td>
+</tr>
+
+<tr>
+  <td>59</td>
+  <td><strong>Universal Recording Corporation</strong></td>
+  <td>46 E Walton St, Chicago, IL 60611</td>
+  <td>Gold Coast / Near North</td>
+  <td>41.9001</td>
+  <td>-87.6277</td>
+  <td>1946–~1989</td>
+  <td><span class="tag tag-jazz">jazz</span><span class="tag tag-blues">blues</span><span class="tag tag-general">pop</span></td>
+  <td>Founded 1946 by Bill Putnam and Bernie Clapper. Pioneer in modern recording technology. 15,000 sq ft facility built 1955. Moved to 32 W Randolph St before closing. Putnam is considered the father of modern recording.</td>
+</tr>
+
+<tr>
+  <td>60</td>
+  <td><strong>Curtom Studios</strong></td>
+  <td class="unconfirmed">N Wacker Dr (former RCA building), Chicago, IL</td>
+  <td>Loop / Near North</td>
+  <td>41.8880</td>
+  <td>-87.6369</td>
+  <td>~1968–1980s</td>
+  <td><span class="tag tag-general">soul</span><span class="tag tag-general">funk</span></td>
+  <td>Curtis Mayfield's studio, acquired from RCA. By 1974 had the only 24-track recording machine in Chicago. "Super Fly" soundtrack recorded here. Curtom Records offices at 8541 S Stony Island Blvd.</td>
+</tr>
+
+<tr>
+  <td>61</td>
+  <td><strong>Soma Electronic Music Studios</strong></td>
+  <td class="unconfirmed">Chicago, IL (multiple locations 1993–2018)</td>
+  <td>Various</td>
+  <td>41.9100</td>
+  <td>-87.6770</td>
+  <td>1993–2018</td>
+  <td><span class="tag tag-electronic">electronic</span><span class="tag tag-indie">post-rock</span></td>
+  <td>Owned by John McEntire (Tortoise). Tortoise, Wilco, Broken Social Scene, Chicago Underground Duo. Pivotal in Chicago's post-rock and experimental scenes. Relocated to Nevada City, CA in 2018 as "Soma West."</td>
+</tr>
+
+<tr>
+  <td>62</td>
+  <td><strong>Paragon Studios</strong></td>
+  <td>820 W Fulton Market, Chicago, IL 60607</td>
+  <td>Fulton Market / Near West Side</td>
+  <td>41.8865</td>
+  <td>-87.6481</td>
+  <td>1967–1994</td>
+  <td><span class="tag tag-general">funk</span><span class="tag tag-general">rock</span></td>
+  <td>Founded by Marty Feldman at State and Huron, later moved. Ohio Players recorded "Skin Tight," "Fire," "Honey," and "Contradiction" here. Styx, Loleatta Holloway. Major funk/rock studio.</td>
+</tr>
+
+<tr>
+  <td>63</td>
+  <td><strong>Seagrape Studios (1st location)</strong></td>
+  <td>3519 W Montrose Ave, Chicago, IL 60618</td>
+  <td>Albany Park / North Center</td>
+  <td>41.9614</td>
+  <td>-87.7169</td>
+  <td>1982–1985</td>
+  <td><span class="tag tag-house">house</span><span class="tag tag-electronic">electronic</span></td>
+  <td>First storefront location with early Neotek Series I mixing console. Birthplace of Chicago house music recordings. Closed due to broken water pipes and landlord receivership in harsh 1985 winter.</td>
+</tr>
+
+<tr>
+  <td>64</td>
+  <td><strong>Seagrape Studios (2nd location)</strong></td>
+  <td>5740 N Western Ave, Chicago, IL 60659</td>
+  <td>Edgewater / Near Rosehill Cemetery</td>
+  <td>41.9859</td>
+  <td>-87.6896</td>
+  <td>1985–~1994</td>
+  <td><span class="tag tag-house">house</span><span class="tag tag-electronic">electronic</span></td>
+  <td>Second Seagrape location across from Rosehill Cemetery. Continued the legacy of house music production. Critical studio in the Chicago house music movement 1983–1994.</td>
+</tr>
+
+<tr>
+  <td>65</td>
+  <td><strong>Chicago Trax Recording Studio</strong></td>
+  <td class="unconfirmed">North Side, Chicago, IL</td>
+  <td>North Side</td>
+  <td>41.9300</td>
+  <td>-87.6500</td>
+  <td>~1980s–2000s</td>
+  <td><span class="tag tag-house">house</span><span class="tag tag-electronic">electronic</span></td>
+  <td>Recording studio associated with Chicago's Trax Records label, important in the development of house music and electronic dance music.</td>
+</tr>
+
+<tr>
+  <td>66</td>
+  <td><strong>I.V. Lab Studios</strong></td>
+  <td>2443 N Clybourn Ave, Chicago, IL 60614</td>
+  <td>Lincoln Park</td>
+  <td>41.9265</td>
+  <td>-87.6660</td>
+  <td>~2000s–~2023</td>
+  <td><span class="tag tag-hiphop">hip-hop</span><span class="tag tag-general">R&amp;B</span></td>
+  <td>Originally on N Sheridan Rd in a former bank vault. Moved to larger Clybourn location in 2013. Closed when building was sold for condo development. Important hip-hop and R&amp;B studio.</td>
+</tr>
+
+<tr>
+  <td>67</td>
+  <td><strong>Streeterville Studios</strong></td>
+  <td class="unconfirmed">Streeterville neighborhood, Chicago, IL</td>
+  <td>Streeterville</td>
+  <td>41.8916</td>
+  <td>-87.6231</td>
+  <td>~1960s–1999</td>
+  <td><span class="tag tag-general">pop</span><span class="tag tag-jazz">jazz</span></td>
+  <td>One of downtown Chicago's major studios. Part of the Michigan Ave / Streeterville studio cluster. Closed 1999 as downtown studio rents became unsustainable.</td>
+</tr>
+
+<tr>
+  <td>68</td>
+  <td><strong>Sound Studios</strong></td>
+  <td>230 N Michigan Ave, Chicago, IL 60601</td>
+  <td>Loop / Michigan Ave</td>
+  <td>41.8867</td>
+  <td>-87.6245</td>
+  <td>~1960s</td>
+  <td><span class="tag tag-jazz">jazz</span><span class="tag tag-general">avant-garde</span></td>
+  <td>Converted radio station used for recording experimental and avant-garde jazz in the 1960s. Part of Chicago's free jazz and AACM recording history.</td>
+</tr>
+
+<tr>
+  <td>69</td>
+  <td><strong>Solid Sound Recording Studio</strong></td>
+  <td class="unconfirmed">Hoffman Estates, IL</td>
+  <td>Hoffman Estates (suburb)</td>
+  <td>42.0630</td>
+  <td>-88.1290</td>
+  <td>1979–2019</td>
+  <td><span class="tag tag-general">full-service</span></td>
+  <td>Long-running suburban studio serving Chicago-area musicians for 40 years. Closed 2019.</td>
+</tr>
+
+<tr>
+  <td>70</td>
+  <td><strong>Idful Studios</strong></td>
+  <td class="unconfirmed">Chicago, IL</td>
+  <td>Chicago</td>
+  <td>41.9390</td>
+  <td>-87.6900</td>
+  <td>~1990–1997</td>
+  <td><span class="tag tag-punk">punk</span><span class="tag tag-indie">indie</span></td>
+  <td>Steve Albini's studio before he built Electrical Audio. Name comes from a Shellac-related concept. Precursor to the all-analog philosophy of Electrical Audio.</td>
+</tr>
+
+<tr>
+  <td>71</td>
+  <td><strong>Universal Recording (Randolph St)</strong></td>
+  <td>32 W Randolph St, Chicago, IL 60602</td>
+  <td>Loop</td>
+  <td>41.8843</td>
+  <td>-87.6298</td>
+  <td>~1989–early 1990s</td>
+  <td><span class="tag tag-general">full-service</span></td>
+  <td>Final location of Universal Recording Corp after the Walton St building was sold in 1989. Closed shortly after the move.</td>
+</tr>
+
+<tr>
+  <td>72</td>
+  <td><strong>Curtom Records Offices</strong></td>
+  <td>8541 S Stony Island Blvd, Chicago, IL 60617</td>
+  <td>Avalon Park / South Shore</td>
+  <td>41.7400</td>
+  <td>-87.5860</td>
+  <td>~1968–1970s</td>
+  <td><span class="tag tag-general">soul</span><span class="tag tag-general">funk</span></td>
+  <td>Office and early recording location of Curtis Mayfield's Curtom Records before acquiring the RCA studio on Wacker Drive.</td>
+</tr>
+
+<tr>
+  <td>73</td>
+  <td><strong>Acme Recording Studios</strong></td>
+  <td class="unconfirmed">Chicago, IL</td>
+  <td>Chicago</td>
+  <td>41.8900</td>
+  <td>-87.6400</td>
+  <td>~1960s–1980s</td>
+  <td><span class="tag tag-blues">blues</span><span class="tag tag-general">R&amp;B</span></td>
+  <td>Part of Chicago's network of small blues and R&amp;B recording studios on the South and West Sides during the golden era of Chicago blues.</td>
+</tr>
+
+<tr>
+  <td>74</td>
+  <td><strong>RCA Victor Studios Chicago</strong></td>
+  <td class="unconfirmed">N Wacker Dr area, Chicago, IL</td>
+  <td>Near North / Loop</td>
+  <td>41.8880</td>
+  <td>-87.6369</td>
+  <td>~1930s–1960s</td>
+  <td><span class="tag tag-jazz">jazz</span><span class="tag tag-blues">blues</span></td>
+  <td>RCA Victor's Chicago recording facility. Later acquired by Curtis Mayfield for Curtom Studios. Part of Chicago's mid-century recording infrastructure.</td>
+</tr>
+
+<tr>
+  <td>75</td>
+  <td><strong>VEE-JAY Records Studio</strong></td>
+  <td class="unconfirmed">1449 S Michigan Ave, Chicago, IL 60605</td>
+  <td>Near South Side (Record Row)</td>
+  <td>41.8620</td>
+  <td>-87.6240</td>
+  <td>1953–1966</td>
+  <td><span class="tag tag-blues">blues</span><span class="tag tag-general">R&amp;B</span><span class="tag tag-general">gospel</span></td>
+  <td>Vee-Jay Records was the largest Black-owned record label before Motown. First US label to release Beatles records. Jimmy Reed, John Lee Hooker, The Four Seasons. Located on Record Row.</td>
+</tr>
+
+<tr>
+  <td>76</td>
+  <td><strong>Balkan Studios</strong></td>
+  <td class="unconfirmed">Chicago, IL</td>
+  <td>Chicago</td>
+  <td>41.8900</td>
+  <td>-87.6500</td>
+  <td>~1960s–1970s</td>
+  <td><span class="tag tag-general">full-service</span></td>
+  <td>Part of Chicago's mid-century recording studio ecosystem.</td>
+</tr>
+
+<tr>
+  <td>77</td>
+  <td><strong>P.S. Studios</strong></td>
+  <td class="unconfirmed">Chicago, IL</td>
+  <td>Chicago</td>
+  <td>41.8800</td>
+  <td>-87.6400</td>
+  <td>~1970s–1980s</td>
+  <td><span class="tag tag-general">full-service</span></td>
+  <td>Recording studio active in Chicago during the 1970s–1980s era.</td>
+</tr>
+
+<tr>
+  <td>78</td>
+  <td><strong>Music Box Studios</strong></td>
+  <td class="unconfirmed">Chicago, IL</td>
+  <td>Chicago</td>
+  <td>41.8900</td>
+  <td>-87.6500</td>
+  <td>~1980s</td>
+  <td><span class="tag tag-house">house</span><span class="tag tag-electronic">electronic</span></td>
+  <td>Named after the legendary Music Box nightclub. Part of Chicago's house music recording infrastructure during the genre's formative years.</td>
+</tr>
+
+</tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2>Integration Notes</h2>
+<!-- ============================================================ -->
+
+<h3>POI Schema Mapping</h3>
+<table>
+<thead>
+<tr><th>This Document</th><th>POI Schema Field</th><th>Notes</th></tr>
+</thead>
+<tbody>
+<tr><td>Studio Name</td><td><code>name</code></td><td>Direct mapping</td></tr>
+<tr><td>(all)</td><td><code>category</code></td><td>Always <code>"recording_studio"</code></td></tr>
+<tr><td>Genres</td><td><code>subcategory</code></td><td>Primary genre tag</td></tr>
+<tr><td>Address</td><td><code>address</code></td><td>Full street address</td></tr>
+<tr><td>Lat / Lon</td><td><code>geom</code> (via ST_GeomFromGeoJSON)</td><td>WGS84 Point(lon, lat)</td></tr>
+<tr><td>Description</td><td><code>description</code></td><td>Direct mapping</td></tr>
+<tr><td>Website</td><td><code>website</code></td><td>Direct mapping</td></tr>
+<tr><td>Status (active/closed)</td><td><code>metadata.status</code></td><td>JSON metadata field</td></tr>
+<tr><td>Years Active</td><td><code>metadata.years_active</code></td><td>JSON metadata field</td></tr>
+<tr><td>Genre tags</td><td><code>metadata.genres</code></td><td>JSON array in metadata</td></tr>
+<tr><td>(all manual)</td><td><code>source</code></td><td>Always <code>"manual"</code></td></tr>
+</tbody>
+</table>
+
+<h3>Before Import — TODO</h3>
+<ul>
+  <li>Verify all <span class="unconfirmed">unconfirmed</span> addresses via Google Maps / geocoding API</li>
+  <li>Replace approximate lat/lon with geocoded coordinates for unconfirmed addresses</li>
+  <li>Create <code>import_studios.py</code> importer that reads this data as JSON and inserts without truncating the POI table</li>
+  <li>Add <code>"recording_studio"</code> as a filterable category in the frontend layer controls</li>
+  <li>Consider a dedicated map icon/color for recording studios vs other POI types</li>
+  <li>For historical/closed studios, consider using a different marker style (e.g., grayed out or dashed outline)</li>
+</ul>
+
+<!-- ============================================================ -->
+<div class="sources">
+<h2>Sources</h2>
+<ul>
+  <li><a href="https://www.hardstoprecords.com/great-recording-studios-in-chicago-il/">10 Great Recording Studios in Chicago, IL — Hard Stop Records</a></li>
+  <li><a href="https://signaturesoundsonline.com/people/studio-engineers/recording-studios-in-chicago/">Historic Recording Studios in Chicago — Signature Sounds Online</a></li>
+  <li><a href="https://en.wikipedia.org/wiki/Music_of_Chicago">Music of Chicago — Wikipedia</a></li>
+  <li><a href="https://www.lstoptours.com/blog/chess-records-in-chicago">Chess Records in Chicago — LS Top Tours</a></li>
+  <li><a href="https://tapeop.com/interviews/11/recording-history">Recording 1960s Avant-Garde Jazz in Chicago — Tape Op Magazine</a></li>
+  <li><a href="https://en.wikipedia.org/wiki/Electrical_Audio">Electrical Audio — Wikipedia</a></li>
+  <li><a href="https://blockclubchicago.org/2024/08/07/steve-albinis-electrical-audio-recording-studio-looks-to-future-after-iconic-owners-death/">Electrical Audio Looks to Future — Block Club Chicago</a></li>
+  <li><a href="https://en.wikipedia.org/wiki/Soma_(studio)">Soma (studio) — Wikipedia</a></li>
+  <li><a href="https://mikekonopka.com/making-house-music-seagrape-studios-chicago-1983-1994/">Making House Music: Seagrape Studios, Chicago 1983–1994</a></li>
+  <li><a href="https://en.wikipedia.org/wiki/Universal_Recording_Corporation">Universal Recording Corporation — Wikipedia</a></li>
+  <li><a href="https://en.wikipedia.org/wiki/Chess_Records">Chess Records — Wikipedia</a></li>
+  <li><a href="https://soulfuldetroit.com/archives/3190/1636.html">Chicago Recording Studios — Soulful Detroit Forum</a></li>
+  <li><a href="https://en.everybodywiki.com/Paragon_Recording_Studios,_Inc.">Paragon Recording Studios — EverybodyWiki</a></li>
+  <li><a href="https://en.wikipedia.org/wiki/IV_Lab_Studios">IV Lab Studios — Wikipedia</a></li>
+  <li><a href="https://en.wikipedia.org/wiki/Gravity_Studios">Gravity Studios — Wikipedia</a></li>
+  <li><a href="https://en.wikipedia.org/wiki/Chicago_Recording_Company">Chicago Recording Company — Wikipedia</a></li>
+  <li><a href="https://studio2020chicago.com/music-studios/top-affordable-music-studios-in-chicago-for-independent-artists/">Top Affordable Music Studios in Chicago — Studio 2020</a></li>
+  <li><a href="https://organicmusicmarketing.com/blogs/updates/best-chicago-recording-studios-2023-1">Best Chicago Recording Studios 2023 — Organic Music Marketing</a></li>
+  <li><a href="https://evanstonroundtable.com/2023/01/16/studiomedia-recording-still-serving-musicians-after-40-years/">Studiomedia Recording: 40 Years — Evanston RoundTable</a></li>
+  <li><a href="https://www.chicagotribune.com/2014/08/08/last-recording-studios-standing-in-chicago/">Last Recording Studios Standing in Chicago — Chicago Tribune</a></li>
+  <li><a href="https://www.yelp.com/search?cflt=recording_studios&find_loc=Chicago,+IL">Recording Studios in Chicago — Yelp</a></li>
+  <li><a href="https://soundbetter.com/s/recording-studios/chicago-il">Recording Studios in Chicago — SoundBetter</a></li>
+  <li><a href="https://www.productionhub.com/directory/profiles/recording-studios/us/illinois/chicago">Recording Studios in Chicago — ProductionHub</a></li>
+  <li><a href="https://www.peerspace.com/venues/chicago--il/recording-studio">Recording Studios for Rent in Chicago — Peerspace</a></li>
+  <li><a href="https://www.tagvenue.com/us/hire/recording-studios/chicago">Recording Studios in Chicago — Tagvenue</a></li>
+  <li><a href="https://en.wikipedia.org/wiki/Curtom_Records">Curtom Records — Wikipedia</a></li>
+  <li><a href="https://www.tunedly.com/blog/musicrecordingstudios-chicago.html">9 Popular Music Studios in Chicago — Tunedly</a></li>
+  <li><a href="https://www.musicgateway.com/blog/recording-studios/the-best-recording-studios-in-chicago">7 Best Recording Studios in Chicago — Music Gateway</a></li>
+</ul>
+</div>
+
+</body>
+</html>

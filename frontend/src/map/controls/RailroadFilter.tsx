@@ -1,6 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import type maplibregl from 'maplibre-gl';
 import { THEME, RAILROAD_COLORS, RAILROAD_STATUS_STYLES } from '../../utils/colorSchemes';
+import { setSection } from '../../presets/searchState';
+import { useSearchSection } from '../../presets/SearchStateContext';
 
 interface RailroadFilterProps {
   map: maplibregl.Map | null;
@@ -79,7 +81,7 @@ const styles = {
  * Build an owner filter expression (returns just the owner part, no status).
  * Returns null when all owners selected (no filter needed).
  */
-function buildOwnerFilter(activeOwners: Set<string>): unknown[] | null {
+function buildOwnerFilter(activeOwners: ReadonlySet<string>): unknown[] | null {
   const allActive = activeOwners.size === RAILROAD_OWNERS.length;
   if (allActive) return null;
 
@@ -106,16 +108,15 @@ function buildOwnerFilter(activeOwners: Set<string>): unknown[] | null {
   return null;
 }
 
+// Saved in presets — keys are persisted, never rename them. Values = VISIBLE keys.
+const OWNERS_SECTION = setSection('railroads.owners', RAILROAD_OWNERS.map((o) => o.key), 'all');
+const STATUSES_SECTION = setSection('railroads.statuses', RAILROAD_STATUSES.map((s) => s.key), 'all');
+const OWNERSHIP_TYPES_SECTION = setSection('railroads.ownershipTypes', OWNERSHIP_TYPES.map((t) => t.key), 'all');
+
 export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map }) => {
-  const [activeOwners, setActiveOwners] = useState<Set<string>>(
-    () => new Set(RAILROAD_OWNERS.map((o) => o.key)),
-  );
-  const [activeStatuses, setActiveStatuses] = useState<Set<string>>(
-    () => new Set(RAILROAD_STATUSES.map((s) => s.key)),
-  );
-  const [activeOwnershipTypes, setActiveOwnershipTypes] = useState<Set<string>>(
-    () => new Set(OWNERSHIP_TYPES.map((t) => t.key)),
-  );
+  const [activeOwners, setActiveOwners] = useSearchSection(OWNERS_SECTION);
+  const [activeStatuses, setActiveStatuses] = useSearchSection(STATUSES_SECTION);
+  const [activeOwnershipTypes, setActiveOwnershipTypes] = useSearchSection(OWNERSHIP_TYPES_SECTION);
 
   const toggleOwner = useCallback((key: string) => {
     setActiveOwners((prev) => {
@@ -127,7 +128,7 @@ export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map }) => {
       }
       return next;
     });
-  }, []);
+  }, [setActiveOwners]);
 
   const toggleStatus = useCallback((key: string) => {
     setActiveStatuses((prev) => {
@@ -139,7 +140,7 @@ export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map }) => {
       }
       return next;
     });
-  }, []);
+  }, [setActiveStatuses]);
 
   const toggleOwnershipType = useCallback((key: string) => {
     setActiveOwnershipTypes((prev) => {
@@ -151,7 +152,7 @@ export const RailroadFilter: React.FC<RailroadFilterProps> = ({ map }) => {
       }
       return next;
     });
-  }, []);
+  }, [setActiveOwnershipTypes]);
 
   // Apply filters: status toggles visibility, owner + ownership_type toggle data filters
   useEffect(() => {

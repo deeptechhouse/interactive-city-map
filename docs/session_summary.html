@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Session Summary — Interactive City Map: Interior Maps Backend</title>
+<title>Session Summary — Interactive City Map</title>
 <style>
   :root { --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --green: #3fb950; --orange: #d29922; --border: #30363d; --card: #161b22; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace; background: var(--bg); color: var(--fg); max-width: 960px; margin: 2rem auto; padding: 0 1.5rem; line-height: 1.6; }
@@ -21,12 +21,61 @@
 </head>
 <body>
 
-<h1>Session Summary — 2026-03-22</h1>
+<h1>Session Summary — 2026-10-01</h1>
+<p><strong>Project:</strong> Interactive City Map — focus areas, zoning types, building contact list</p>
+
+<h2>Section 1: Work Completed This Session</h2>
+
+<div class="card">
+<h3>1. Focus areas (zip codes · police districts · wards)</h3>
+<ul>
+<li>New right-hand <strong>Tools</strong> sidebar → <em>Focus areas</em>: searchable checklists for 59 zips, 22 police districts, 50 wards.</li>
+<li>Combine as <strong>Any selected (union)</strong> or <strong>Overlap only (intersection)</strong>; warns when an intersection is empty.</li>
+<li>Everything outside the focus is covered by one gray mask layer with a blue outline — works over every data layer with no per-layer code. Zoom-to-focus, Clear; selection persists across reloads.</li>
+<li>Code: <code>frontend/src/focus/</code> (<code>focusGeometry.ts</code> pure Turf geometry, <code>FocusMaskLayer.ts</code>, <code>useFocusArea.ts</code>, <code>FocusAreaPanel.tsx</code>).</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>2. Zoning type filter</h3>
+<ul>
+<li>Replaced the manufacturing-only sub-filter: every class (Residential, Commercial, Manufacturing, Downtown, Special, Transportation, Unclassified) now expands to specific districts — RS-3, RT-4A, B1, C2, M1, PMD, DX, PD, POS…</li>
+<li>Tri-state class checkboxes; each class has an “Other” bucket so codes not in the catalogue are never silently hidden.</li>
+<li>Code: <code>frontend/src/utils/zoningTypes.ts</code> (catalogue + filter builder), <code>map/controls/ZoningFilter.tsx</code>. Added a <code>transportation</code> colour.</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>3. Building contact list + CSV</h3>
+<ul>
+<li><strong>Select buildings on map</strong> mode (or “+ Contact list” in any building popup) toggles buildings into the list; selected buildings get an amber outline above the mask.</li>
+<li>Owner of record + <strong>owner mailing address</strong> from Cook County Assessor open data; businesses from Chicago active business licences — both free, keyless, called from the browser (works in static mode).</li>
+<li>Business phones via backend <code>GET /api/v1/contacts/phone</code>: Google Places (New) first for Chicago, Foursquare fallback (other cities: Foursquare first). Keys stay server-side; results cached; 60 lookups/min/IP limit.</li>
+<li>All fields editable; hand-entered values survive Retry. List saved per city in localStorage.</li>
+<li>CSV columns: <code>Name / Address, Building Owner, Contact Name, Phone, Mailing Address</code> — one row per owner and per business; formula-injection safe.</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>Verification</h3>
+<table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td>Backend <code>tests/test_phone_lookup.py</code></td><td class="status-done">29 passed · 97% coverage of new modules</td></tr>
+<tr><td>Frontend new tests (focus, zoning, contacts, UI wiring)</td><td class="status-done">56 passed · 99.5% line coverage of new modules</td></tr>
+<tr><td>ESLint / tsc on new + changed files</td><td class="status-done">clean (pre-existing errors elsewhere untouched)</td></tr>
+<tr><td>Live data: Cook County + Chicago licences</td><td class="status-done">verified on 1001 W North Ave, 1588 N Kingsbury, 233 S Wacker</td></tr>
+<tr><td>Live Google / Foursquare phone calls</td><td class="status-pending">not run — no API keys configured yet</td></tr>
+<tr><td>Visual check in browser</td><td class="status-pending">left to the user (browser automation unavailable)</td></tr>
+</table>
+</div>
+
+<h2>Section 2: Prior Work Before This Session</h2>
+
 <p><strong>Project:</strong> Interactive City Map — Interior Building Maps<br>
 <strong>Branch:</strong> <code>feat/interior-maps-core</code><br>
 <strong>Commit:</strong> <code>6112b90</code></p>
 
-<h2>Section 1: Work Completed This Session</h2>
+<h3>2026-03-22 — Interior maps backend</h3>
 
 <h3>Interior Maps Backend — Full Implementation (30 files, 2,926 lines)</h3>
 
@@ -95,7 +144,7 @@
 </ul>
 </div>
 
-<h2>Section 2: Prior Work Before This Session</h2>
+<h3>Before 2026-03-22</h3>
 
 <h3>City Map — Complete (Waves 0–2 of unified plan)</h3>
 <ul>

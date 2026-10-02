@@ -18,6 +18,7 @@ interface POIRecord {
 
 interface POIBrowsePanelProps {
   map: maplibregl.Map | null;
+  citySlug?: string;
 }
 
 const CATEGORIES = [
@@ -164,7 +165,7 @@ const styles = {
   },
 } as const;
 
-export const POIBrowsePanel: React.FC<POIBrowsePanelProps> = ({ map }) => {
+export const POIBrowsePanel: React.FC<POIBrowsePanelProps> = ({ map, citySlug = 'chicago' }) => {
   const [open, setOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [pois, setPois] = useState<POIRecord[]>([]);
@@ -184,7 +185,7 @@ export const POIBrowsePanel: React.FC<POIBrowsePanelProps> = ({ map }) => {
     }
     setLoading(true);
     const base = apiBaseUrl();
-    fetch(`${base}/api/v1/cities/chicago/pois?category=${selectedCategory}`)
+    fetch(`${base}/api/v1/cities/${citySlug}/pois?category=${selectedCategory}`)
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data)) {

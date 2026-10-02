@@ -7,41 +7,135 @@ city:
   bounds: [[-83.30, 42.20], [-82.90, 42.50]]
 
 sources:
-  zoning:
-    url: "https://data.detroitmi.gov/resource/u5xs-kpz3.geojson?$limit=50000"
-    note: "Detroit Open Data Portal — zoning districts; verify resource ID at data.detroitmi.gov"
+  # =========================================================================
+  # BUILDING FOOTPRINTS — from SEMCOG (Southeast Michigan Council of Governments)
+  # NOT on data.detroitmi.gov. Uses ArcGIS FeatureServer with EPSG:2898
+  # (Michigan South State Plane, feet). Requires arcgis_helper.py for
+  # paginated download + coordinate reprojection to WGS84.
+  # =========================================================================
   buildings:
-    url: "https://data.detroitmi.gov/resource/9dsg-kt4q.geojson?$limit=50000"
-    fallback_url: "https://usbuildingdata.blob.core.windows.net/usbuildings-v2/Michigan.geojson.zip"
-    note: "Detroit open data building footprints; fallback to Microsoft statewide file"
-  city_owned_land:
-    # Detroit Land Bank Authority
-    url: "https://data.detroitmi.gov/resource/vk5n-vbhq.geojson?$limit=50000"
-    note: "Detroit Land Bank Authority parcels — see also buildingdetroit.org for auction listings"
+    arcgis_featureserver: true
+    url: "https://gis.semcog.org/server/rest/services/Hosted/Building_Footprints__2020/FeatureServer/60/query"
+    source_srid: 2898
+    page_size: 2000
+    output_format: "json"
+    note: "SEMCOG building footprints 2020 — layer ID 60 (not 0). ~300K+ features for Detroit. 26 building type classifications. Server may only support f=json (not f=geojson), requiring client-side conversion."
+
+  # =========================================================================
+  # DETROIT OPEN DATA PORTAL — ArcGIS Hub (data.detroitmi.gov)
+  # Org ID: qvkbeam7Wirps6zC
+  # All datasets below use ArcGIS REST FeatureServer query endpoints.
+  # Append /query?where=1=1&outFields=*&f=geojson to get GeoJSON.
+  # =========================================================================
+  zoning:
+    arcgis_featureserver: true
+    url: "https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/Zoning_1/FeatureServer/0/query"
+    note: "Detroit zoning districts from City Planning Commission"
+
+  parcels:
+    arcgis_featureserver: true
+    url: "https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/parcel_file_current/FeatureServer/0/query"
+    note: "Current parcels from Office of the Assessor — 378K+ records, daily updates, 2024 tax year boundaries"
+
+  police_precincts:
+    arcgis_featureserver: true
+    url: "https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/DPD_Precincts_Reid2/FeatureServer/0/query"
+    note: "DPD police precinct boundaries — 12 precincts"
+
+  council_districts:
+    arcgis_featureserver: true
+    url: "https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/city_council_districts_2026/FeatureServer/0/query"
+    note: "City council district boundaries — 7 single-member districts, effective Jan 1, 2026"
+
+  neighborhoods:
+    arcgis_featureserver: true
+    url: "https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/Current_City_of_Detroit_Neighborhoods/FeatureServer/0/query"
+    note: "205 neighborhood boundaries from Dept. of Neighborhoods"
+
+  business_licenses:
+    arcgis_featureserver: true
+    url: "https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/bseed_active_business_licenses/FeatureServer/0/query"
+    note: "Active business licenses issued by BSEED"
+
+  zip_codes:
+    arcgis_featureserver: true
+    url: "https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/City_of_Detroit_Zip_Code_List/FeatureServer/0/query"
+    note: "WARNING: This may be a non-spatial table (tabular ZIP list, no polygon geometry). For ZIP boundary polygons, use US Census TIGER/Line ZCTA data filtered to Detroit bbox instead."
+    fallback_url: "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2023/MapServer/2/query?where=1%3D1&geometry=-83.30%2C42.20%2C-82.90%2C42.50&geometryType=esriGeometryEnvelope&outFields=*&f=geojson"
+
+  dlba_properties:
+    arcgis_featureserver: true
+    url: "https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/DLBA_Owned_Properties/FeatureServer/0/query"
+    note: "Detroit Land Bank Authority owned properties — see also buildingdetroit.org for auction listings"
+
+  # =========================================================================
+  # TRANSIT — GTFS ZIP files from 4 agencies
+  # All systems are active as of 2026. Free to ride: QLine (through 2039),
+  # People Mover (no fare since Jan 2024).
+  # =========================================================================
   transit_lines:
-    # DDOT (city bus), SMART (suburban bus), QLine (streetcar), People Mover
-    ddot_gtfs_url: "https://transitfeeds.com/p/detroit-department-of-transportation/261/latest/download"
-    smart_gtfs_url: "https://transitfeeds.com/p/suburban-mobility-authority-for-regional-transportation/229/latest/download"
-    qline_gtfs_url: "https://transitfeeds.com/p/qline-detroit/883/latest/download"
-    people_mover_note: "Detroit People Mover GTFS — check transit.land or DDRTA for current feed"
-    note: "Multiple transit agencies; extract shapes.txt from each GTFS zip"
+    ddot_gtfs_url: "https://www.detroitmi.gov/Portals/0/docs/deptoftransportation/pdfs/ddot_gtfs.zip"
+    smart_gtfs_url: "https://apps1.smartbus.org/gtfs/smart_gtfs.zip"
+    qline_gtfs_url: "https://data.trilliumtransit.com/gtfs/qline-mi-us/qline-mi-us.zip"
+    people_mover_gtfs_url: "https://hosted-gtfs-feeds.s3.amazonaws.com/DPM/gtfs.zip"
+    note: "4 transit agencies: DDOT (city bus), SMART (suburban bus), QLine (streetcar on Woodward Ave, 12 stations), People Mover (elevated rail loop, 13 stations)"
+
   transit_stations:
-    ddot_gtfs_url: "https://transitfeeds.com/p/detroit-department-of-transportation/261/latest/download"
-    smart_gtfs_url: "https://transitfeeds.com/p/suburban-mobility-authority-for-regional-transportation/229/latest/download"
-    note: "Extract stops.txt from each GTFS zip; merge for unified station layer"
-  waterways:
-    # Detroit River, Rouge River, River Rouge via USGS NHD
-    url: "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/6/query?where=1%3D1&geometry=-83.30%2C42.20%2C-82.90%2C42.50&geometryType=esriGeometryEnvelope&outFields=*&f=geojson"
-    note: "NHD flowlines clipped to Detroit bbox; includes Detroit River, Rouge River"
-  parks:
-    url: "https://data.detroitmi.gov/resource/b5hg-q7dg.geojson?$limit=5000"
-    note: "Detroit parks from open data portal; verify resource ID at data.detroitmi.gov"
+    ddot_gtfs_url: "https://www.detroitmi.gov/Portals/0/docs/deptoftransportation/pdfs/ddot_gtfs.zip"
+    smart_gtfs_url: "https://apps1.smartbus.org/gtfs/smart_gtfs.zip"
+    qline_gtfs_url: "https://data.trilliumtransit.com/gtfs/qline-mi-us/qline-mi-us.zip"
+    people_mover_gtfs_url: "https://hosted-gtfs-feeds.s3.amazonaws.com/DPM/gtfs.zip"
+    note: "Stops extracted from stops.txt in each GTFS zip"
+
+  # =========================================================================
+  # OSM / OVERPASS — bbox covers Detroit city limits
+  # south=42.20, west=-83.30, north=42.50, east=-82.90
+  # =========================================================================
   railroads:
-    fra_url: "https://data-usdot.opendata.arcgis.com/datasets/north-american-rail-network-lines.geojson"
     osm_overpass_bbox: "42.20,-83.30,42.50,-82.90"
+    note: "Railroad segments from OSM — includes active, abandoned, and disused lines"
+
   pois:
     osm_overpass_bbox: "42.20,-83.30,42.50,-82.90"
-  parcels:
-    note: "Wayne County or Detroit assessor parcel data — available via data.detroitmi.gov"
+    note: "Points of interest from OSM — churches, theaters, museums, venues, gyms, galleries, etc."
+
+  # =========================================================================
+  # WATERWAYS — USGS National Hydrography Dataset
+  # Detroit River, Rouge River, River Rouge, canals
+  # =========================================================================
+  waterways:
+    url: "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/6/query?where=1%3D1&geometry=-83.30%2C42.20%2C-82.90%2C42.50&geometryType=esriGeometryEnvelope&inSR=4326&outSR=4326&spatialRel=esriSpatialRelIntersects&outFields=GNIS_NAME,FTYPE,FCODE&f=geojson&resultRecordCount=5000"
+    note: "NHD flowlines clipped to Detroit bbox — Detroit River, Rouge River. Requires inSR/outSR/spatialRel params."
+
+  # =========================================================================
+  # PARKS — from Data Driven Detroit (D3) portal
+  # =========================================================================
+  parks:
+    url: "https://services2.arcgis.com/HsXtOCMp1Nis1Ogr/arcgis/rest/services/Parks_Landmarks/FeatureServer/0/query"
+    arcgis_featureserver: true
+    note: "Municipal parks, landmarks, golf courses, City Airport, civic plazas from Data Driven Detroit (D3). Org ID: HsXtOCMp1Nis1Ogr"
+
+  # =========================================================================
+  # STREETS — major labeled streets come from static data, not import
+  # =========================================================================
   streets:
-    note: "Streets come from basemap tiles; TIGER/Line import is optional"
+    note: "Streets come from basemap tiles; Detroit's radial spoke avenues (Woodward, Michigan, Grand River, Gratiot, Jefferson, Fort) added as static major_streets data"
+
+# =========================================================================
+# INTERIOR MAPS — configured in separate detroit_interior.yaml
+# =========================================================================
+interior:
+  enabled: true
+  osm:
+    enabled: true
+    overpass_bbox: [42.20, -83.30, 42.50, -82.90]
+  county:
+    name: "Wayne County"
+    assessor_api: ""
+  sanborn:
+    enabled: true
+    loc_query: "sanborn detroit michigan"
+    note: "81 Sanborn map items at Library of Congress (1884-1950s), all public domain"
+  venue_scraping:
+    enabled: true
+    categories: ["church", "hotel_event", "theater", "museum", "community_center", "gymnasium", "music_venue", "gallery"]

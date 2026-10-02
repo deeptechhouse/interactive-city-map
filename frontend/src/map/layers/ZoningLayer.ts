@@ -23,9 +23,10 @@ function zoningStrokeColorExpression(): unknown {
 export function addZoningLayer(map: maplibregl.Map, config: LayerConfig): void {
   if (map.getSource(SOURCE_ID)) return;
 
+  const isPmtiles = config.sourceUrl.startsWith('pmtiles://');
   map.addSource(SOURCE_ID, {
     type: 'vector',
-    tiles: [config.sourceUrl],
+    ...(isPmtiles ? { url: config.sourceUrl } : { tiles: [config.sourceUrl] }),
     minzoom: 0,
     maxzoom: 16,
   });

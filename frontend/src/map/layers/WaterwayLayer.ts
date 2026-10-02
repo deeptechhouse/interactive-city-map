@@ -1,24 +1,20 @@
 import type maplibregl from 'maplibre-gl';
 import type { LayerConfig } from '../../types/layer';
+import { addDualModeSource, sourceLayerProp } from '../../utils/layerSourceHelper';
+import { STATIC_WATERWAYS } from './data/static_waterways';
 
 const SOURCE_ID = 'waterways-source';
 
 export function addWaterwayLayer(map: maplibregl.Map, config: LayerConfig): void {
-  if (map.getSource(SOURCE_ID)) return;
-
-  map.addSource(SOURCE_ID, {
-    type: 'vector',
-    tiles: [config.sourceUrl],
-    minzoom: 0,
-    maxzoom: 16,
-  });
+  const { isGeoJson } = addDualModeSource(map, SOURCE_ID, config.sourceUrl, 'waterways', STATIC_WATERWAYS);
+  const slp = sourceLayerProp('waterways', isGeoJson);
 
   // Water fill (for wider rivers/canals shown as polygons if available)
   map.addLayer({
     id: `${config.id}-line`,
     type: 'line',
     source: SOURCE_ID,
-    'source-layer': 'waterways',
+    ...slp,
     layout: {
       visibility: config.visible ? 'visible' : 'none',
       'line-cap': 'round',
@@ -43,7 +39,7 @@ export function addWaterwayLayer(map: maplibregl.Map, config: LayerConfig): void
     id: `${config.id}-glow`,
     type: 'line',
     source: SOURCE_ID,
-    'source-layer': 'waterways',
+    ...slp,
     layout: {
       visibility: config.visible ? 'visible' : 'none',
       'line-cap': 'round',
@@ -68,7 +64,7 @@ export function addWaterwayLayer(map: maplibregl.Map, config: LayerConfig): void
     id: `${config.id}-label`,
     type: 'symbol',
     source: SOURCE_ID,
-    'source-layer': 'waterways',
+    ...slp,
     minzoom: 11,
     layout: {
       visibility: config.visible ? 'visible' : 'none',

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Error Log — Interactive City Map</title>
+<style>
+  :root { --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --green: #3fb950; --orange: #d29922; --red: #f85149; --border: #30363d; --card: #161b22; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--fg); max-width: 960px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; }
+  h1 { color: var(--accent); border-bottom: 2px solid var(--border); padding-bottom: .5rem; }
+  h2 { color: var(--orange); margin-top: 2rem; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+  .card h3 { margin-top: 0; color: var(--red); }
+  code { background: #0d1117; padding: 2px 6px; border-radius: 4px; font-size: .9em; }
+  dt { font-weight: 600; color: var(--accent); } dd { margin: 0 0 .5rem 0; }
+</style>
+</head>
+<body>
+<h1>Error Log — Interactive City Map</h1>
+<p>Append new entries at the top of each date. Newest date first.</p>
+
+<h2>2026-10-02</h2>
+
+<div class="card">
+<h3>Cook County owner names are cut off at 22 characters</h3>
+<dl>
+<dt>Finding</dt><dd>Of 5,000 Chicago 2026 owner names, 568 are exactly 22 characters long, against about 200 at 21 or 23: e.g. <code>MIGUEL ANGEL ORTEGA RA</code>, <code>ROBERT F DONOVAN DECLA</code>. The last word of a 22-character name may be incomplete.</dd>
+<dt>Why it matters</dt><dd>Sending a cut-off surname to Tracerfy's 1-credit name trace risks a <em>paid wrong hit</em>.</dd>
+<dt>Handling</dt><dd><code>frontend/src/contacts/ownerNames.ts</code> never uses a word at the 22-character cut point as the surname, and skips trusts, estates, initials and company names. Those owners go to the 2-credit address trace instead. Name misses are free and are automatically re-sent by address.</dd>
+</dl>
+</div>
+
+<div class="card">
+<h3>Tracerfy batch API: docs vs reality (all verified live)</h3>
+<dl>
+<dt>JSON body refused</dt><dd><code>POST /v1/api/trace/</code> with <code>application/json</code> → HTTP 415. Fix: <code>multipart/form-data</code> with the rows as a <code>csv_file</code> upload (<code>adapters/tracerfy_batch.py</code>).</dd>
+<dt>Name columns required</dt><dd>HTTP 400 "first_name_column is required…". Fix: send all six mapping fields, blank columns.</dd>
+<dt>"normal" trace finds no owners</dt><dd>With blank names it matched nothing for 1001 W North Ave (instant found 10 phones). Docs: "Advanced discovers the owner from an address". Fix: <code>trace_type=advanced</code> — 2 credits/hit (normal is 1, instant 5).</dd>
+<dt>Wrong status endpoint</dt><dd><code>GET /v1/api/queue/:id</code> returns the queue's matched records (a list), not status. Fix: read <code>pending</code>/<code>download_url</code> from <code>GET /v1/api/queues/</code>.</dd>
+<dt>Status throttled</dt><dd>HTTP 429 "Retry in intervals of 20 seconds". Fix: poll every 30 s; a 429 on status counts as "still pending".</dd>
+<dt>Result column names</dt><dd>File says <code>Email-1</code>/<code>Mobile-1</code>/<code>Landline-1</code>; docs say <code>email_1</code>/<code>mobile_1</code>. Fix: column names normalised (case, "-" vs "_").</dd>
+<dt>No DNC in batch results</dt><dd>Batch CSV has no dnc/tcpa/litigator columns. Results are stored <code>dnc_checked=false</code>; UI and CSV show "DNC not checked".</dd>
+</dl>
+</div>
+
+<div class="card">
+<h3>A test reached the real Tracerfy API</h3>
+<dl>
+<dt>What happened</dt><dd><code>TracerfyBatchClient(api_key="")</code> fell back to the real key in <code>.env</code> and sent a live request (refused with 415 — no queue, nothing charged; confirmed via <code>GET /queues/</code>).</dd>
+<dt>Fix</dt><dd>Every backend test module now has an autouse fixture that blanks all paid-API keys from settings.</dd>
+</dl>
+</div>
+
+<div class="card">
+<h3>Provider failures were cached as "no match"</h3>
+<dl>
+<dt>What happened</dt><dd>Tracerfy HTTP 402 (0 credits) was swallowed by the provider chain as a miss, cached, and shown as "No match" — and kept showing after credits were added.</dd>
+<dt>Fix</dt><dd>Chains raise <code>ProviderUnavailable</code> when every provider errored; failures are never cached; the UI shows the real reason (out of credits / key rejected / not responding).</dd>
+</dl>
+</div>
+
+<h2>2026-10-01</h2>
+
+<div class="card">
+<h3>Dev server: “cannot be opened because the developer cannot be verified” (Rollup, fsevents, esbuild)</h3>
+<dl>
+<dt>Symptom</dt><dd><code>npx vite</code> crashed: <code>@rollup/rollup-darwin-x64 … code signature … not valid for use in process</code>; macOS dialog for <code>fsevents.node</code>.</dd>
+<dt>Cause</dt><dd><code>frontend/node_modules</code> was copied via Screen Sharing, so every file carried <code>com.apple.quarantine</code>, and the native binaries are unsigned — Gatekeeper refuses to load them.</dd>
+<dt>Fix</dt><dd><code>xattr -dr com.apple.quarantine node_modules</code>, then ad-hoc sign each native binary: <code>find node_modules -name "*.node" -exec codesign --force --sign - {} \;</code> plus the esbuild binaries. Re-run after any copy of <code>node_modules</code> from another Mac (a fresh <code>npm ci</code> avoids it).</dd>
+</dl>
+</div>
+
+<div class="card">
+<h3>Frontend tests: 51 interior tests fail with “document is not defined”</h3>
+<dl>
+<dt>Symptom</dt><dd>Full <code>vitest run</code>: all <code>src/interior/__tests__</code> component tests fail.</dd>
+<dt>Cause</dt><dd>Two issues: <code>vitest.config.ts</code> sets <code>environment: 'node'</code>, and the installed <code>jsdom@29</code> cannot load on Node 20.11 (its dependency <code>@exodus/bytes</code> is ESM-only → <code>ERR_REQUIRE_ESM</code>; needs Node ≥ 20.19).</dd>
+<dt>Workaround</dt><dd>New UI tests use <code>// @vitest-environment happy-dom</code> (added <code>happy-dom@20.14.5</code>, MIT). Interior tests are <strong>not fixed</strong> — options: add the same directive to them, or upgrade Node (<code>.nvmrc</code>) to ≥ 20.19 so jsdom works.</dd>
+</dl>
+</div>
+
+<div class="card">
+<h3>Building owner data never imported</h3>
+<dl>
+<dt>Finding</dt><dd><code>buildings.owner_name</code> exists in the model and tiles but is empty for every feature; <code>parcels.pmtiles</code> doesn't cover ordinary buildings, so no PIN at click time.</dd>
+<dt>Resolution</dt><dd>Contact list looks owners up live by address from the Cook County Assessor dataset (<code>3723-97qp</code>). Known gap: corner buildings whose footprint address differs from the assessor's won't match — user can add the owner by hand.</dd>
+</dl>
+</div>
+</body>
+</html>

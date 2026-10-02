@@ -104,3 +104,14 @@ class TestRoute:
         w = exports.get_writer()
         assert w.directory == exports.Path.home() / "Desktop"
         exports.set_writer(None)
+
+
+def test_export_filename_names_the_city(tmp_path):
+    """Exports from different cities' maps never share a name (2026-10-02)."""
+    from datetime import datetime
+
+    from app.routes.exports import CsvExportWriter
+
+    writer = CsvExportWriter(tmp_path, now=lambda: datetime(2026, 10, 2, 9, 30, 0))
+    assert writer.write("a,b", "detroit").name == "contacts-detroit-2026-10-02_093000.csv"
+    assert writer.write("a,b").name == "contacts-2026-10-02_093000.csv"

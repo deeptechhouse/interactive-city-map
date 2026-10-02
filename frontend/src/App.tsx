@@ -57,7 +57,10 @@ function App() {
   const focus = useFocusArea(mapInstance, focusConfig, citySlug);
   const contacts = useContactList(mapInstance, citySlug);
   // Free business-type browser → curated buildings → paid lookups (Chicago data only).
-  const discovery = useDiscovery(mapInstance, focus.selection, contacts.store, contacts.batchRunner);
+  // Discovery is Chicago's licence data — disabled (and its markers cleared) elsewhere.
+  const discovery = useDiscovery(
+    mapInstance, focus.selection, contacts.store, contacts.batchRunner, undefined, citySlug === 'chicago',
+  );
 
   // Saved searches: layers and focus areas live in their own hooks, so they join presets
   // through adapters; the filter panels store their state in the search store directly.

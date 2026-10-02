@@ -43,25 +43,31 @@ _LOCAL_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 class CsvExportWriter:
     """Writes CSV text to one fixed folder with server-chosen, non-colliding names."""
 
+    # O(1) time, O(1) space
     def __init__(self, directory: Path, now=datetime.now):
         self._dir = directory
         self._now = now  # injectable clock for tests
 
     @property
+    # O(1) time, O(1) space
     def directory(self) -> Path:
         return self._dir
 
-    def write(self, csv_text: str) -> Path:
-        """Create ``contacts-YYYY-MM-DD_HHMMSS[-n].csv``. O(size of csv_text).
+    def write(self, csv_text: str, city: str = "") -> Path:
+        """Create ``contacts-[city-]YYYY-MM-DD_HHMMSS[-n].csv``. O(c) time, O(c) space — c = CSV size.
+
+        The city slug keeps exports from different cities' maps apart on disk.
 
         Opened with O_CREAT|O_EXCL so an existing file is never overwritten, even if two
         exports land in the same second (the loop then tries the next suffix).
         """
         if not self._dir.is_dir():
             raise FileNotFoundError(str(self._dir))
-        stem = f"contacts-{self._now().strftime('%Y-%m-%d_%H%M%S')}"
+        prefix = f"contacts-{city}-" if city else "contacts-"
+        stem = f"{prefix}{self._now().strftime('%Y-%m-%d_%H%M%S')}"
         data = ("﻿" + csv_text).encode("utf-8")  # BOM: Excel reads UTF-8 names correctly
-        for n in range(1, 100):  # O(1) in practice — collisions need same-second exports
+        # O(k + c) time, O(c) space — k = 99 suffixes at most (collisions need same-second exports); c = CSV size (written once)
+        for n in range(1, 100):
             path = self._dir / (f"{stem}.csv" if n == 1 else f"{stem}-{n}.csv")
             try:
                 fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -76,6 +82,7 @@ class CsvExportWriter:
 _writer: Optional[CsvExportWriter] = None
 
 
+# O(1) time, O(1) space
 def get_writer() -> Optional[CsvExportWriter]:
     """None when exports are disabled (CSV_EXPORT_DIR="")."""
     global _writer
@@ -84,6 +91,7 @@ def get_writer() -> Optional[CsvExportWriter]:
     return _writer
 
 
+# O(1) time, O(1) space
 def set_writer(writer: Optional[CsvExportWriter]) -> None:
     """Test hook."""
     global _writer
@@ -92,9 +100,12 @@ def set_writer(writer: Optional[CsvExportWriter]) -> None:
 
 class ExportRequest(BaseModel):
     csv: str = Field(..., min_length=1)
+    # City slug for the file name only (validated: it becomes part of a path).
+    city: str = Field("", pattern=r"^[a-z-]{0,40}$")
 
 
 @router.post("/contacts/export")
+# O(c) time, O(c) space — c = CSV size
 async def export_csv(request: Request, body: ExportRequest):
     """Save the contact-list CSV to the export folder (Desktop). Local callers only."""
     host = request.client.host if request.client else ""
@@ -106,7 +117,8 @@ async def export_csv(request: Request, body: ExportRequest):
     if len(body.csv.encode("utf-8")) > MAX_CSV_BYTES:
         raise HTTPException(status_code=413, detail="Contact list is too large to save in one file.")
     try:
-        path = writer.write(body.csv)
+        # City-less exports keep the original call (and name) exactly.
+        path = writer.write(body.csv, body.city) if body.city else writer.write(body.csv)
     except FileNotFoundError:
         raise HTTPException(status_code=503, detail=f"Export folder not found: {writer.directory}")
     except OSError as err:

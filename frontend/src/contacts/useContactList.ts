@@ -33,7 +33,7 @@ export function useContactList(map: maplibregl.Map | null, citySlug: string): Us
   const batchRunner = useMemo(() => new OwnerBatchRunner(store, createOwnerBatchApi(), citySlug), [store, citySlug]);
   useEffect(() => {
     // Lookup finished → save the whole list as CSV to the Desktop (asked for 2026-10-02).
-    batchRunner.setOnComplete(async () => saveMessage(await saveCsv(store.getSnapshot())));
+    batchRunner.setOnComplete(async () => saveMessage(await saveCsv(store.getSnapshot(), undefined, undefined, undefined, store.city)));
     return () => {
       batchRunner.setOnComplete(null);
       batchRunner.dispose();

@@ -113,6 +113,9 @@ export function useDiscovery(
   store: ContactListStore,
   runner: OwnerBatchRunner,
   directory: BusinessDirectory = defaultDirectory,
+  /** False for every city but Chicago: the directory is Chicago's business licences, so
+   *  elsewhere nothing is queried and no Chicago markers stay on the map (2026-10-02). */
+  enabled: boolean = true,
 ): UseDiscoveryReturn {
   const [viewArea, setViewArea] = useState<Bounds | null>(null);
   const [types, setTypes] = useState<ActivityCount[]>([]);
@@ -144,7 +147,7 @@ export function useDiscovery(
   // Type list: reload whenever the area changes. Free.
   const typesSeq = useRef(0);
   useEffect(() => {
-    if (!area) return;
+    if (!enabled || !area) return;
     const seq = ++typesSeq.current; // ignore answers that arrive after a newer request
     setTypesLoading(true);
     setError('');
@@ -153,12 +156,12 @@ export function useDiscovery(
       .then((t) => seq === typesSeq.current && setTypes(t))
       .catch(() => seq === typesSeq.current && setError('Couldn’t load business types (City of Chicago data portal).'))
       .finally(() => seq === typesSeq.current && setTypesLoading(false));
-  }, [area, directory]);
+  }, [area, directory, enabled]);
 
   // Markers: re-query (debounced) when the ticked types or area change. Free.
   const bizSeq = useRef(0);
   useEffect(() => {
-    if (!area || selected.size === 0) {
+    if (!enabled || !area || selected.size === 0) {
       setCandidatesState([]);
       return;
     }
@@ -172,7 +175,7 @@ export function useDiscovery(
         .finally(() => seq === bizSeq.current && setCandidatesLoading(false));
     }, QUERY_DEBOUNCE_MS);
     return () => clearTimeout(handle);
-  }, [area, selected, directory]);
+  }, [area, selected, directory, enabled]);
 
   // O(c) time, O(c) space — c = candidates.
   const visible = useMemo(() => candidates.filter((c) => !removed.has(c.key)), [candidates, removed]);

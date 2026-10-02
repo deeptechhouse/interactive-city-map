@@ -26,7 +26,7 @@ describe('saveCsv', () => {
     const post = vi.fn().mockRejectedValue(new ApiError(503, '{"detail":"Export folder not found: /x"}', ''));
     const download = vi.fn();
     const r = await saveCsv(LIST, post as never, download);
-    expect(download).toHaveBeenCalledWith(LIST);
+    expect(download).toHaveBeenCalledWith(LIST, '');
     expect(r).toEqual({ saved: false, reason: 'Export folder not found: /x' });
     expect(saveMessage(r)).toMatch(/Downloads folder instead/);
   });
@@ -44,7 +44,18 @@ describe('remote devices (Tailscale)', () => {
     const download = vi.fn();
     const r = await saveCsv(LIST, post as never, download, 'mac-mini.tail1234.ts.net');
     expect(post).not.toHaveBeenCalled();
-    expect(download).toHaveBeenCalledWith(LIST);
+    expect(download).toHaveBeenCalledWith(LIST, '');
     expect(saveMessage(r)).toBe('CSV downloaded to this device.');
+  });
+});
+
+describe('exports name their city so cities never mix on disk (2026-10-02)', () => {
+  it('sends the city slug with the CSV and passes it to the download fallback', async () => {
+    const post = vi.fn().mockResolvedValue({ path: '/d/contacts-detroit-x.csv', filename: 'contacts-detroit-x.csv' });
+    await saveCsv(LIST, post as never, vi.fn(), 'localhost', 'detroit');
+    expect(post.mock.calls[0][1]).toMatchObject({ city: 'detroit' });
+    const download = vi.fn();
+    await saveCsv(LIST, null, download, 'localhost', 'dayton');
+    expect(download).toHaveBeenCalledWith(LIST, 'dayton');
   });
 });

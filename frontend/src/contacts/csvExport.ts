@@ -102,18 +102,19 @@ export function toCsv(buildings: readonly SelectedBuilding[]): string {
     .join('\r\n');
 }
 
-/** "contacts-2026-10-01.csv" */
-export function csvFilename(now: Date = new Date()): string {
-  return `contacts-${now.toISOString().slice(0, 10)}.csv`;
+/** "contacts-detroit-2026-10-01.csv" — the city keeps exports from mixing on disk. O(1) time, O(1) space — n = 1 name. */
+export function csvFilename(now: Date = new Date(), city: string = ''): string {
+  const slug = city.toLowerCase().replace(/[^a-z-]/g, '');
+  return `contacts-${slug ? `${slug}-` : ''}${now.toISOString().slice(0, 10)}.csv`;
 }
 
 /** Trigger a browser download. The BOM makes Excel read UTF-8 names correctly. */
-export function downloadCsv(buildings: readonly SelectedBuilding[]): void {
+export function downloadCsv(buildings: readonly SelectedBuilding[], city: string = ''): void {
   const blob = new Blob(['\uFEFF', toCsv(buildings)], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = csvFilename();
+  a.download = csvFilename(new Date(), city);
   a.click();
   URL.revokeObjectURL(url);
 }

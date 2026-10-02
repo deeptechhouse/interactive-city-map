@@ -165,6 +165,7 @@ const styles = {
   },
 } as const;
 
+// O(p log p + c) time, O(p + c) space — p = POIs loaded for the selected category (sorted once per fetch); c = categories
 export const POIBrowsePanel: React.FC<POIBrowsePanelProps> = ({ map, citySlug = 'chicago' }) => {
   const [open, setOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -172,8 +173,10 @@ export const POIBrowsePanel: React.FC<POIBrowsePanelProps> = ({ map, citySlug = 
   const [loading, setLoading] = useState(false);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
-  // Fetch POIs when category changes
+  // Fetch POIs when the category OR the city changes. TRAP (fixed 2026-10-02): the city
+  // was missing from the deps, so after a switch the list kept the previous city's POIs.
   useEffect(() => {
+    setPois([]);
     if (!selectedCategory) {
       setPois([]);
       return;
@@ -195,7 +198,7 @@ export const POIBrowsePanel: React.FC<POIBrowsePanelProps> = ({ map, citySlug = 
       })
       .catch(() => setPois([]))
       .finally(() => setLoading(false));
-  }, [selectedCategory]);
+  }, [selectedCategory, citySlug]);
 
   const handleClickPOI = useCallback((poi: POIRecord) => {
     if (!map || !poi.geometry) return;
@@ -211,7 +214,56 @@ export const POIBrowsePanel: React.FC<POIBrowsePanelProps> = ({ map, citySlug = 
     );
   }
 
+  // O(c) time, O(1) space — c = categories
   const catInfo = CATEGORIES.find(c => c.key === selectedCategory);
+
+  // O(c) time, O(c) space — c = categories
+  const categoryButtons = CATEGORIES.map(cat => (
+    <button
+      key={cat.key}
+      style={{
+        ...styles.catBtn,
+        ...(selectedCategory === cat.key ? styles.catBtnActive : {}),
+        ...(selectedCategory === cat.key ? { borderColor: cat.color, color: cat.color } : {}),
+      }}
+      onClick={() => setSelectedCategory(selectedCategory === cat.key ? null : cat.key)}
+    >
+      {cat.label}
+    </button>
+  ));
+
+  // O(p) time, O(p) space — p = POIs loaded for the selected category
+  const poiItems = pois.map((poi, idx) => (
+    <div
+      key={poi.id}
+      style={{
+        ...styles.item,
+        background: hoverIdx === idx ? THEME.bgTertiary : 'transparent',
+      }}
+      onClick={() => handleClickPOI(poi)}
+      onMouseEnter={() => setHoverIdx(idx)}
+      onMouseLeave={() => setHoverIdx(null)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter') handleClickPOI(poi); }}
+    >
+      <span style={styles.itemName}>{poi.name}</span>
+      <span style={styles.itemMeta}>
+        {poi.address && <span>{poi.address}</span>}
+        {poi.subcategory && <span> · {poi.subcategory}</span>}
+      </span>
+      <div style={styles.itemContact}>
+        {poi.phone && <span><a href={`tel:${poi.phone}`} style={styles.link}>{poi.phone}</a></span>}
+        {poi.phone && poi.website && <span> · </span>}
+        {poi.website && (
+          <a href={poi.website} target="_blank" rel="noopener noreferrer" style={styles.link}
+             onClick={e => e.stopPropagation()}>
+            website
+          </a>
+        )}
+      </div>
+    </div>
+  ));
 
   return (
     <div style={styles.panel}>
@@ -223,19 +275,7 @@ export const POIBrowsePanel: React.FC<POIBrowsePanelProps> = ({ map, citySlug = 
       </div>
 
       <div style={styles.categoryBar}>
-        {CATEGORIES.map(cat => (
-          <button
-            key={cat.key}
-            style={{
-              ...styles.catBtn,
-              ...(selectedCategory === cat.key ? styles.catBtnActive : {}),
-              ...(selectedCategory === cat.key ? { borderColor: cat.color, color: cat.color } : {}),
-            }}
-            onClick={() => setSelectedCategory(selectedCategory === cat.key ? null : cat.key)}
-          >
-            {cat.label}
-          </button>
-        ))}
+        {categoryButtons}
       </div>
 
       {selectedCategory && (
@@ -250,37 +290,7 @@ export const POIBrowsePanel: React.FC<POIBrowsePanelProps> = ({ map, citySlug = 
 
       <div style={styles.list}>
         {loading && <div style={styles.loading}>Loading...</div>}
-        {pois.map((poi, idx) => (
-          <div
-            key={poi.id}
-            style={{
-              ...styles.item,
-              background: hoverIdx === idx ? THEME.bgTertiary : 'transparent',
-            }}
-            onClick={() => handleClickPOI(poi)}
-            onMouseEnter={() => setHoverIdx(idx)}
-            onMouseLeave={() => setHoverIdx(null)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={e => { if (e.key === 'Enter') handleClickPOI(poi); }}
-          >
-            <span style={styles.itemName}>{poi.name}</span>
-            <span style={styles.itemMeta}>
-              {poi.address && <span>{poi.address}</span>}
-              {poi.subcategory && <span> · {poi.subcategory}</span>}
-            </span>
-            <div style={styles.itemContact}>
-              {poi.phone && <span><a href={`tel:${poi.phone}`} style={styles.link}>{poi.phone}</a></span>}
-              {poi.phone && poi.website && <span> · </span>}
-              {poi.website && (
-                <a href={poi.website} target="_blank" rel="noopener noreferrer" style={styles.link}
-                   onClick={e => e.stopPropagation()}>
-                  website
-                </a>
-              )}
-            </div>
-          </div>
-        ))}
+        {poiItems}
       </div>
     </div>
   );

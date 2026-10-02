@@ -38,22 +38,24 @@ export function saveMessage(r: SaveResult): string {
 export async function saveCsv(
   buildings: readonly SelectedBuilding[],
   post: PostJson | null = backendPoster(),
-  download: (b: readonly SelectedBuilding[]) => void = downloadCsv,
+  download: (b: readonly SelectedBuilding[], city?: string) => void = downloadCsv,
   hostname: string = typeof window === 'undefined' ? 'localhost' : window.location.hostname,
+  /** City slug — put in the file name (server and download) so cities never mix. */
+  city: string = '',
 ): Promise<SaveResult> {
   if (!LOCAL_HOSTS.has(hostname)) {
-    download(buildings);
+    download(buildings, city);
     return { saved: false, reason: 'opened from another device', remote: true };
   }
   if (post) {
     try {
-      const res = await post<{ path: string; filename: string }>('/contacts/export', { csv: toCsv(buildings) });
+      const res = await post<{ path: string; filename: string }>('/contacts/export', { csv: toCsv(buildings), ...(city ? { city } : {}) });
       return { saved: true, filename: res.filename, path: res.path };
     } catch (err) {
-      download(buildings);
+      download(buildings, city);
       return { saved: false, reason: failureReason(err) };
     }
   }
-  download(buildings);
+  download(buildings, city);
   return { saved: false, reason: 'lookup server not running' };
 }

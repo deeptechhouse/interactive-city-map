@@ -256,6 +256,20 @@ describe('useDiscovery + DiscoveryPanel', () => {
     expect(result.current.selected.size).toBe(0);
   });
 
+  it('is disabled outside Chicago: no queries, no markers (cities never mix)', async () => {
+    const map = fakeMap();
+    const dir = fakeDirectory();
+    const store = new ContactListStore(null, 'detroit', []);
+    const { result } = renderHook(() =>
+      useDiscovery(asMap(map), EMPTY_SELECTION, store, { startFor: vi.fn() } as never, dir, false));
+    await tick();
+    act(() => result.current.toggleType('Tavern'));
+    await tick(450);
+    expect(dir.activityCounts).not.toHaveBeenCalled();
+    expect(dir.candidates).not.toHaveBeenCalled();
+    expect(result.current.visible).toHaveLength(0);
+  });
+
   it('uses the map view when no focus area; restore, clear, refresh, errors', async () => {
     const map = fakeMap();
     const dir = fakeDirectory();

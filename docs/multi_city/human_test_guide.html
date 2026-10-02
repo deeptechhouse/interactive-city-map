@@ -73,7 +73,23 @@ PORT=8020 ./run.sh</pre>
 <li><b>Headless browser, building clicks:</b> a Detroit building and a Dayton building each open a full popup.</li>
 </ul>
 
-<h2><span class="n">4</span>Known gaps (not blockers for testing)</h2>
+<h2><span class="n">4</span>City separation — each city's information stays its own</h2>
+<table>
+<tr><th>What</th><th>How it is kept separate</th><th>Proved by</th></tr>
+<tr><td>Map data files</td><td>One folder per city (<code>public/data/detroit/</code>, <code>dayton/</code>); Chicago keeps its flat files. The exporter refuses <code>--city chicago</code> and writes only into the city's own folder.</td><td>export script guard</td></tr>
+<tr><td>Map layers + sources</td><td>On a city switch, every layer and source the previous city drew is removed before the new city's are added; each city has its own basemap.</td><td>browser switch test (no stray layers, no other-city sources)</td></tr>
+<tr><td>Open popups and the building panel</td><td>Closed on city switch.</td><td>browser separation test (popups); App city-change reset (panel)</td></tr>
+<tr><td>Contact lists, owner batches, focus selections</td><td>Saved per city (<code>citymap.contactList.v1.&lt;city&gt;</code>, <code>…ownerBatch.v1.&lt;city&gt;</code>, <code>…focusSelection.v1.&lt;city&gt;</code>; Chicago keeps its original keys).</td><td>unit tests</td></tr>
+<tr><td>Saved searches; zoning and railroad filter selections</td><td>Presets are tagged with their city and only listed in it. Filter sections are per city (<code>zoning.activeTypes.&lt;city&gt;</code>, <code>railroads.owners.&lt;city&gt;</code>).</td><td>unit tests</td></tr>
+<tr><td>Owner / business / phone lookups</td><td>Sources come from the city's profile; every paid request carries the city and state; the server refuses a request whose coordinates or ZIP contradict its city/state (422 before any charge).</td><td>backend place-guard tests; frontend city tests</td></tr>
+<tr><td>Saved owner answers, phone cache</td><td>Keyed by street + city + state (owners) and by map city + name + address + city (phones).</td><td>owner/phone test suites</td></tr>
+<tr><td>CSV exports</td><td>Rows carry the city/state; file names include the city (<code>contacts-detroit-….csv</code>).</td><td>export tests</td></tr>
+<tr><td>Discovery (business-type browser)</td><td>Chicago only. Elsewhere it makes no queries and clears its markers.</td><td>unit test</td></tr>
+<tr><td>POI browse list</td><td>Cleared and refetched on city switch (it used to keep the previous city's list).</td><td>code fix</td></tr>
+</table>
+<p class="muted">Shared on purpose: purely visual preferences that mean the same in every city (layer opacity, which POI categories or building types are shown). They hold no city data.</p>
+
+<h2><span class="n">5</span>Known gaps (not blockers for testing)</h2>
 <ul>
 <li><b>Sanborn, interior maps, railroad right-of-way, federal properties</b> exist only for Chicago (later plan phases).</li>
 <li><b>Discovery</b> (business-type browser) is Chicago-only; it uses Chicago licence data.</li>
@@ -84,7 +100,7 @@ PORT=8020 ./run.sh</pre>
 <li><b>Blight</b> covers tickets issued since 2021 (411K). The window is ADJUSTABLE in <code>detroit.yaml</code>.</li>
 </ul>
 
-<h2><span class="n">5</span>Rebuilding city data</h2>
+<h2><span class="n">6</span>Rebuilding city data</h2>
 <pre>cd backend
 python3 -m venv .venv-build &amp;&amp; .venv-build/bin/pip3 install httpx shapely structlog pyyaml psycopg2-binary   # once
 brew install tippecanoe pmtiles                                                                         # once

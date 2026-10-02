@@ -362,7 +362,7 @@ describe('useContactList + ContactListPanel', () => {
     await act(async () => {
       fireEvent.click(screen.getByText(/Export CSV/));
     });
-    expect(save).toHaveBeenCalledWith(store.getSnapshot());
+    expect(save).toHaveBeenCalledWith(store.getSnapshot(), undefined, undefined, undefined, store.city);
     expect(screen.getByText('Saved to Desktop: contacts-x.csv')).toBeTruthy();
 
     fireEvent.click(screen.getByLabelText('Remove 1001 W NORTH AVE from list'));

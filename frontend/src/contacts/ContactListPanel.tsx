@@ -410,7 +410,7 @@ export const ContactListPanel: React.FC<ContactListPanelProps> = ({
   // O(t) time, O(t) space — t = total CSV characters written
   const exportNow = async () => {
     setExporting(true);
-    setExportNote(saveMessage(await saveCsv(buildings)));
+    setExportNote(saveMessage(await saveCsv(buildings, undefined, undefined, undefined, store.city)));
     setExporting(false);
   };
   // O(n) time, O(n) space — n = buildings (each card carries its own o + b bound)

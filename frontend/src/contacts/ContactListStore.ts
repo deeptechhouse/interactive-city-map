@@ -29,20 +29,23 @@ import {
   type SelectedBuilding,
 } from './types';
 
-/** One saved list per city: ``citymap.contactList.v1.chicago``. */
+/** One saved list per city: ``citymap.contactList.v1.chicago``.
+ *  O(c) time, O(c) space — c = city slug length. */
 const storageKey = (city: string) => `citymap.contactList.v1.${city}`;
 
 type Listener = () => void;
 
+// O(1) time, O(1) space
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
 
 /**
  * Bring a saved owner up to the current shape. Lists saved before 2026-10-02 had a single
  * ``mailingAddress`` string; it becomes the tax-bill street so nothing typed is lost.
- * O(1).
+ * O(e) time, O(e) space — e = saved extra emails (extraPhones is reused, not copied).
  */
 function upgradeOwner(raw: unknown): OwnerContact {
   const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  // O(1) time, O(1) space
   const addr = (v: unknown, fallbackStreet = ''): PostalAddress => {
     const a = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
     return v && typeof v === 'object'
@@ -66,6 +69,7 @@ function upgradeOwner(raw: unknown): OwnerContact {
     phoneDnc: o.phoneDnc === true,
     extraPhones: Array.isArray(o.extraPhones) ? (o.extraPhones as OwnerContact['extraPhones']) : [],
     email: str(o.email),
+    // O(e) time, O(e) space — e = saved extra emails
     extraEmails: Array.isArray(o.extraEmails) ? (o.extraEmails as string[]).filter((e) => typeof e === 'string') : [],
     website: str(o.website),
     // An in-flight lookup from a closed page never finishes.
@@ -77,18 +81,21 @@ function upgradeOwner(raw: unknown): OwnerContact {
   });
 }
 
-/** Older saves lack zip/website on businesses. O(1). */
+/** Older saves lack zip/website on businesses.
+ *  O(1) time, O(1) space */
 function upgradeBusiness(b: BusinessContact): BusinessContact {
   return { ...b, zip: str(b.zip), website: str(b.website) };
 }
 
 /**
  * Accept saved entries only if they have the fields the UI dereferences — saved state is
- * untrusted (older app version, another tab, hand edits). O(n) — n = saved buildings.
+ * untrusted (older app version, another tab, hand edits).
+ * O(n) time, O(n) space — n = saved entries (buildings plus their owners, businesses and extra emails)
  */
 export function parseSavedList(raw: unknown): SelectedBuilding[] {
   if (!Array.isArray(raw)) return [];
   return raw
+    // O(b) time, O(b) space — b = saved buildings
     .filter(
       (b): b is SelectedBuilding =>
         !!b &&
@@ -98,7 +105,10 @@ export function parseSavedList(raw: unknown): SelectedBuilding[] {
         Array.isArray((b as SelectedBuilding).businesses) &&
         Array.isArray((b as SelectedBuilding).lngLat),
     )
+    // O(n) time, O(n) space — n = saved entries (buildings plus their owners and businesses)
     .map((b) => {
+      // bigo-lint: disable=BIGO006 — amortised: every saved owner/business is upgraded once across all buildings
+      // O(o + u) time, O(o + u) space — o = owners at this building; u = businesses at this building
       const upgraded = { ...b, owners: b.owners.map(upgradeOwner), businesses: b.businesses.map(upgradeBusiness) };
       // A lookup that was in flight when the page closed will never finish.
       return b.status === 'loading'
@@ -129,12 +139,19 @@ export class ContactListStore {
   private activeLookups = 0;
   private readonly waitingLookups: (() => void)[] = [];
 
+  /** City this list belongs to (slug) — names CSV exports so cities never mix.
+   *  O(1) time, O(1) space — n = 1 field read. */
+  get city(): string {
+    return this.cityValue;
+  }
+
+  // O(n) time, O(n) space — n = saved entries parsed and copied (buildings plus their owners and businesses)
   constructor(
     private readonly resolver: ContactResolver | null,
-    city: string,
+    private readonly cityValue: string,
     initial?: SelectedBuilding[],
   ) {
-    this.storageKey = storageKey(city);
+    this.storageKey = storageKey(cityValue);
     initial ??= parseSavedList(loadJson(this.storageKey));
     this.buildings = initial;
     this.snapshot = Object.freeze([...initial]);
@@ -142,35 +159,43 @@ export class ContactListStore {
 
   // ---- subscription (useSyncExternalStore contract) ----
 
+  // O(1) time, O(1) space
   subscribe = (listener: Listener): (() => void) => {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   };
 
+  // O(1) time, O(1) space
   getSnapshot = (): readonly SelectedBuilding[] => this.snapshot;
 
-  /** O(n) — copies the list for the immutable snapshot and saves it. */
+  /** Copies the list for the immutable snapshot and saves it.
+   *  O(s + l) time, O(s) space — s = total list size (JSON-serialised by saveJson); l = subscribed listeners */
   private commit(next: SelectedBuilding[]): void {
     this.buildings = next;
     this.snapshot = Object.freeze([...next]);
     saveJson(this.storageKey, next);
-    this.listeners.forEach((l) => l()); // O(listeners)
+    // O(l) time, O(1) space — l = subscribed listeners
+    this.listeners.forEach((l) => l());
   }
 
   // ---- queries ----
 
+  // O(n) time, O(1) space — n = buildings in the list (tens)
   has(id: string): boolean {
-    return this.buildings.some((b) => b.id === id); // O(n), n = list size (tens)
+    // O(n) time, O(1) space — n = buildings in the list
+    return this.buildings.some((b) => b.id === id);
   }
 
   // ---- commands ----
 
-  /** Click in selection mode: add if absent, remove if present. */
+  /** Click in selection mode: add if absent, remove if present.
+   *  O(s) time, O(s) space — s = total list size (buildings with their owners and businesses, which commit() re-serialises) */
   toggle(pick: BuildingPick): void {
     if (this.has(pick.id)) this.remove(pick.id);
     else this.add(pick);
   }
 
+  // O(s) time, O(s) space — s = total list size (buildings with their owners and businesses, which commit() re-serialises)
   add(pick: BuildingPick): void {
     if (this.has(pick.id)) return;
     const entry: SelectedBuilding = {
@@ -187,29 +212,36 @@ export class ContactListStore {
     void this.lookup(pick);
   }
 
-  /** Re-run the lookup, keeping anything the user typed. */
+  /** Re-run the lookup, keeping anything the user typed.
+   *  O(s) time, O(s) space — s = total list size (buildings with their owners and businesses, which commit() re-serialises) */
   retry(id: string): void {
+    // O(n) time, O(1) space — n = buildings in the list
     const b = this.buildings.find((x) => x.id === id);
     if (!b || !this.resolver) return;
     this.patch(id, { status: 'loading', note: '' });
     void this.lookup({ id: b.id, address: b.address, lngLat: b.lngLat });
   }
 
+  // O(s) time, O(s) space — s = total list size (buildings with their owners and businesses, which commit() re-serialises)
   remove(id: string): void {
+    // O(n) time, O(n) space — n = buildings in the list
     this.commit(this.buildings.filter((b) => b.id !== id));
   }
 
+  // O(l) time, O(1) space — l = subscribed listeners
   clear(): void {
     this.commit([]);
   }
 
+  // O(s) time, O(s) space — s = total list size (buildings with their owners and businesses, which commit() re-serialises)
   updateOwner(buildingId: string, index: number, patch: Partial<OwnerContact>): void {
     // A typed number replaces the looked-up one, so its DNC flag no longer applies.
     const phonePatch: Partial<OwnerContact> = 'phone' in patch ? { phoneNote: 'entered by hand', phoneDnc: false } : {};
     this.mapOwner(buildingId, index, (o) => ({ ...o, ...patch, ...phonePatch }));
   }
 
-  /** Edit the address letters go to (whichever of owner / tax-bill is selected). */
+  /** Edit the address letters go to (whichever of owner / tax-bill is selected).
+   *  O(s) time, O(s) space — s = total list size (buildings with their owners and businesses, which commit() re-serialises) */
   updateLetterAddress(buildingId: string, index: number, patch: Partial<PostalAddress>): void {
     this.mapOwner(buildingId, index, (o) =>
       o.letterTo === 'owner'
@@ -218,7 +250,8 @@ export class ContactListStore {
     );
   }
 
-  /** Add a blank owner row for the user to fill in (no county record found). */
+  /** Add a blank owner row for the user to fill in (no county record found).
+   *  O(s) time, O(s) space — s = total list size (buildings with their owners and businesses, which commit() re-serialises) */
   addOwner(buildingId: string): void {
     this.mapBuilding(buildingId, (b) => ({ ...b, owners: [...b.owners, newOwner({ letterTo: 'owner' })] }));
   }
@@ -226,8 +259,10 @@ export class ContactListStore {
   /**
    * INSTANT paid skip trace for one owner — hidden in the GUI (the batch runner is used),
    * kept for later. Fills fields the user left empty; see mergeSkipTrace.
+   * O(s) time, O(s) space — s = total list size (buildings with their owners and businesses, which commit() re-serialises, network time excluded)
    */
   async skipTraceOwner(buildingId: string, index: number, refresh = false): Promise<void> {
+    // O(n) time, O(1) space — n = buildings in the list
     const building = this.buildings.find((b) => b.id === buildingId);
     const owner = building?.owners[index];
     if (!building || !owner || !this.resolver || owner.skipTrace === 'pending') return;
@@ -246,12 +281,16 @@ export class ContactListStore {
   /**
    * Buildings whose first owner should go into a batch: has an address and an owner,
    * and — unless ``refresh`` — hasn't been looked up yet. ``onlyIds`` narrows it (the
-   * per-owner "Re-check" link). O(n).
+   * per-owner "Re-check" link).
+   * O(n) time, O(n) space — n = buildings in the list
    */
   batchCandidates(refresh: boolean, onlyIds?: ReadonlySet<string>): BatchCandidate[] {
     return this.buildings
+      // O(n) time, O(n) space — n = buildings in the list
       .filter((b) => b.address && b.owners.length > 0 && (!onlyIds || onlyIds.has(b.id)))
+      // O(n) time, O(n) space — n = buildings left after the first filter
       .filter((b) => refresh || b.owners[0].skipTrace === 'idle' || b.owners[0].skipTrace === 'unavailable')
+      // O(n) time, O(n) space — n = candidate buildings
       .map((b) => {
         // A trusted person name → cheaper 1-credit name trace (see ownerNames.ts).
         const name = traceNameFor(b.owners[0]);
@@ -265,13 +304,20 @@ export class ContactListStore {
       });
   }
 
-  /** Show "searching…" on the first owner of each listed building. O(n · k). */
+  /** Show "searching…" on the first owner of each listed building.
+   *  O(s + k) time, O(s + k) space — s = total list size; k = building ids passed in */
   markOwnersPending(buildingIds: readonly string[]): void {
     const ids = new Set(buildingIds);
     this.commit(
+      // O(s) time, O(s) space — s = total list size (buildings plus the owners copied below)
       this.buildings.map((b) =>
         ids.has(b.id) && b.owners.length
-          ? { ...b, owners: b.owners.map((o, i) => (i === 0 ? { ...o, skipTrace: 'pending' as const } : o)) }
+          ? {
+              ...b,
+              // bigo-lint: disable=BIGO006 — amortised: each owner is visited at most once across all buildings
+              // O(o) time, O(o) space — o = owners at this building
+              owners: b.owners.map((o, i) => (i === 0 ? { ...o, skipTrace: 'pending' as const } : o)),
+            }
           : b,
       ),
     );
@@ -281,37 +327,47 @@ export class ContactListStore {
    * Apply a batch answer to every building at that street (normally one). The skip
    * trace is per PROPERTY, so it fills the building's FIRST owner — for condo buildings
    * with several owners of record, the person found belongs to one unit at most.
-   * O(n) — n = buildings in the list.
+   * SUPER-LINEAR (reported 2026-10-02): each match commits (re-copies + re-saves) the whole list.
+   * bigo-allow: m = buildings sharing one street address — normally 1, only duplicate address picks raise it
+   * O(n + m * s) time, O(m + s) space — n = buildings in the list; m = buildings at that street; s = total list size
    */
   applyOwnerAnswer(street: string, answer: OwnerAnswer): void {
     const key = street.trim().toUpperCase();
+    // bigo-allow: m = buildings sharing one street address — normally 1, only duplicate address picks raise it
+    // O(n + m * s) time, O(m + s) space — n = buildings in the list (filter); m = buildings at that street; s = total list size (one commit per match)
     for (const b of this.buildings.filter((x) => x.address.trim().toUpperCase() === key && x.owners.length)) {
       this.applyOwnerPatch(b.id, 0, ownerPatchFromAnswer(answer));
     }
   }
 
-  /** First owner back to idle if it's still "searching…" (batch failed). */
+  /** First owner back to idle if it's still "searching…" (batch failed).
+   *  O(s) time, O(s) space — s = total list size (buildings with their owners and businesses, which commit() re-serialises) */
   resetPendingOwner(buildingId: string): void {
     this.mapOwner(buildingId, 0, (o) => (o.skipTrace === 'pending' ? { ...o, skipTrace: 'idle' } : o));
   }
 
-  /** How many of these buildings now have a found owner. O(n). */
+  /** How many of these buildings now have a found owner.
+   *  O(n + k) time, O(n + k) space — n = buildings in the list; k = building ids passed in */
   countOwnersFound(buildingIds: readonly string[]): number {
     const ids = new Set(buildingIds);
+    // O(n) time, O(n) space — n = buildings in the list
     return this.buildings.filter((b) => ids.has(b.id) && b.owners[0]?.skipTrace === 'found').length;
   }
 
+  // O(s + p + e) time, O(s + p + e) space — s = total list size; p = phones on the owner + result; e = emails on the owner + result
   private applyOwnerPatch(buildingId: string, index: number, result: Partial<OwnerContact> & { reason?: string }): void {
     const { reason, ...found } = result;
     this.mapOwner(buildingId, index, (o) => mergeSkipTrace(o, found));
     if (reason) this.patch(buildingId, { note: reason });
   }
 
+  // O(s) time, O(s) space — s = total list size (buildings with their owners and businesses, which commit() re-serialises)
   updateBusiness(buildingId: string, businessId: string, patch: Partial<BusinessContact>): void {
     // Typing a phone marks it manual so a later Retry won't replace it.
     const statusPatch: Partial<BusinessContact> = 'phone' in patch ? { phoneStatus: 'manual', phoneSource: '' } : {};
     this.mapBuilding(buildingId, (b) => ({
       ...b,
+      // O(u) time, O(u) space — u = businesses at this building
       businesses: b.businesses.map((x) => (x.id === businessId ? { ...x, ...patch, ...statusPatch } : x)),
     }));
   }
@@ -344,34 +400,44 @@ export class ContactListStore {
    * Merge lookup results into the entry, preserving user edits:
    *  * owners the user already has (by PIN, or any hand-entered owner) are kept as-is;
    *  * businesses with a manual phone keep it.
-   * O(o + b) — owners + businesses at the building.
+   * O(s + f) time, O(s + f) space — s = total list size; f = owners and businesses in the lookup result
    */
   private applyResolved(id: string, fields: ResolvedFields): void {
     this.mapBuilding(id, (b) => {
       const manualPhones = new Map(
+        // O(u) time, O(u) space — u = businesses already on the building
         b.businesses.filter((x) => x.phoneStatus === 'manual').map((x) => [x.id, x.phone] as const),
       );
+      // O(f) time, O(f) space — f = businesses in the lookup result (one Map lookup each)
       const businesses = fields.businesses.map((x) =>
         manualPhones.has(x.id) ? { ...x, phone: manualPhones.get(x.id) ?? '', phoneStatus: 'manual' as const } : x,
       );
+      // O(o) time, O(o) space — o = owners already on the building
       const handEntered = b.owners.filter((o) => !o.pin);
+      // O(o) time, O(o) space — o = owners already on the building
       const editedByPin = new Map(b.owners.filter((o) => o.pin).map((o) => [o.pin, o] as const));
+      // O(f + o) time, O(f + o) space — f = owners in the lookup result; o = hand-entered owners kept
       const owners = [...fields.owners.map((o) => editedByPin.get(o.pin) ?? o), ...handEntered];
       return { ...b, owners, businesses, status: fields.status, note: fields.note };
     });
   }
 
+  // O(s) time, O(s) space — s = total list size (buildings with their owners and businesses, which commit() re-serialises)
   private mapOwner(buildingId: string, index: number, fn: (o: OwnerContact) => OwnerContact): void {
+    // O(o) time, O(o) space — o = owners at this building
     this.mapBuilding(buildingId, (b) => ({ ...b, owners: b.owners.map((o, i) => (i === index ? fn(o) : o)) }));
   }
 
+  // O(s) time, O(s) space — s = total list size (buildings with their owners and businesses, which commit() re-serialises)
   private patch(id: string, patch: Partial<SelectedBuilding>): void {
     this.mapBuilding(id, (b) => ({ ...b, ...patch }));
   }
 
-  /** Replace one building; no-op if it was removed meanwhile (late lookup). O(n). */
+  /** Replace one building; no-op if it was removed meanwhile (late lookup).
+   *  O(s) time, O(s) space — s = total list size (buildings with their owners and businesses, which commit() re-serialises) */
   private mapBuilding(id: string, fn: (b: SelectedBuilding) => SelectedBuilding): void {
     if (!this.has(id)) return;
+    // O(n) time, O(n) space — n = buildings in the list (fn runs once)
     this.commit(this.buildings.map((b) => (b.id === id ? fn(b) : b)));
   }
 }
@@ -379,7 +445,8 @@ export class ContactListStore {
 /**
  * Merge skip-trace results into an owner without losing what's already there:
  * empty fields are filled; a phone that differs from the existing one is kept as an
- * extra; the person's name only fills an empty "contact person". O(p + e).
+ * extra; the person's name only fills an empty "contact person".
+ * O(p + e) time, O(p + e) space — p = phones on the owner + result; e = emails on the owner + result
  */
 export function mergeSkipTrace(o: OwnerContact, found: Partial<OwnerContact>): OwnerContact {
   if (found.skipTrace !== 'found') {
@@ -405,14 +472,18 @@ export function mergeSkipTrace(o: OwnerContact, found: Partial<OwnerContact>): O
     phone: keepPhone ? o.phone : found.phone ?? '',
     phoneNote: keepPhone ? o.phoneNote : found.phoneNote ?? '',
     phoneDnc: keepPhone ? o.phoneDnc : !!found.phoneDnc,
+    // O(p) time, O(p) space — p = phones on the owner + result
     extraPhones: dedupeBy(extraPhones, (p) => p.number).filter((p) => p.number !== (keepPhone ? o.phone : found.phone)),
     email: keepEmail ? o.email : found.email ?? '',
+    // O(e) time, O(e) space — e = emails on the owner + result
     extraEmails: [...new Set(extraEmails)].filter((e) => e && e !== (keepEmail ? o.email : found.email)),
   };
 }
 
-/** Keep the first item per key. O(n). */
+/** Keep the first item per key.
+ *  O(n) time, O(n) space — n = items */
 function dedupeBy<T>(items: T[], key: (t: T) => string): T[] {
   const seen = new Set<string>();
+  // O(n) time, O(n) space — n = items (one Set lookup each)
   return items.filter((t) => (seen.has(key(t)) ? false : (seen.add(key(t)), true)));
 }

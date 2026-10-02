@@ -121,6 +121,13 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   // layer id → { city it was added for, style layer ids } — so a city switch can remove
   // exactly what the previous city drew (cityLayerLifecycle.ts explains why).
   const addedRef = useRef(new Map<string, { city: string; ids: string[] }>());
+  // The open feature popup — closed on city switch so one city's details never sit on
+  // top of another city's map.
+  const popupRef = useRef<maplibregl.Popup | null>(null);
+  useEffect(() => {
+    popupRef.current?.remove();
+    popupRef.current = null;
+  }, [citySlug]);
 
   // Initialize map
   useEffect(() => {
@@ -372,6 +379,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       .setLngLat(lngLat)
       .setHTML(html)
       .addTo(map);
+    popupRef.current = popup;
 
     // Wire up "Open Details" / "Add to contact list" buttons in building popups
     if (isBldg && props.id) {

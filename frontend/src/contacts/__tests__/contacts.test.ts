@@ -352,6 +352,8 @@ describe('CSV export', () => {
     expect(text.split('\r\n')[0]).toBe('Name / Address,Building Owner,Contact Name,Phone,Email,Website,Mail Street,Mail City,Mail State,Mail ZIP,Owner Lookup Date');
     expect(text.split('\r\n')).toHaveLength(3);
     expect(csvFilename(new Date('2026-10-01T12:00:00Z'))).toBe('contacts-2026-10-01.csv');
+    expect(csvFilename(new Date('2026-10-01T12:00:00Z'), 'detroit')).toBe('contacts-detroit-2026-10-01.csv');
+    expect(new ContactListStore(null, 'dayton', []).city).toBe('dayton');
   });
 });
 

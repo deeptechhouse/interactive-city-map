@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dayton Next Steps</title>
+<style>:root{--bg:#f6f4ef;--ink:#1d2430;--code:#f1ede4;--accent:#2f7d6b}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#13171d;--ink:#e6e8ec;--code:#222a34;--accent:#5cc2a8}}:root[data-theme="dark"]{--bg:#13171d;--ink:#e6e8ec;--code:#222a34;--accent:#5cc2a8}body{margin:0 auto;max-width:900px;padding:24px 16px;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,sans-serif}h1{border-bottom:4px solid var(--accent)}code{background:var(--code);padding:1px 5px;border-radius:4px}</style></head><body>
+<h1>Agent prompt — Dayton parity, phases D0–D1</h1>
+<p><b>Context files (read these first):</b></p>
+<ul>
+<li><code>docs/dayton_parity/dayton_parity_plan.html</code></li>
+<li><code>docs/dayton_parity/dayton_tdd.html</code></li>
+<li><code>docs/detroit_parity/detroit_tdd.html</code> §5.1 (CityProfile)</li>
+<li>Skeleton code: <code>backend/app/data_import/dayton/</code>, <code>frontend/src/cities/dayton/</code></li>
+</ul>
+<p><b>Where you work:</b> the worktree <code>/Users/aaandy/_andy_ai_projects_2026/interactive-city-map-dayton</code>, branch <code>feat/dayton-skeleton</code>.</p>
+<ul>
+<li>Never edit files in the master working tree.</li>
+<li>Run <code>ListAgents</code>, and message the Detroit and Chicago sessions before touching any file outside the Dayton ownership list (plan §6).</li>
+</ul>
+<p><b>Task:</b></p>
+<ol>
+<li><b>D0:</b> Ask the user to start Docker for the old fork, then <code>pg_dump</code> its database volume to <code>backups/dayton_fork_YYYY-MM-DD.dump</code>. Check whether the multi-city WIP has been committed on master since 2026-10-02. If it has, rebase this branch onto that commit.</li>
+<li><b>D1:</b> For every FieldMap in <code>dayton/field_maps.py</code>:
+<ul>
+<li>Fetch <code>&lt;source&gt;?f=json</code> and correct the field names.</li>
+<li>Set <code>verified=True</code> and add a dated comment.</li>
+<li>Save one page of features as a fixture under <code>backend/tests/fixtures/dayton/</code>.</li>
+</ul></li>
+<li>Check the CORS headers on the Montgomery County parcels service, and record the result in <code>cities/dayton/contacts.ts</code>.</li>
+<li>Report the zoning code families (<code>GROUP BY</code> on the fixture) and update <code>DAYTON_ZONE_FAMILIES</code> and its docstring.</li>
+</ol>
+<p><b>Acceptance:</b> no FieldMap is left with <code>verified=False</code>; fixtures are committed; all lint and type gates are unchanged (tsc 19 pre-existing errors, 0 new).</p>
+</body></html>

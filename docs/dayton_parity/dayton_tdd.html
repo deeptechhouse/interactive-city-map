@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dayton Parity TDD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f4ef;--panel:#fff;--ink:#1d2430;--muted:#5b6474;--line:#ddd8cc;--accent:#2f7d6b;--accent2:#1f5f8b;--ok:#2f7d4a;--part:#a86b00;--bad:#b42318;--na:#6b7280;--code:#f1ede4}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#13171d;--panel:#1b2129;--ink:#e6e8ec;--muted:#9aa3b2;--line:#2c3440;--accent:#5cc2a8;--accent2:#6fb1de;--ok:#5cc28a;--part:#e0a83a;--bad:#f07a6e;--na:#9aa3b2;--code:#222a34}}
+:root[data-theme="dark"]{--bg:#13171d;--panel:#1b2129;--ink:#e6e8ec;--muted:#9aa3b2;--line:#2c3440;--accent:#5cc2a8;--accent2:#6fb1de;--ok:#5cc28a;--part:#e0a83a;--bad:#f07a6e;--na:#9aa3b2;--code:#222a34}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 "IBM Plex Sans",system-ui,sans-serif}
+header{background:linear-gradient(120deg,#1d2430,#24423c);color:#f4efe6;padding:40px 16px 28px;border-bottom:6px solid var(--accent)}
+header .wrap,main{max-width:1080px;margin:0 auto}main{padding:8px 16px 64px}
+h1{font:600 30px/1.2 "IBM Plex Sans Condensed","IBM Plex Sans",sans-serif;margin:0 0 6px}header p{margin:0;color:#c9cfd8}
+h2{font:600 21px/1.3 "IBM Plex Sans Condensed",sans-serif;margin:40px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--line)}h2 .n{color:var(--accent);margin-right:8px}
+h3{font-size:16px;margin:24px 0 6px}
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);font-size:13.5px;margin:10px 0}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{background:var(--code);font-weight:600}
+.scroll{overflow-x:auto}
+code,pre{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12.5px;background:var(--code);border-radius:4px}code{padding:1px 5px}pre{padding:12px 14px;overflow-x:auto;border:1px solid var(--line)}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600;color:#fff;white-space:nowrap}
+.ok{background:var(--ok)}.part{background:var(--part)}.bad{background:var(--bad)}.na{background:var(--na)}
+.callout{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--bad);padding:10px 14px;border-radius:6px;margin:12px 0}.callout.info{border-left-color:var(--accent2)}
+.muted{color:var(--muted)}ul,ol{padding-left:22px}li{margin:3px 0}
+nav.toc{background:var(--panel);border:1px solid var(--line);padding:10px 16px;border-radius:6px;margin-top:20px;font-size:14px}
+a{color:var(--accent2)}
+svg text{font-family:"IBM Plex Sans",sans-serif}
+</style></head><body>
+<header><div class="wrap">
+<h1>Dayton Parity &amp; City Packs — Technical Design Document</h1>
+<p>Interactive City Map · bringing Dayton, OH into the shared multi-city app · modular per-city builds · 2026-10-02 · plan: <a style="color:#8fe0c8" href="dayton_parity_plan.html">dayton_parity_plan.html</a> · companion: <a style="color:#8fe0c8" href="../detroit_parity/detroit_tdd.html">Detroit TDD</a></p>
+</div></header>
+<main>
+<nav class="toc"><b>Contents</b> — <a href="#scope">1 Scope</a> · <a href="#context">2 Context</a> · <a href="#arch">3 Architecture</a> · <a href="#data">4 Data model</a> · <a href="#fe">5 Frontend</a> · <a href="#be">6 Backend pipeline</a> · <a href="#api">7 API</a> · <a href="#packs">8 City packs</a> · <a href="#deploy">9 Deployment</a> · <a href="#deps">10 Dependencies</a> · <a href="#skeleton">11 Skeleton</a> · <a href="#test">12 Testing</a> · <a href="#sec">13 Security</a></nav>
+
+<h2 id="scope"><span class="n">1</span>Scope</h2>
+<p><b>In scope:</b></p>
+<ol>
+<li>Retire the separate Dayton fork. Dayton becomes a city in the shared <code>interactive-city-map</code> app, through the same <code>CityProfile</code> seam as Detroit.</li>
+<li>Bring Dayton to Chicago's feature level in static mode and in dev mode.</li>
+<li>Make each city a removable <b>city pack</b>:
+<ul>
+<li>A server build holds every city and shares resources.</li>
+<li>A tablet build can hold a single city.</li>
+</ul></li>
+</ol>
+<p><b>Out of scope:</b> features Chicago itself lacks; Cincinnati, although the seam makes it cheap; interior ML work; Detroit's own parity, which is covered by the Detroit plan.</p>
+<p><b>Constraints:</b></p>
+<ul>
+<li>Chicago's and Detroit's output stays identical.</li>
+<li>Dayton code never imports another city's module.</li>
+<li>Free, open-source services only, because this is a private project (§2).</li>
+</ul>
+
+<h2 id="context"><span class="n">2</span>Current state</h2>
+<p>Dayton exists today as <code>../Dayton_interactive_map</code>. It is a 12-commit fork of Chicago's March 2026 code. Its core is adapted to Dayton: config, map center, ArcGIS importers, police and neighborhood layers, railroad right-of-way, and an enriched building popup. It has none of Chicago's later work: contacts, saved searches, focus areas, the tools panel, static mode, deployment, and the city-profile seam.</p>
+<p>Several layers render empty or show another city's data. Federal properties shows Chicago data, the assessor link points to Cook County, and the zoning and railroad filters use Chicago vocabularies. The transit importer cannot read GTFS, and parcels hits a stub. Estimated parity is <b>≈35%</b>. The full matrix is in <a href="dayton_parity_plan.html#matrix">plan §2</a>.</p>
+<div class="callout info">The shared app's own multi-city seam (<code>CityProfile</code>, <code>registry.ts</code>, <code>city_registry.py</code>, <code>export_city_static.py</code>) was designed in the Detroit TDD and is still <b>stubbed and uncommitted on master</b>. This design builds on it and does not redesign it. Interface changes go through the Detroit plan's owner.</div>
+
+<h2 id="arch"><span class="n">3</span>Architecture</h2>
+<svg viewBox="0 0 1040 360" role="img" aria-label="One app, city packs, two build targets" style="width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:6px">
+<style>.b{fill:var(--code);stroke:var(--line)}.h{fill:none;stroke:var(--accent);stroke-width:2}.t{fill:var(--ink);font-size:13px}.s{fill:var(--muted);font:11.5px 'IBM Plex Mono',monospace}.a{stroke:var(--muted);stroke-width:1.5;fill:none;marker-end:url(#ar)}</style>
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="var(--muted)"/></marker></defs>
+<text class="t" x="20" y="26" style="font-weight:600">Source tree (one repo)</text>
+<rect class="b" x="20" y="38" width="220" height="92" rx="6"/><text class="t" x="32" y="60">Shared app</text><text class="s" x="32" y="80">MapContainer · useMapLayers</text><text class="s" x="32" y="96">focus/ · contacts/ · presets/</text><text class="s" x="32" y="112">CityProfile port · registry</text>
+<rect class="h" x="270" y="38" width="200" height="40" rx="6"/><text class="s" x="282" y="63">cities/chicago (Detroit P4)</text>
+<rect class="h" x="270" y="86" width="200" height="40" rx="6"/><text class="s" x="282" y="111">cities/detroit (skeleton)</text>
+<rect class="h" x="270" y="134" width="200" height="40" rx="6" style="stroke-width:3"/><text class="s" x="282" y="159">cities/dayton (this skeleton)</text>
+<rect class="b" x="20" y="146" width="220" height="40" rx="6"/><text class="s" x="32" y="171">public/data/&lt;slug&gt;/ + shared/</text>
+<path class="a" d="M240,84 L268,58"/><path class="a" d="M240,90 L268,106"/><path class="a" d="M240,100 L268,150"/>
+<rect class="h" x="520" y="70" width="190" height="70" rx="6"/><text class="t" x="532" y="94">cityPackPlugin</text><text class="s" x="532" y="114">VITE_CITIES=…</text><text class="s" x="532" y="129">virtual:city-profiles</text>
+<path class="a" d="M470,110 L518,108"/><path class="a" d="M240,166 C380,200 470,160 518,130"/>
+<text class="t" x="760" y="26" style="font-weight:600">Build targets</text>
+<rect class="b" x="760" y="38" width="260" height="78" rx="6"/><text class="t" x="772" y="60">Server build (VITE_CITIES=all)</text><text class="s" x="772" y="80">all profiles · all data/&lt;slug&gt;/</text><text class="s" x="772" y="96">shared basemap + fonts · one origin</text>
+<rect class="b" x="760" y="130" width="260" height="78" rx="6"/><text class="t" x="772" y="152">Tablet build (VITE_CITIES=dayton)</text><text class="s" x="772" y="172">dayton profile only · data/dayton/</text><text class="s" x="772" y="188">≤ 120 MB · offline PWA</text>
+<path class="a" d="M710,96 L758,78"/><path class="a" d="M710,116 L758,166"/>
+<text class="t" x="20" y="240" style="font-weight:600">Data pipeline (Python, dev machine only)</text>
+<rect class="b" x="20" y="252" width="150" height="56" rx="6"/><text class="t" x="32" y="276">run.py</text><text class="s" x="32" y="294">--city dayton</text>
+<rect class="b" x="200" y="252" width="200" height="56" rx="6"/><text class="t" x="212" y="276">city_registry</text><text class="s" x="212" y="294">+ dayton_importer_overrides()</text>
+<rect class="h" x="430" y="252" width="170" height="56" rx="6"/><text class="t" x="442" y="276">data_import/dayton/*</text><text class="s" x="442" y="294">+ enrich.run_all</text>
+<rect class="b" x="630" y="252" width="130" height="56" rx="6"/><text class="t" x="642" y="276">PostGIS</text><text class="s" x="642" y="294">rows by city_id</text>
+<rect class="b" x="790" y="252" width="230" height="56" rx="6"/><text class="t" x="802" y="276">export_city_static --city dayton</text><text class="s" x="802" y="294">→ public/data/dayton/*.pmtiles</text>
+<path class="a" d="M170,280 L198,280"/><path class="a" d="M400,280 L428,280"/><path class="a" d="M600,280 L628,280"/><path class="a" d="M760,280 L788,280"/>
+<path class="a" d="M900,252 C900,230 200,230 130,190"/>
+</svg>
+<p class="muted">A green outline marks a city pack or a new seam. The database is a build-time tool. The deployed artifact is static files plus the small lookup server, so a tablet never needs PostGIS.</p>
+<h3>Paradigm and design principles</h3>
+<ul>
+<li><b>Paradigm, mixed by layer (§5):</b>
+<ul>
+<li>Frontend city packs are <b>data-shaped modules</b>: a profile object, pure functions and adapter classes implementing existing ports. That is the idiom of the React and hooks code.</li>
+<li>Importers stay <b>OOP</b>, as subclasses of <code>BaseImporter</code> and the shared importers, because the pipeline already uses template-method classes.</li>
+<li>Enrichment and export are <b>procedural SQL scripts</b>, because set-based SQL is the right tool for spatial joins.</li>
+</ul></li>
+<li><b>Open/Closed:</b> Dayton is added as new files. The two shared seams each need one registration line: <code>registry.ts</code> and <code>CITY_OVERRIDES</code>.</li>
+<li><b>Dependency inversion:</b> shared code depends on <code>CityProfile</code>, <code>OwnerSource</code>/<code>BusinessSource</code> and <code>BaseImporter</code>, never on Dayton.</li>
+<li><b>Fail closed:</b> an unknown <code>VITE_CITIES</code> slug breaks the build, and an unknown <code>?city=</code> returns null. Features Dayton doesn't have yet (<code>focus</code>, <code>contacts</code>) are <code>null</code>, so the UI shows a "not available" note instead of another city's data.</li>
+<li><b>Single source of truth:</b>
+<ul>
+<li>Upstream field names live in <code>dayton/field_maps.py</code>.</li>
+<li>Vocabularies are generated by the exporter: POI counts and GDRTA colours.</li>
+<li>The layer id list is <code>DAYTON_LAYER_IDS</code>.</li>
+</ul></li>
+</ul>
+
+<h2 id="data"><span class="n">4</span>Data model</h2>
+<p>There are no new tables. Dayton reuses the shared schema: <code>id uuid</code>, <code>city_id → cities.id</code>, SRID 4326, <code>metadata JSONB</code>, a GIST index on geom and a btree index on city_id. The fork created ad-hoc tables (<code>wards</code>, <code>police_districts</code>) with raw SQL. Those are <b>not</b> carried over.</p>
+<div class="scroll"><table>
+<tr><th>Table</th><th>Migration</th><th>Dayton source</th><th>Expected rows</th><th>Notes</th></tr>
+<tr><td>parcels</td><td>001</td><td>Montgomery County Auditor FeatureServer</td><td>~272K (unverified)</td><td>owner, appraisal and sale go into <code>metadata</code> with clean keys</td></tr>
+<tr><td>buildings</td><td>001</td><td>City of Dayton MapServer/307 (Microsoft footprints fallback)</td><td>unverified (fork: 80K+ partial / 335,825)</td><td>split multipart; clip to bounds</td></tr>
+<tr><td>zoning_districts</td><td>001</td><td>MapServer/203</td><td>~970</td><td>Dayton-only classifier</td></tr>
+<tr><td>railroads / pois</td><td>001</td><td>OSM Overpass</td><td>~503 / ~338</td><td>shared importers, bbox from YAML</td></tr>
+<tr><td>transit_lines / stations</td><td>001</td><td>GDRTA GTFS</td><td>—</td><td>shared GTFS path, via a <code>*_gtfs_url</code> key</td></tr>
+<tr><td>waterways</td><td>001</td><td>USGS NHD MapServer/6</td><td>~560</td><td>upper-case field names (the same trap as Detroit)</td></tr>
+<tr><td>neighborhoods</td><td>003</td><td>MapServer/310</td><td>97</td><td>replaces the fork's <code>wards</code></td></tr>
+<tr><td>police_precincts</td><td>005 (draft)</td><td>Police/PoliceAreas/0</td><td>4? (unverified)</td><td>replaces the fork's <code>police_districts</code></td></tr>
+<tr><td>zip_codes</td><td>005 (draft)</td><td>Census TIGER ZCTA520</td><td>~20</td><td>453/454 prefix ∩ city limit</td></tr>
+<tr><td>parks</td><td>005 (draft)</td><td>OSM leisure=park (MetroParks layer unverified)</td><td>low hundreds</td><td>never <code>parcels</code></td></tr>
+<tr><td>major_streets</td><td>005 (draft)</td><td>MapServer/312</td><td>~30 streets</td><td>arterial filter</td></tr>
+<tr><td>railroad_row</td><td>needs a table: add to draft 005 (Detroit plan P1)</td><td>parcels + OSM</td><td>~27 corridors</td><td>metric buffer</td></tr>
+</table></div>
+<p class="muted"><code>railroad_row</code> is currently embedded TypeScript for Chicago and the fork. Both Detroit and Dayton need it as a table, so it belongs in migration 005, which the Detroit plan owns. Raise it there; don't create a Dayton-only migration.</p>
+
+<h2 id="fe"><span class="n">5</span>Frontend</h2>
+<h3>5.1 Dayton profile</h3>
+<p><code>frontend/src/cities/dayton/index.ts</code> exports <code>DAYTON_PROFILE: CityProfile</code>. The fields are listed below. The <code>CityProfile</code> interface itself is quoted verbatim in the Detroit TDD §5.1 and is unchanged.</p>
+<pre>slug 'dayton' · name 'Dayton' · state 'OH' · county 'Montgomery County'
+center [-84.1916, 39.7589] · defaultZoom 12 · bounds [[-84.35,39.65],[-84.05,39.85]]
+layers() → daytonLayerStates(IS_STATIC)      devSources → daytonDevSources
+staticAssets → { basemapPmtiles: './data/dayton/basemap.pmtiles', layerPmtiles: daytonStaticSources() }
+popups DAYTON_POPUPS · zoning DAYTON_ZONE_CLASSES · railroadOwners/Types · transitColors · poiCategoryCounts
+focus null → DAYTON_FOCUS (D5) · contacts null → daytonContactSources() (D6)</pre>
+<h3>5.2 Layer map</h3>
+<div class="scroll"><table>
+<tr><th>Chicago layer</th><th>Dayton</th><th>How</th></tr>
+<tr><td>buildings, zoning, railroads, transit, waterways, pois, major_streets, zip_codes</td><td>same ids</td><td>shared <code>add*Layer</code>, Dayton sources and vocabularies</td></tr>
+<tr><td>parks</td><td>parks</td><td>shared park layer with a source-layer parameter (<code>'parks'</code>). Generalised in Detroit P4</td></tr>
+<tr><td>police_districts (CPD embedded)</td><td>police_precincts</td><td>shared boundary-outline layer (Detroit P4)</td></tr>
+<tr><td>wards</td><td>neighborhoods</td><td>existing NeighborhoodLayer</td></tr>
+<tr><td>railroad_row</td><td>railroad_row</td><td>static export of the new table</td></tr>
+<tr><td>sanborn</td><td>sanborn (D8)</td><td>LoC Dayton sheets; SanbornOverlay needs a per-profile sheet set</td></tr>
+<tr><td>federal_properties</td><td>not offered until D8</td><td>a Dayton GSA list is needed</td></tr>
+<tr><td>gang_territory</td><td>not offered</td><td>no official dataset</td></tr>
+</table></div>
+<h3>5.3 City switch</h3>
+<p>Same lifecycle as Detroit TDD §5.3: on a switch, <code>removeCityLayers</code> clears the previous city's layers, the profile's layers are added, and a <code>flyTo</code> moves to its center. Saved searches are already keyed per city. Contact lists are kept per city.</p>
+<h3>5.4 Focus areas</h3>
+<p>Dayton reuses the three <code>FocusKind</code> slots: <code>zip</code> = ZCTAs, <code>police</code> = DPD areas, <code>ward</code> = <b>Neighborhoods</b> (97), labelled through <code>kindLabels</code>. Dayton has no wards or council districts, because its City Commission is at-large. Boundaries are loaded with a lazy <code>import()</code> from <code>src/cities/dayton/data/</code>.</p>
+<h3>5.5 Zoning</h3>
+<p><code>DAYTON_ZONE_CLASSES</code> is consumed through <code>buildZoningFilter(classes)</code> (Detroit P5). Its families are unproven until a <code>GROUP BY zone_code</code> runs after import. The keys must equal the backend's <code>zone_class</code> values.</p>
+<h3>5.6 Contacts</h3>
+<ul>
+<li><b>Owners:</b> <code>MontgomeryCountyOwnerSource</code>, which queries the county parcels FeatureServer from the browser. CORS is unverified; the fallback is a proxy through the lookup server.</li>
+<li><b>Businesses:</b> <code>DaytonPoiBusinessSource</code>, which uses OSM POIs inside the footprint. Dayton has no business-licence dataset, so coverage is lower than Chicago's, and the panel says so.</li>
+<li>Postal defaults are DAYTON, OH. The corporation link goes to the Ohio Secretary of State.</li>
+<li>Phone lookups add <code>dayton=google,foursquare</code> to <code>PHONE_LOOKUP_PROVIDERS_BY_CITY</code>.</li>
+</ul>
+
+<h2 id="be"><span class="n">6</span>Backend pipeline</h2>
+<p><code>python -m app.data_import.run --city dayton</code> → <code>importers_for('dayton')</code> = defaults overlaid with <code>dayton_importer_overrides()</code>, in this order:</p>
+<pre>parcels      DaytonParcelsImporter        (replaces Cook County stub)
+buildings    DaytonBuildingsImporter      (transform override)
+zoning       DaytonZoningImporter         (Dayton-only classify_dayton_zone)
+railroads    shared OSM                   pois  shared OSM
+transit      shared GTFS path             (dayton.yaml: gdrta_gtfs_url)
+waterways    shared NHD                   (field-case fix shared with Detroit)
+boundaries   DaytonBoundariesImporter     → police_precincts, neighborhoods, zip_codes
+parks        DaytonParksImporter          major_streets  DaytonMajorStreetsImporter
+railroad_row DaytonRailroadRowImporter    (after parcels)
+skipped      dlba_properties, blight_violations, council_districts, streets (DAYTON_SKIPPED_LAYERS)
+then         enrich.run_all → parcels→buildings, zoning→buildings, POIs→buildings</pre>
+<p><b>Fork code to port, not rewrite:</b></p>
+<ul>
+<li><code>arcgis_rest_importer.py</code>: merge any missing behaviour into the shared <code>arcgis_helper</code>. MapServer pagination differs from FeatureServer pagination.</li>
+<li><code>import_police_districts.py</code> and <code>import_neighborhoods.py</code> become the boundaries importer.</li>
+<li><code>scripts/generate_railroad_row.py</code> becomes the ROW importer.</li>
+<li>The fork's newer <code>dayton.yaml</code> source URLs replace the shared repo's older copy.</li>
+</ul>
+
+<h2 id="api"><span class="n">7</span>API</h2>
+<p>There are no new endpoints. All city-scoped routes already take <code>/cities/{slug}/…</code>. Two existing fixes are owned by other sessions:</p>
+<ul>
+<li>The frontend/backend path prefix (<code>/api</code> vs <code>/api/v1</code>), owned by the Chicago session.</li>
+<li><code>contacts.py</code> owner batch hard-coding Chicago/IL, which is Detroit P6.</li>
+</ul>
+<p>Dayton's phone and owner calls depend on both.</p>
+
+<h2 id="packs"><span class="n">8</span>City packs: modular builds</h2>
+<p>A <b>city pack</b> has three parts:</p>
+<ul>
+<li><code>src/cities/&lt;slug&gt;/</code>: the profile code.</li>
+<li><code>src/cities/&lt;slug&gt;/data/</code>: bundled GeoJSON, loaded only with <code>import()</code>.</li>
+<li><code>public/data/&lt;slug&gt;/</code>: PMTiles.</li>
+</ul>
+<p>Assets every pack may use go in <code>public/data/shared/</code> (and fonts in <code>public/fonts/</code>).</p>
+<div class="scroll"><table>
+<tr><th>Mechanism</th><th>What it removes</th><th>Where</th></tr>
+<tr><td><code>VITE_CITIES</code> → <code>parseEnabledCities</code> (fail closed)</td><td>—</td><td><code>src/cities/packs.ts</code></td></tr>
+<tr><td><code>virtual:city-profiles</code> lists only the enabled profiles; <code>registry.ts</code> reads it</td><td>Other cities' code from the bundle</td><td><code>vite/cityPackPlugin.ts</code></td></tr>
+<tr><td>Filtered public copy (<code>isPathInBuild</code>) instead of Vite's copy-everything</td><td>Other cities' PMTiles from <code>dist</code></td><td>same plugin, <code>writeBundle</code></td></tr>
+<tr><td>Dynamic <code>import()</code> for each city's bundled GeoJSON</td><td>Unused data from the first page load, even in an all-city build</td><td>each profile's <code>focus.ts</code> / layers</td></tr>
+</table></div>
+<div class="callout"><b>Prerequisite owned by the Detroit plan, P3/P4:</b>
+<ul>
+<li>Chicago's static files must move from flat <code>public/data/*.pmtiles</code> to <code>public/data/chicago/</code>.</li>
+<li>Chicago's <code>static_*.ts</code> GeoJSON (about 4.5 MB, imported eagerly today) must become lazy imports.</li>
+</ul>
+<p>Until then, <code>isPathInBuild</code> treats flat <code>data/*</code> files as Chicago's.</p></div>
+<h3>Shared resources on the server</h3>
+<ul>
+<li><b>Basemap:</b> the server build uses one regional Protomaps extract covering Chicago, Detroit and Dayton, so tiles shared between cities are stored once. The tablet build uses a per-city clipped extract. This needs either a <code>basemapPmtiles</code> override per build, or a shared basemap in the pack manifest. That is an interface change, so it goes to the Detroit plan's owner rather than being edited here. Measure the regional extract size before choosing; it is unmeasured.</li>
+<li><b>Code:</b> MapLibre, React, and the shared controls download once, because all profiles live in one bundle.</li>
+<li><b>Backend:</b> one lookup/map server and one cache (owner-lookup SQLite) serve every city.</li>
+</ul>
+
+<h2 id="deploy"><span class="n">9</span>Deployment</h2>
+<h3>Private server (all cities)</h3>
+<p>This builds on the Chicago session's in-progress no-Docker single server: <code>phone_app.py</code> becomes the map server. The server runs that app behind <b>Caddy</b>, which provides automatic TLS, serves static files, and supports HTTP Range requests for PMTiles. Access is controlled by one of:</p>
+<ul>
+<li><b>Tailscale</b>, free for personal use and recommended: nothing is exposed to the internet.</li>
+<li><b>Caddy basic auth</b> over TLS: reachable from anywhere, so §27 applies in full.</li>
+</ul>
+<p>The PostGIS and Martin Docker stack stays a dev-machine tool for imports. The plan's §7 compares this with the full Docker stack and with the existing DreamHost static target.</p>
+<h3>Tablet (one city)</h3>
+<p>Run <code>VITE_CITIES=dayton npm run build:static</code>. The output is installed as a <b>PWA</b> from the private server. A "Download Dayton for offline" action stores the pack in Cache Storage, and the service worker answers PMTiles Range requests from the cache. The fallback is a Capacitor wrapper around the same build:</p>
+<ul>
+<li>Android: free to sideload.</li>
+<li>iOS: needs a paid Apple developer account for installs that last more than 7 days (cost flagged in plan §7).</li>
+</ul>
+<p>Size budget: ≤ 120 MB per city, with buildings ≤ 70 MB.</p>
+
+<h2 id="deps"><span class="n">10</span>Dependencies</h2>
+<div class="scroll"><table>
+<tr><th>Dependency</th><th>Use</th><th>Cost / licence</th><th>Swappable</th></tr>
+<tr><td>City of Dayton ArcGIS, Montgomery County Auditor ArcGIS, Census TIGER, USGS NHD, GDRTA GTFS, OSM Overpass</td><td>source data</td><td>free, public</td><td>per source, via field_maps / YAML</td></tr>
+<tr><td>tippecanoe · GDAL · pmtiles CLI</td><td>static export</td><td>BSD / MIT</td><td>—</td></tr>
+<tr><td>Protomaps basemap</td><td>basemap tiles</td><td>free (ODbL data)</td><td>OpenFreeMap (the fork's choice)</td></tr>
+<tr><td>Caddy</td><td>TLS + static + auth</td><td>Apache-2.0</td><td>nginx</td></tr>
+<tr><td>Tailscale</td><td>private access</td><td>free personal plan</td><td>WireGuard (self-managed), Headscale</td></tr>
+<tr><td>vite-plugin-pwa / Workbox</td><td>offline pack</td><td>MIT</td><td>hand-written service worker</td></tr>
+<tr><td>Google Places / Foursquare / Tracerfy</td><td>phones, owner trace (existing, paid per call, button-triggered)</td><td>existing keys</td><td>existing adapters</td></tr>
+</table></div>
+
+<h2 id="skeleton"><span class="n">11</span>Skeleton (branch <code>feat/dayton-skeleton</code>)</h2>
+<p>Only new files are added. No existing file changes. Every body throws <code>notImplemented</code> / <code>NotImplementedError</code>, and nothing imports these files yet.</p>
+<pre>frontend/src/cities/dayton/{index,layers,popups,zoning,taxonomies,focus,contacts}.ts
+frontend/src/cities/dayton/__tests__/daytonProfile.test.ts   (18 it.todo)
+frontend/src/cities/packs.ts                                  (VITE_CITIES parsing, path filter)
+frontend/src/cities/virtual-city-profiles.d.ts                (virtual module type)
+frontend/vite/cityPackPlugin.ts                               (not yet in vite.config.ts)
+backend/app/data_import/dayton/{__init__,plan,field_maps,enrich}.py
+backend/app/data_import/dayton/import_{parcels,buildings,zoning,boundaries,parks,major_streets,railroad_row}.py
+backend/tests/test_dayton_parity.py                           (11 skipped)</pre>
+<p>Verification on 2026-10-02:</p>
+<ul>
+<li><code>tsc -b</code>: still the 19 pre-existing errors, 0 in new files.</li>
+<li>The plugin type-checks against <code>tsconfig.node</code>.</li>
+<li>eslint, ruff, black and bigo-lint are clean.</li>
+<li>vitest: 32 todos, 0 failures.</li>
+<li>pytest: 11 skipped.</li>
+<li>All 10 Dayton Python modules import.</li>
+</ul>
+
+<h2 id="test"><span class="n">12</span>Testing</h2>
+<ul>
+<li><b>Acceptance gates:</b> each <code>it.todo</code> or skipped test names its phase. A phase is done when its tests are real and passing.</li>
+<li><b>Importers:</b> recorded fixtures (one page of each ArcGIS layer saved as JSON), with no live network in CI.</li>
+<li><b>Snapshots:</b> the Chicago and Detroit layer lists stay byte-identical (<code>createDefaultLayers.test.ts</code>, added by the Detroit session).</li>
+<li><b>Pack builds:</b> CI builds <code>VITE_CITIES=dayton</code> and checks that <code>dist</code> has no <code>chicago</code>/<code>detroit</code> chunk or data folder, and that the total is ≤ 120 MB.</li>
+<li><b>E2E:</b> Playwright opens <code>?city=dayton</code>, toggles each layer, clicks a building, and checks the popup shows Montgomery County data.</li>
+<li><b>Coverage:</b> 90% line coverage on the new modules (§22).</li>
+</ul>
+
+<h2 id="sec"><span class="n">13</span>Security</h2>
+<ul>
+<li><b>XSS:</b> the fork's building popup interpolates tile properties into HTML unescaped. Dayton popups must use the shared escape helper. A test checks this.</li>
+<li><b>ArcGIS <code>where</code> injection:</b> the owner lookup normalises and quote-escapes addresses, the same way as <code>soqlString</code>.</li>
+<li><b>Internet-facing server (§27):</b>
+<ul>
+<li>TLS through Caddy.</li>
+<li>Auth on every path, including PMTiles: the owner and appraisal data is public record, but compiled it is still sensitive.</li>
+<li>Restrictive CORS and rate limits on the lookup endpoints.</li>
+<li>Security headers.</li>
+<li>No API keys in the client bundle; Google, Foursquare and Tracerfy stay server-side.</li>
+</ul>
+Tailscale-only access removes public exposure entirely.</li>
+<li><b>Tablet:</b> offline packs contain owner names and mailing addresses. Rely on device encryption and a screen lock, and leave contacts out of tablet packs by default (an ADJUSTABLE build flag).</li>
+<li><b>Supply chain:</b> check every new npm or pip package on its registry before adding it (§8.5).</li>
+</ul>
+</main></body></html>

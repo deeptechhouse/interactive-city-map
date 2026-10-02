@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Multi-City Parity TDD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f4ef;--panel:#fff;--ink:#1d2430;--muted:#5b6474;--line:#ddd8cc;--accent:#5b4bb4;--det:#b4531f;--day:#2f7d6b;--chi:#1f5f8b;--ok:#2f7d4a;--part:#a86b00;--bad:#b42318;--code:#f1ede4}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#13171d;--panel:#1b2129;--ink:#e6e8ec;--muted:#9aa3b2;--line:#2c3440;--accent:#a99cf0;--det:#e08a4f;--day:#5cc2a8;--chi:#6fb1de;--ok:#5cc28a;--part:#e0a83a;--bad:#f07a6e;--code:#222a34}}
+:root[data-theme="dark"]{--bg:#13171d;--panel:#1b2129;--ink:#e6e8ec;--muted:#9aa3b2;--line:#2c3440;--accent:#a99cf0;--det:#e08a4f;--day:#5cc2a8;--chi:#6fb1de;--ok:#5cc28a;--part:#e0a83a;--bad:#f07a6e;--code:#222a34}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 "IBM Plex Sans",system-ui,sans-serif}
+header{background:linear-gradient(120deg,#1d2430,#33295e);color:#f4efe6;padding:40px 16px 28px;border-bottom:6px solid var(--accent)}
+header .wrap,main{max-width:1120px;margin:0 auto}main{padding:8px 16px 64px}
+h1{font:600 30px/1.2 "IBM Plex Sans Condensed","IBM Plex Sans",sans-serif;margin:0 0 6px}header p{margin:0;color:#c9cfd8}header a{color:#cfc6ff}
+h2{font:600 21px/1.3 "IBM Plex Sans Condensed",sans-serif;margin:40px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--line)}h2 .n{color:var(--accent);margin-right:8px}
+h3{font-size:16px;margin:24px 0 6px}
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);font-size:13.5px;margin:10px 0}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{background:var(--code);font-weight:600}
+.scroll{overflow-x:auto}
+code,pre{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12.5px;background:var(--code);border-radius:4px}code{padding:1px 5px}pre{padding:12px 14px;overflow-x:auto;border:1px solid var(--line)}
+.tag{display:inline-block;padding:0 7px;border-radius:9px;font-size:11.5px;font-weight:600;color:#fff;white-space:nowrap}
+.s{background:var(--accent)}.d{background:var(--det)}.y{background:var(--day)}.c{background:var(--chi)}
+.callout{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--chi);padding:10px 14px;border-radius:6px;margin:12px 0}.callout.warn{border-left-color:var(--bad)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);padding:12px 14px;border-radius:6px}.card b{display:block;font-size:24px;line-height:1.15}.card span{color:var(--muted);font-size:13px}
+.muted{color:var(--muted)}ul,ol{padding-left:22px}li{margin:3px 0}
+nav.toc{background:var(--panel);border:1px solid var(--line);padding:10px 16px;border-radius:6px;margin-top:20px;font-size:14px}
+a{color:var(--chi)}
+</style></head><body>
+<header><div class="wrap">
+<h1>Multi-City Parity: Combined TDD &amp; Joint Implementation Plan</h1>
+<p>Detroit + Dayton, built together on one city-profile seam, with Chicago kept working throughout · 2026-10-02.<br>
+Source documents, still the authority for city-specific detail:
+<a href="../detroit_parity/detroit_tdd.html">Detroit TDD</a> · <a href="../detroit_parity/detroit_parity_plan.html">Detroit plan</a> · <a href="../dayton_parity/dayton_tdd.html">Dayton TDD</a> · <a href="../dayton_parity/dayton_parity_plan.html">Dayton plan</a></p>
+</div></header>
+<main>
+<nav class="toc"><b>Contents</b> — <a href="#why">1 Why combine</a> · <a href="#chicago">2 Chicago safety</a> · <a href="#arch">3 Architecture</a> · <a href="#cities">4 City comparison</a> · <a href="#data">5 Data model</a> · <a href="#api">6 API &amp; config</a> · <a href="#waves">7 Joint plan</a> · <a href="#own">8 Ownership &amp; branches</a> · <a href="#test">9 Testing</a> · <a href="#sec">10 Security</a> · <a href="#reconcile">11 Reconciled decisions</a> · <a href="#risks">12 Risks</a></nav>
+
+<div class="cards">
+<div class="card"><b>1×</b><span>shared seams built once and reused by every city</span></div>
+<div class="card"><b>2 lanes</b><span>Detroit and Dayton run in parallel with disjoint files</span></div>
+<div class="card"><b>~25–32 days</b><span>solo, sequential (rough estimate; 35–45 if done as two separate plans)</span></div>
+<div class="card"><b>~16–20 days</b><span>elapsed with parallel agents per wave</span></div>
+</div>
+
+<h2 id="why"><span class="n">1</span>Why combine, and what this document is</h2>
+<p>Most of the Detroit plan is shared infrastructure:</p>
+<ul>
+<li>schema</li>
+<li>the importer registry</li>
+<li>the static exporter</li>
+<li>the profile registry</li>
+<li>city-switch cleanup</li>
+<li>vocabulary and focus seams</li>
+<li>contact seams</li>
+</ul>
+<p>Dayton needs the same infrastructure, so planning them separately would schedule and test it twice. This document merges the two:</p>
+<ul>
+<li><b>Shared work</b> <span class="tag s">S</span> is designed and built once, in waves.</li>
+<li><b>City work</b> (<span class="tag d">Detroit</span>, <span class="tag y">Dayton</span>) runs in parallel lanes inside each wave. Each city owns its own directories, so the lanes never edit the same file.</li>
+<li><b>Chicago work</b> <span class="tag c">C</span> belongs to the Chicago session, and it gates every wave (§2).</li>
+</ul>
+<p>The four per-city documents stay as detailed references. Section numbers below point into them, for example "D-TDD §5.6" or "Y-TDD §8". Where they disagreed, §11 records the resolution, and this document wins.</p>
+
+<h2 id="chicago"><span class="n">2</span>Chicago safety: the non-negotiable rules</h2>
+<div class="callout warn"><b>Chicago is in use for research today.</b> Until the Chicago session says otherwise, no multi-city work touches <code>master</code>, the master working tree, Chicago's static assets in <code>frontend/public/data/</code>, or a running <code>./start_map.sh</code>. All Detroit and Dayton work happens on branches in separate worktrees.</div>
+<ol>
+<li><b>Branches, not master.</b> Multi-city work lands on <code>feat/multi-city</code> (§8). It reaches master only at a merge point the user chooses, never on a research day, and only with every gate green.</li>
+<li><b>Pin before you touch.</b> Before any shared file changes, a snapshot test pins Chicago's current output. The first pin already exists: <code>createDefaultLayers.test.ts</code>, Chicago's 15 layers. Wave 0 adds the rest:
+<ul>
+<li>importer order</li>
+<li><code>buildZoningFilter</code> output</li>
+<li><code>ContactResolver</code> wiring</li>
+<li>the basemap URL</li>
+<li><code>getLayerSourceUrl</code> for every Chicago layer</li>
+</ul>
+A diff in any pin fails the wave.</li>
+<li><b>One seam per shared file.</b> City logic never goes into shared code. A shared file changes in exactly one place, where it starts asking the profile.</li>
+<li><b>Defaults are Chicago.</b> Every new shared parameter defaults to today's Chicago value. Examples: <code>buildZoningFilter(active, classes = ZONE_CLASSES)</code>, and <code>BatchItem.city = "Chicago"</code>.</li>
+<li><b>Chicago assets stay put.</b> Moving <code>public/data/*.pmtiles</code> into <code>public/data/chicago/</code> is the last, optional step (Wave 9). The Dayton pack filter treats flat files as Chicago's until then.</li>
+<li><b>Chicago-session files.</b> Shared seams in <code>MapContainer.tsx</code>, <code>contacts/**</code>, <code>routes/contacts.py</code>, <code>api/*.ts</code> and <code>phone_app.py</code> are handed to the Chicago session as written specs, such as D-TDD §13 F-1 and F-2. This plan does not edit them directly.</li>
+<li><b>Manual smoke test per wave.</b> Run <code>./start_map.sh</code> on the branch worktree, on a different port: Chicago loads, layers toggle, a building popup opens, the contact list resolves one known address, and a saved search applies.</li>
+</ol>
+
+<h2 id="arch"><span class="n">3</span>Architecture (one design for every city)</h2>
+<pre>                         ┌──────────── frontend (React + MapLibre) ────────────┐
+ shared consumers ──►  registry.ts ──► CityProfile ◄── chicago/  detroit/  dayton/
+ (useMapLayers, MapContainer,    ▲                      (profile packs: new files only)
+  useMapClick, filters, focus,   │ virtual:city-profiles ◄── vite/cityPackPlugin (VITE_CITIES)
+  ContactResolver)               │
+                         └─────────────────────────────────────────────────────┘
+ run.py --city X ──► city_registry.importers_for(X) = DEFAULT ⊕ CITY_OVERRIDES[X]
+                        detroit/* overrides   dayton/* overrides (dayton_importer_overrides())
+                 ──► PostGIS (one schema, rows by city_id) ──► Martin (dev)
+                 ──► export_city_static --city X [--basemap city|regional|skip]
+                        → public/data/X/*.pmtiles + src/cities/X/data/*.ts (lazy)</pre>
+<ul>
+<li><b>Ports</b>, frozen in Wave 4:
+<ul>
+<li><code>CityProfile</code>, quoted verbatim in D-TDD §5.1, plus the accepted optional build-level <code>basemapPmtiles</code> (D-TDD §13.4).</li>
+<li><code>OwnerSource</code> / <code>BusinessSource</code>.</li>
+<li><code>BaseImporter</code>.</li>
+<li><code>FieldMap</code>, moving to the shared <code>app/data_import/field_map.py</code>.</li>
+</ul></li>
+<li><b>Paradigm per layer</b>, the same for both cities:
+<ul>
+<li>Importers are OOP: template-method subclasses that override <code>transform()</code>.</li>
+<li>Enrichment is procedural, set-based SQL.</li>
+<li>Profiles are data-shaped modules. Contact sources are classes, because they implement the existing ports.</li>
+<li>The exporter and the Vite plugin are procedural scripts.</li>
+</ul></li>
+<li><b>Fail closed:</b> an unknown slug returns null, and an unknown <code>VITE_CITIES</code> value fails the build. <code>focus</code> / <code>contacts</code> set to <code>null</code> means "not available here", never another city's data.</li>
+<li><b>Modularity:</b> city packs (Y-TDD §8). The default build includes every city. <code>VITE_CITIES=dayton</code> builds a one-city tablet bundle.</li>
+</ul>
+
+<h2 id="cities"><span class="n">4</span>City comparison (what each lane builds)</h2>
+<div class="scroll"><table>
+<tr><th>Concern</th><th>Chicago (reference)</th><th><span class="tag d">Detroit</span></th><th><span class="tag y">Dayton</span></th></tr>
+<tr><td>Parity today</td><td>100%</td><td>≈15% (configured, nothing imported)</td><td>≈35% (old fork has data in a Docker volume)</td></tr>
+<tr><td>Buildings</td><td>820,600</td><td>SEMCOG layer 60, EPSG:2898, split multipart</td><td>City MapServer/307, MS footprints fallback, split multipart</td></tr>
+<tr><td>Parcels / owner</td><td>Cook County Assessor (Socrata)</td><td>parcel_file_current (~378K)</td><td>Montgomery County Auditor FeatureServer (~272K, unverified)</td></tr>
+<tr><td>Zoning</td><td>Title 17</td><td>Zoning_1, codes R1–R6, B1–B6, M1–M5… (unverified)</td><td>MapServer/203, codes SF/TF/MF, NC/GC, LM/GM/HM… (unverified)</td></tr>
+<tr><td>Transit</td><td>CTA</td><td>4 GTFS feeds (DDOT, SMART, QLine, DPM)</td><td>GDRTA GTFS (one feed)</td></tr>
+<tr><td>Police layer id</td><td>police_districts (embedded)</td><td>police_precincts (12)</td><td>police_precincts (DPD areas, ~4)</td></tr>
+<tr><td>Ward-slot layer</td><td>wards (50)</td><td>council_districts (7, 2026 map)</td><td>neighborhoods (97); there are no wards, because the Commission is at-large</td></tr>
+<tr><td>Focus kinds (zip / police / ward)</td><td>zips / districts / wards</td><td>ZCTAs / precincts / "Council districts"</td><td>ZCTAs / areas / "Neighborhoods"</td></tr>
+<tr><td>Parks</td><td>parcels source-layer</td><td>parks table (D3 Parks_Landmarks)</td><td>parks table (OSM; MetroParks unverified)</td></tr>
+<tr><td>Railroad ROW</td><td>embedded TypeScript</td><td>railroad_row table, from parcels</td><td>railroad_row table, from parcels + OSM (metric buffer)</td></tr>
+<tr><td>Business source</td><td>Chicago licences</td><td>BSEED active licences</td><td>OSM POIs in the footprint (no licence data exists)</td></tr>
+<tr><td>Corporation link / postal</td><td>IL SOS · CHICAGO, IL</td><td>MI LARA · DETROIT, MI</td><td>OH SOS · DAYTON, OH</td></tr>
+<tr><td>City-only layers</td><td>wards, gang territory, federal</td><td>neighborhoods, DLBA, blight</td><td>none at first. Land bank and code enforcement are optional (D8)</td></tr>
+<tr><td>Not offered</td><td>—</td><td>gang territory, wards, police_districts</td><td>gang territory, wards, council, police_districts; federal until D8</td></tr>
+<tr><td>Detail</td><td>—</td><td>D-TDD §4–§6, D-plan §2–3</td><td>Y-TDD §4–§6, Y-plan §2–3</td></tr>
+</table></div>
+
+<h2 id="data"><span class="n">5</span>Data model (one migration for both cities)</h2>
+<p>Everything uses one schema with rows keyed by <code>city_id</code>, and every table has a GIST index on geom and a btree index on city_id. <b>Migration 005</b> (draft at <code>backend/alembic/drafts/005_city_parity_tables.py</code>) is the single schema change for both cities.</p>
+<div class="scroll"><table>
+<tr><th>Table</th><th>005 action</th><th>Detroit fills</th><th>Dayton fills</th></tr>
+<tr><td>council_districts</td><td>create</td><td>✓ (7)</td><td>— (at-large)</td></tr>
+<tr><td>police_precincts</td><td>create</td><td>✓ (12)</td><td>✓ (~4)</td></tr>
+<tr><td>zip_codes</td><td>IF NOT EXISTS / ALTER, never DROP (it holds Chicago rows)</td><td>✓</td><td>✓</td></tr>
+<tr><td>major_streets</td><td>IF NOT EXISTS / ALTER, never DROP (it holds Chicago rows)</td><td>✓</td><td>✓</td></tr>
+<tr><td>parks</td><td>create</td><td>✓</td><td>✓</td></tr>
+<tr><td>business_licenses</td><td>create</td><td>✓</td><td>—</td></tr>
+<tr><td>railroad_row</td><td>create (added on Dayton's request): MULTIPOLYGON; pin, owner_name, carrier, ownership_type</td><td>✓</td><td>✓</td></tr>
+<tr><td>neighborhoods (003), dlba_properties (003), blight_violations (004)</td><td>exist</td><td>✓ all three</td><td>neighborhoods only</td></tr>
+</table></div>
+<p class="muted"><b>Chicago gate for 005:</b> <code>upgrade → downgrade -1 → upgrade</code> on a copy of the Chicago database leaves Chicago's zip_codes and major_streets rows intact (D-plan P1).</p>
+
+<h2 id="api"><span class="n">6</span>API &amp; configuration changes (shared, defaults = Chicago)</h2>
+<div class="scroll"><table>
+<tr><th>Surface</th><th>Change</th><th>Owner</th></tr>
+<tr><td><code>POST /api/v1/contacts/owner/batch</code></td><td><code>BatchItem.city</code> (default "Chicago"), <code>state</code> (default "IL", <code>^[A-Z]{2}$</code>). Spec in D-TDD §13 F-1</td><td><span class="tag c">C</span> files, spec from <span class="tag s">S</span></td></tr>
+<tr><td>Frontend API prefix</td><td>Unify <code>/api</code> vs <code>/api/v1</code></td><td><span class="tag c">C</span> (in progress)</td></tr>
+<tr><td><code>PHONE_LOOKUP_PROVIDERS_BY_CITY</code></td><td><code>chicago=…;detroit=google,foursquare;dayton=google,foursquare</code></td><td><span class="tag s">S</span></td></tr>
+<tr><td>Phone stop words</td><td>Add "detroit" and "dayton"</td><td><span class="tag s">S</span></td></tr>
+<tr><td>Martin</td><td>New tables publish automatically. No city filter is needed: the three cities' bounding boxes don't overlap</td><td>—</td></tr>
+<tr><td>Build env</td><td><code>VITE_CITIES</code> (unset = all)</td><td><span class="tag s">S</span> (W7)</td></tr>
+<tr><td>City YAML</td><td><code>detroit.yaml</code> (blight block already added); <code>dayton.yaml</code> gets the fork's newer URLs and <code>gdrta_gtfs_url</code></td><td><span class="tag d">D</span> / <span class="tag y">Y</span></td></tr>
+</table></div>
+
+<h2 id="waves"><span class="n">7</span>Joint implementation plan: waves</h2>
+<p>Each wave has a shared step first, then the city lanes in parallel, then a gate. Lanes in a wave own disjoint files, so they can run as parallel agents (<code>/parallel-implementation</code>). Old phase ids are shown so the per-city documents stay usable. S/M/L are solo effort: under 1 day, 1–3 days, 3+ days.</p>
+<div class="scroll"><table>
+<tr><th>Wave</th><th><span class="tag s">Shared</span> (once)</th><th><span class="tag d">Detroit</span> lane</th><th><span class="tag y">Dayton</span> lane</th><th>Gate (always includes the §2 Chicago pins + smoke test)</th></tr>
+<tr><td><b>W0</b> Safety net<br><span class="muted">P0 · D0 · S</span></td><td>
+<ul>
+<li>Commit master's multi-city WIP as <code>feat/multi-city</code>, once the Chicago session has committed its own work.</li>
+<li>Add the remaining Chicago pins.</li>
+<li>Fix the backend venv (httpx, ruff, pyproj).</li>
+<li>Rebase <code>feat/dayton-skeleton</code> onto it.</li>
+</ul></td><td>—</td><td><code>pg_dump</code> the old fork's database volume. It holds the only copy of the enriched data.</td><td>All Chicago pins green on the branch; the dump restores</td></tr>
+<tr><td><b>W1</b> Schema + sources<br><span class="muted">P1, P2.1 · D1 · M</span></td><td>
+<ul>
+<li>Implement migration 005, including <code>railroad_row</code>.</li>
+<li>Import the 7 models in <code>models/__init__.py</code> (seam).</li>
+<li>Promote <code>FieldMap</code>/<code>pick</code> to <code>field_map.py</code>.</li>
+</ul></td><td>Verify every Detroit FieldMap live, record fixtures, find the zip and permits layers</td><td>Port the newer <code>dayton.yaml</code>, verify every FieldMap, record fixtures, check zoning families and county CORS</td><td>005 round-trip keeps Chicago rows; no FieldMap left <code>verified=False</code></td></tr>
+<tr><td><b>W2</b> Importers<br><span class="muted">P2 · D2 · L</span></td><td>
+<ul>
+<li>Implement <code>importers_for()</code> with <code>CITY_OVERRIDES</code> for detroit and dayton.</li>
+<li>Switch <code>run.py</code> to it (seam).</li>
+<li>Merge any MapServer pagination from the fork into <code>arcgis_helper</code>. Master's paging fix is already in.</li>
+</ul></td><td><code>detroit/*</code> importers and <code>enrich</code>; run <code>--city detroit</code></td><td><code>dayton/*</code> importers and <code>enrich</code>; run <code>--city dayton</code>; compare with the W0 dump</td><td>Chicago importer plan pinned and unchanged; Chicago row counts unchanged after both city runs; <code>test_phase2_*</code> and <code>test_d2_*</code> green</td></tr>
+<tr><td><b>W3</b> Static export<br><span class="muted">P3 · D3 · M</span></td><td>
+<ul>
+<li>Implement <code>export_city_static.py</code> with <code>--basemap {city,regional,skip}</code>.</li>
+<li>Install tippecanoe, GDAL and the pmtiles CLI.</li>
+</ul></td><td>Export to <code>public/data/detroit/</code></td><td>Export to <code>public/data/dayton/</code></td><td>No file outside the city's own folder changed (Chicago's files byte-identical); each city ≤ 120 MB</td></tr>
+<tr><td><b>W4</b> Frontend seam<br><span class="muted">P4 · D4 · M–L</span></td><td>
+<ul>
+<li><code>cities/chicago/</code> profile, matching the pinned output byte for byte.</li>
+<li><code>registry.ts</code> reading <code>virtual:city-profiles</code>, with a default of all cities.</li>
+<li>Shared helpers: <code>removeCityLayers</code>, a parameterised park layer, a boundary-outline layer.</li>
+<li><code>useMapLayers</code> / <code>App.tsx</code> seams.</li>
+<li><span class="tag c">C</span> applies F-2 (layer removal) and the basemap-from-profile change in <code>MapContainer.tsx</code> from the spec.</li>
+</ul></td><td><code>detroit/</code> layers, popups and index; registry line</td><td><code>dayton/</code> layers, popups and index; registry line</td><td>Chicago snapshot identical; switching Chicago → Detroit → Dayton → Chicago leaves no stray layers</td></tr>
+<tr><td><b>W5</b> Vocabularies + focus<br><span class="muted">P5 · D5 · M</span></td><td>
+<ul>
+<li><code>buildZoningFilter(classes)</code>.</li>
+<li><code>RailroadFilter</code>, <code>TransitLayer</code> and the popup formatter read the profile.</li>
+<li><code>useFocusArea</code> takes <code>profile.focus</code>, and the <code>=== 'chicago'</code> gate is dropped.</li>
+</ul></td><td>Zoning catalogue, 4-agency colours, carriers, <code>DETROIT_FOCUS</code></td><td>Zoning catalogue, GDRTA colours, carriers, <code>DAYTON_FOCUS</code></td><td>Each zone_code matches exactly one type; no #888 transit; Chicago focus output pinned</td></tr>
+<tr><td><b>W6</b> Contacts<br><span class="muted">P6 · D6 · M</span></td><td>
+<ul>
+<li><span class="tag c">C</span> applies F-1 (<code>BatchItem</code> city/state).</li>
+<li><code>ContactResolver.forCity</code> uses <code>profile.contacts</code>.</li>
+<li>Postal defaults come from the profile.</li>
+<li>Phone provider config for both cities.</li>
+</ul></td><td>Parcel owner, BSEED licences, LARA link</td><td>Montgomery owner, OSM POI businesses, OH SOS link</td><td>Chicago batch still sends Chicago, IL; each city's CSV shows its own city and state; 3 known addresses per city resolve</td></tr>
+<tr><td><b>W7</b> City packs + hosting<br><span class="muted">Y-plan D7, D9 · M–L</span></td><td>
+<ul>
+<li><code>packs.ts</code> and <code>cityPackPlugin</code>, registered in <code>vite.config.ts</code> after coordinating with <span class="tag c">C</span>.</li>
+<li><code>build:static:&lt;city&gt;</code> scripts and a CI check on pack contents.</li>
+<li>PWA offline packs.</li>
+<li>Server: the Chicago session's single server behind Caddy, accessed over Tailscale.</li>
+</ul></td><td>—</td><td>—</td><td>The default build equals today's build plus the new cities; a <code>VITE_CITIES=dayton</code> build contains no Chicago or Detroit chunks or data</td></tr>
+<tr><td><b>W8</b> Extras (deferrable)<br><span class="muted">P7, P8 · D8 · L</span></td><td>
+<ul>
+<li><code>SanbornOverlay</code> takes its sheets from the profile.</li>
+<li>An <code>*_interior.yaml</code> loader.</li>
+</ul></td><td>LoC Sanborn sheets, Wayne adapter, permits, venues</td><td>LoC Sanborn sheets, Montgomery adapter, federal list, optional land bank and code enforcement</td><td>Each item has its own test; Chicago Sanborn unchanged</td></tr>
+<tr><td><b>W9</b> Verify + docs + merge<br><span class="muted">P9 · D9 · M</span></td><td>
+<ul>
+<li>§8 verification: /code-review, SAST, bigo-lint, ≥90% coverage.</li>
+<li>Docs: NAVIGATION, new_city_guide rewritten as the pack recipe, README.</li>
+<li>Optional: move Chicago's files into <code>data/chicago/</code>.</li>
+<li>Archive the old Dayton fork.</li>
+<li>Merge to master on a non-research day.</li>
+</ul></td><td>—</td><td>—</td><td>Full suite green; user-approved merge window</td></tr>
+</table></div>
+<h3>Critical path and parallelism</h3>
+<ul>
+<li><b>Critical path:</b> W0 → W1 → W2 → W3 → W4 → W5/W6 → W9. W7 can start after W4, and W8 after W3.</li>
+<li><b>No shared seam needed:</b> the city-lane work in W1 (source verification) and the importer bodies in W2 only touch city folders and can run against fixtures. Both can start now, on the branch, with zero risk to Chicago.</li>
+<li><b>Efficiency compared with two separate plans:</b> roughly 8–10 days of seam work is done once instead of twice. One set of Chicago pins guards both cities. Each wave gets one review. Fixtures and the field-map method are shared.</li>
+</ul>
+
+<h2 id="own"><span class="n">8</span>Ownership &amp; branch strategy</h2>
+<div class="scroll"><table>
+<tr><th>Owner</th><th>Files</th></tr>
+<tr><td><span class="tag c">Chicago session</span></td><td>master and its working tree today; <code>MapContainer.tsx</code>, <code>LayerPanel.tsx</code>, <code>contacts/**</code>, <code>discovery/**</code>, <code>focus/**</code>, <code>api/*.ts</code>, <code>geoUtils.ts</code>, <code>phone_app.py</code>, <code>config.py</code>, <code>routes/contacts.py</code>, <code>routes/exports.py</code>, <code>start_map.sh</code>, <code>package.json</code>, <code>public/fonts/</code>, Chicago static assets</td></tr>
+<tr><td><span class="tag s">Shared seam owner</span> (the Detroit session today)</td><td><code>CityProfile.ts</code>, <code>registry.ts</code>, <code>city_registry.py</code>, <code>run.py</code>, migration 005 + models, <code>field_map.py</code>, <code>arcgis_helper.py</code>, <code>export_city_static.py</code>, <code>useMapLayers.ts</code>, the shared layer helpers, <code>packs.ts</code> + <code>vite/cityPackPlugin.ts</code> (W7)</td></tr>
+<tr><td><span class="tag d">Detroit lane</span></td><td><code>cities/detroit/**</code>, <code>data_import/detroit/**</code>, <code>configs/detroit*.yaml</code>, <code>test_detroit_parity.py</code>, <code>docs/detroit_parity/**</code></td></tr>
+<tr><td><span class="tag y">Dayton lane</span></td><td><code>cities/dayton/**</code>, <code>data_import/dayton/**</code>, <code>configs/dayton*.yaml</code>, <code>test_dayton_parity.py</code>, <code>docs/dayton_parity/**</code></td></tr>
+<tr><td>Coordinate first</td><td><code>vite.config.ts</code>, <code>.env.example</code>, <code>NAVIGATION.md</code></td></tr>
+</table></div>
+<pre>master  (Chicago, used for research; only the Chicago session commits here)
+  └─ feat/multi-city          W0: WIP committed properly; shared seams land here, one PR per wave
+       ├─ feat/detroit-lane   city files only; merged into feat/multi-city at each wave gate
+       └─ feat/dayton-lane    (today: feat/dayton-skeleton on the snapshot feat/multi-city-wip)
+  merge feat/multi-city → master at W9, on a day the map is not needed for research</pre>
+<p class="muted">Each lane works in its own <code>git worktree</code> and runs its own dev server on a free port (§17), so a running Chicago <code>start_map.sh</code> is never disturbed.</p>
+
+<h2 id="test"><span class="n">9</span>Testing</h2>
+<ul>
+<li><b>Chicago pins (W0)</b> as described in §2. They run first in every CI job, and any diff blocks the merge.</li>
+<li><b>City acceptance suites:</b> <code>test_detroit_parity.py</code> plus <code>detroitProfile.test.ts</code>, and <code>test_dayton_parity.py</code> plus <code>daytonProfile.test.ts</code>. Each todo or skip names its old phase, and its wave is in §7.</li>
+<li><b>Cross-city tests</b>, added once:
+<ul>
+<li>Enrichment on a three-city test database touches only its own city's rows.</li>
+<li>Switching Chicago → Detroit → Dayton → Chicago leaves no stray layers or sources.</li>
+<li>An unknown slug returns null.</li>
+<li>A pack build contains no other city's code or data.</li>
+</ul></li>
+<li><b>Fixtures:</b> recorded ArcGIS and GTFS pages per city. CI never calls live services.</li>
+<li><b>E2E (Playwright):</b> each city loads in static mode, a building click opens the detail panel, and the contact list resolves (mocked).</li>
+<li><b>Coverage:</b> ≥90% lines on new modules (§22). Ask about 98% before the W9 merge.</li>
+</ul>
+
+<h2 id="sec"><span class="n">10</span>Security (both cities)</h2>
+<ul>
+<li><b>XSS:</b> every popup HTML-escapes tile properties. The old Dayton fork's popup did not, so don't port it as-is.</li>
+<li><b>ArcGIS <code>where</code> injection:</b> run addresses through <code>normaliseAddress</code> and double the quotes, for both cities' owner sources.</li>
+<li><b>Paid-API spend:</b> F-1 ships before any Detroit or Dayton owner batch can run. City and state are validated.</li>
+<li><b>Secrets:</b> none new. Every new source is keyless. Google, Foursquare and Tracerfy keys stay server-side.</li>
+<li><b>Hosting (W7, §27):</b> TLS through Caddy, Tailscale-only access recommended, auth on every path including PMTiles, rate limits, security headers.</li>
+<li><b>Tablet packs:</b> contacts stay out of tablet builds by default. Rely on device encryption.</li>
+</ul>
+
+<h2 id="reconcile"><span class="n">11</span>Reconciled decisions (where the two plans differed)</h2>
+<div class="scroll"><table>
+<tr><th>Topic</th><th>Detroit doc said</th><th>Dayton doc said</th><th>Combined decision</th></tr>
+<tr><td>FieldMap promotion</td><td>P2</td><td>D0</td><td><b>W1</b>, the shared step, before either lane writes an importer</td></tr>
+<tr><td>Park, precinct and remove-layer helpers</td><td>in <code>cities/detroit/mapLayers.ts</code></td><td>needs the same helpers</td><td>Shared, built in <b>W4</b>. <code>detroit/mapLayers.ts</code> keeps only Detroit-only adders</td></tr>
+<tr><td>railroad_row</td><td>derived layer, no table listed</td><td>needs a table</td><td>Table in migration 005 (<b>W1</b>), accepted in D-TDD §13.4</td></tr>
+<tr><td>Basemap</td><td>per-city clip</td><td>regional extract for the server</td><td>Both: <code>--basemap {city,regional,skip}</code> plus a build-level override (<b>W3/W4</b>)</td></tr>
+<tr><td>Registry source</td><td>static import list</td><td><code>virtual:city-profiles</code></td><td>Virtual module, defaulting to all cities, with the null fallback kept (<b>W4</b>)</td></tr>
+<tr><td>Moving Chicago's static files</td><td>optional, separate PR</td><td>prerequisite for clean packs</td><td>Optional, <b>W9</b> only. The pack filter handles flat files until then (Chicago safety)</td></tr>
+<tr><td>Parameterise the shared importers</td><td>"revisit for a 3rd city"</td><td>subclasses</td><td>Keep subclasses for now: the field maps already absorb the differences. Revisit if a 4th city (Cincinnati) is added</td></tr>
+<tr><td>Martin city filter</td><td>not needed</td><td>not needed</td><td>Not needed for these three cities. Needed before Cincinnati, whose bbox nearly touches Dayton's</td></tr>
+</table></div>
+
+<h2 id="risks"><span class="n">12</span>Risks</h2>
+<ul>
+<li><b>Chicago regression on a research day.</b> Mitigation: the §2 rules. Nothing reaches master until W9, and the user picks the merge day.</li>
+<li><b>Snapshot drift.</b> <code>feat/multi-city-wip</code> froze master's working tree on 2026-10-02, and the Detroit and Chicago sessions have edited master since (arcgis_helper paging, blight, useMapLayers B-4/B-5, docs). W0 replaces the snapshot with a real commit. Rebasing the Dayton files is conflict-free, because they are all new.</li>
+<li><b>Seam owner bandwidth.</b> Both lanes block on W1–W4 shared steps. Mitigation: the city lanes do their seam-free work first (W1 verification, W2 importer bodies against fixtures).</li>
+<li><b>Unverified upstream fields</b> in both cities' field maps. W1 resolves them before any importer logic is written.</li>
+<li><b>Lost Dayton enrichment.</b> The W0 <code>pg_dump</code> comes first.</li>
+<li><b>Tooling:</b> the backend venv lacks pytest and httpx, ruff is blocked by Gatekeeper, and pyproj doesn't build on this macOS. W0 fixes the venv. Until then, use a scratch venv.</li>
+</ul>
+</main></body></html>

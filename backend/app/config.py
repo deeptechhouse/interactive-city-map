@@ -16,6 +16,22 @@ class Settings(BaseSettings):
     # Phone lookup for the building contact list (see app/adapters/phone_lookup.py).
     # Keys stay server-side only — never expose them through VITE_* variables.
     google_places_api_key: str = ""
+    # Building images (adapters/building_images.py). Free sources first.
+    # Mapillary: FREE token (mapillary.com/dashboard/developers) → street-level photos in
+    # Detroit (the City's Detroit Street View) and Dayton. Empty = aerial photos only there.
+    mapillary_access_token: str = ""
+    # ADJUSTABLE: the PAID Google Street View Static photo (first 10,000/month free, then
+    # $7 per 1,000). OFF by default — the free "Open Google Street View" link is always
+    # there. When on, photos open in a separate pop-up window only (Google's terms forbid
+    # Google imagery beside a non-Google map). Key: this one, else google_places_api_key
+    # (the Street View Static API must be enabled for that key in Google Cloud).
+    google_streetview_enabled: bool = False
+    google_streetview_api_key: str = ""
+    # ADJUSTABLE: paid Street View photos allowed per minute (all users) — a runaway guard.
+    google_streetview_rate_per_minute: int = 20
+    # ADJUSTABLE: paid photos per calendar month, then they stop until the 1st. Google's
+    # free tier is 10,000/month; 9,500 leaves headroom. Above 10,000 each photo costs money.
+    google_streetview_monthly_cap: int = 9500
     # ADJUSTABLE: provider order, first match wins; later providers are only billed when
     # earlier ones find nothing. Providers without a key are skipped.
     phone_lookup_providers: str = "foursquare,google"

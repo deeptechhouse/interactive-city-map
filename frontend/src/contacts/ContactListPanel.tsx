@@ -18,6 +18,8 @@ import type { BatchCandidate } from './ContactListStore';
 import { traceNameFor } from './ownerNames';
 import { saveCsv, saveMessage } from './csvSave';
 import { formatLookupDate, IL_SOS_SEARCH_URL, safeHref } from './links';
+import { BuildingPhotos } from './BuildingPhotos';
+import { StreetViewUsageLine } from './StreetViewUsageLine';
 import {
   formatAddress,
   letterAddress,
@@ -373,6 +375,8 @@ const BuildingCard: React.FC<{
       {b.status === 'loading' && <p className="tools-hint" role="status">Looking up owner and businesses…</p>}
       {b.note && <p className="tools-hint">{b.note}</p>}
 
+      <BuildingPhotos city={store.city} b={b} />
+
       <div className="contact-card__section">Owner of record</div>
       {b.owners.length === 0 && b.status !== 'loading' && <p className="tools-hint">No owner record found.</p>}
       {ownerBlocks}
@@ -420,6 +424,7 @@ export const ContactListPanel: React.FC<ContactListPanelProps> = ({
   return (
     <section className="tools-section" aria-labelledby="contacts-heading">
       <h3 id="contacts-heading" className="tools-section__title">Contact list</h3>
+      <StreetViewUsageLine />
       <button
         type="button"
         className={`tools-btn tools-btn--block${selectionMode ? ' tools-btn--active' : ''}`}

@@ -19,12 +19,13 @@ app.add_middleware(
 
 
 @app.get("/health")
+# O(1) time, O(1) space — n = 1 status document
 async def health():
     return {"status": "ok"}
 
 
 from app.routes import cities, buildings, pois, search, floor_plans, railroads, interior
-from app.routes import interior_contributions, contacts, exports, presets
+from app.routes import interior_contributions, contacts, exports, presets, images
 
 app.include_router(cities.router, prefix="/api/v1")
 app.include_router(buildings.router, prefix="/api/v1")
@@ -39,3 +40,4 @@ app.include_router(exports.router, prefix="/api/v1")
 # Saved searches live on the server in every mode (they "disappeared" when they were
 # browser-only — see routes/presets.py). Same router the static map server mounts.
 app.include_router(presets.router, prefix="/api/v1")
+app.include_router(images.router, prefix="/api/v1")  # building photos (free first)

@@ -42,6 +42,8 @@ Layered architecture: React + MapLibre GL frontend communicates with a FastAPI b
 | `frontend/src/map/cityLayerLifecycle.ts` | Map Engine | Removes the previous city's layers + sources on city switch |
 | `backend/app/data_import/detroit/`, `dayton/` | Pipeline | City importers (live-verified field maps) + `static_plan.py` (what goes in each PMTiles) |
 | `backend/app/data_import/static_build.py` | Pipeline | Runs a city's importers without a database → `frontend/public/data/<city>/*.pmtiles` (`collect_rows()` is shared with `db_load.py`) |
+| `backend/app/adapters/building_images.py` + `routes/images.py` | Integration | Building photos for the contact list: free per-city sources (Cook County Assessor, Mapillary, county aerials, USGS NAIP); Google only via pop-up (free link; paid photo off by default) |
+| `frontend/src/contacts/BuildingPhotos.tsx` | UI | Photo strip on each contact-list card (`buildingImages.ts` = client) |
 | `backend/app/data_import/db_load.py` | Pipeline | Writes a city's StaticPlan rows into PostGIS for database mode (Detroit, Dayton) — CLI `backend/scripts/load_city_db.py` |
 | `backend/app/data_import/city_registry.py` | Pipeline | What `run.py` imports per city: Chicago's pinned order; Detroit/Dayton refused (they use `load_city_db`) |
 | `docs/` | Documentation | Guides and references (Sanborn georeferencing guide) |

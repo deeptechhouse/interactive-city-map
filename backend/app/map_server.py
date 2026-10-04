@@ -10,6 +10,7 @@ nothing heavier than Python. It serves:
     /api/v1/contacts/* phone + owner lookups (paid providers; keys stay on this server)
     /api/v1/contacts/export  save CSV to this machine's Desktop (local callers only)
     /api/v1/presets   saved searches, shared by every browser using this server
+    /api/v1/images/*  building photos for the contact list (free public sources first)
     /health           which lookup providers have keys
 
 What is deliberately NOT here: the PostGIS-backed endpoints (buildings, POIs, floor plans,
@@ -31,7 +32,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.routes import contacts, exports, presets
+from app.routes import contacts, exports, images, presets
 
 app = FastAPI(title="City Map", version="0.2.0")
 
@@ -59,6 +60,7 @@ async def health():
 app.include_router(contacts.router, prefix="/api/v1")
 app.include_router(exports.router, prefix="/api/v1")
 app.include_router(presets.router, prefix="/api/v1")
+app.include_router(images.router, prefix="/api/v1")
 
 
 # O(1) time, O(1) space — n = 1 path check.

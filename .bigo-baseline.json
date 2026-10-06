@@ -1,0 +1,446 @@
+{
+  "counts": {
+    "backend/alembic/env.py": {
+      "BIGO001": 2
+    },
+    "backend/alembic/versions/001_initial_schema.py": {
+      "BIGO001": 2
+    },
+    "backend/alembic/versions/002_interior_maps_schema.py": {
+      "BIGO001": 2
+    },
+    "backend/alembic/versions/003_detroit_layers.py": {
+      "BIGO001": 2
+    },
+    "backend/alembic/versions/004_blight_violations.py": {
+      "BIGO001": 2
+    },
+    "backend/app/adapters/geocoder.py": {
+      "BIGO001": 6
+    },
+    "backend/app/adapters/http_json.py": {
+      "BIGO001": 2
+    },
+    "backend/app/adapters/owner_lookup.py": {
+      "BIGO001": 19,
+      "BIGO002": 17
+    },
+    "backend/app/adapters/poi_fetcher.py": {
+      "BIGO001": 5,
+      "BIGO002": 3
+    },
+    "backend/app/adapters/storage.py": {
+      "BIGO001": 13
+    },
+    "backend/app/adapters/tracerfy_batch.py": {
+      "BIGO001": 8,
+      "BIGO002": 13
+    },
+    "backend/app/data_import/import_buildings.py": {
+      "BIGO001": 4,
+      "BIGO002": 4
+    },
+    "backend/app/data_import/import_dlba.py": {
+      "BIGO001": 3,
+      "BIGO002": 3
+    },
+    "backend/app/data_import/import_neighborhoods.py": {
+      "BIGO001": 4,
+      "BIGO002": 2
+    },
+    "backend/app/data_import/import_parcels.py": {
+      "BIGO001": 3
+    },
+    "backend/app/data_import/import_sanborn.py": {
+      "BIGO001": 10,
+      "BIGO002": 7
+    },
+    "backend/app/data_import/import_streets.py": {
+      "BIGO001": 3
+    },
+    "backend/app/data_import/import_waterways.py": {
+      "BIGO001": 3,
+      "BIGO002": 2
+    },
+    "backend/app/data_import/import_zoning.py": {
+      "BIGO001": 5,
+      "BIGO002": 3
+    },
+    "backend/app/data_import/interior/__main__.py": {
+      "BIGO001": 1
+    },
+    "backend/app/data_import/interior/county_adapters/base.py": {
+      "BIGO001": 2
+    },
+    "backend/app/data_import/interior/county_adapters/cook.py": {
+      "BIGO001": 5,
+      "BIGO002": 1
+    },
+    "backend/app/data_import/interior/county_adapters/hamilton.py": {
+      "BIGO001": 3,
+      "BIGO002": 1
+    },
+    "backend/app/data_import/interior/county_adapters/montgomery.py": {
+      "BIGO001": 2
+    },
+    "backend/app/data_import/interior/county_adapters/wayne.py": {
+      "BIGO001": 2
+    },
+    "backend/app/data_import/interior/county_records.py": {
+      "BIGO001": 3,
+      "BIGO002": 1
+    },
+    "backend/app/data_import/interior/sanborn_cropper.py": {
+      "BIGO001": 2
+    },
+    "backend/app/data_import/interior/sanborn_downloader.py": {
+      "BIGO001": 4,
+      "BIGO002": 2
+    },
+    "backend/app/data_import/interior/user_upload_processor.py": {
+      "BIGO001": 4
+    },
+    "backend/app/data_import/run.py": {
+      "BIGO001": 5,
+      "BIGO002": 4
+    },
+    "backend/app/database.py": {
+      "BIGO001": 2
+    },
+    "backend/app/main.py": {
+      "BIGO001": 1
+    },
+    "backend/app/routes/buildings.py": {
+      "BIGO001": 5,
+      "BIGO002": 2
+    },
+    "backend/app/routes/cities.py": {
+      "BIGO001": 3,
+      "BIGO002": 1
+    },
+    "backend/app/routes/floor_plans.py": {
+      "BIGO001": 4,
+      "BIGO002": 1
+    },
+    "backend/app/routes/interior.py": {
+      "BIGO001": 20,
+      "BIGO002": 4
+    },
+    "backend/app/routes/interior_contributions.py": {
+      "BIGO001": 6,
+      "BIGO002": 1
+    },
+    "backend/app/routes/pois.py": {
+      "BIGO001": 5,
+      "BIGO002": 2
+    },
+    "backend/app/routes/railroads.py": {
+      "BIGO001": 2,
+      "BIGO002": 1
+    },
+    "backend/app/routes/search.py": {
+      "BIGO001": 2,
+      "BIGO002": 4
+    },
+    "backend/app/services/building_service.py": {
+      "BIGO001": 5,
+      "BIGO002": 1
+    },
+    "backend/app/services/contribution_service.py": {
+      "BIGO001": 3
+    },
+    "backend/app/services/extractors/geojson_writer.py": {
+      "BIGO001": 4,
+      "BIGO002": 3
+    },
+    "backend/app/services/floor_plan_classifier.py": {
+      "BIGO001": 6,
+      "BIGO002": 3
+    },
+    "backend/app/services/floor_plan_service.py": {
+      "BIGO001": 3
+    },
+    "backend/app/services/geocoding_service.py": {
+      "BIGO001": 11
+    },
+    "backend/app/services/georeferencing_service.py": {
+      "BIGO001": 7,
+      "BIGO002": 1
+    },
+    "backend/app/services/interior_service.py": {
+      "BIGO001": 13
+    },
+    "backend/app/services/interior_source_service.py": {
+      "BIGO001": 4
+    },
+    "backend/app/services/owner_batch_service.py": {
+      "BIGO001": 8,
+      "BIGO002": 14
+    },
+    "backend/app/services/owner_lookup_service.py": {
+      "BIGO001": 3,
+      "BIGO002": 1
+    },
+    "backend/app/services/owner_result_store.py": {
+      "BIGO001": 8,
+      "BIGO002": 1
+    },
+    "backend/app/services/phone_lookup_service.py": {
+      "BIGO001": 10,
+      "BIGO002": 3
+    },
+    "backend/app/services/poi_service.py": {
+      "BIGO001": 4,
+      "BIGO002": 2
+    },
+    "backend/app/services/search_service.py": {
+      "BIGO001": 1,
+      "BIGO002": 1
+    },
+    "backend/scripts/run_venue_scrape.py": {
+      "BIGO001": 1
+    },
+    "frontend/src/api/buildings.ts": {
+      "BIGO001": 3
+    },
+    "frontend/src/api/client.ts": {
+      "BIGO001": 2
+    },
+    "frontend/src/api/floorPlans.ts": {
+      "BIGO001": 2
+    },
+    "frontend/src/api/interior.ts": {
+      "BIGO001": 14
+    },
+    "frontend/src/api/pois.ts": {
+      "BIGO001": 3
+    },
+    "frontend/src/contacts/OwnerBatchRunner.ts": {
+      "BIGO001": 17,
+      "BIGO002": 8
+    },
+    "frontend/src/contacts/SelectedBuildingsLayer.ts": {
+      "BIGO001": 1
+    },
+    "frontend/src/contacts/links.ts": {
+      "BIGO001": 1
+    },
+    "frontend/src/contacts/ownerNames.ts": {
+      "BIGO001": 1,
+      "BIGO002": 2
+    },
+    "frontend/src/focus/focusAreas.ts": {
+      "BIGO002": 3
+    },
+    "frontend/src/focus/focusGeometry.ts": {
+      "BIGO002": 3
+    },
+    "frontend/src/interior/FloorSelector.tsx": {
+      "BIGO001": 2,
+      "BIGO002": 1
+    },
+    "frontend/src/interior/InteriorEditor.tsx": {
+      "BIGO001": 6,
+      "BIGO002": 3
+    },
+    "frontend/src/interior/InteriorSearchResults.tsx": {
+      "BIGO001": 1,
+      "BIGO002": 1
+    },
+    "frontend/src/interior/InteriorViewer.tsx": {
+      "BIGO001": 6,
+      "BIGO002": 16
+    },
+    "frontend/src/interior/MeasureTool.tsx": {
+      "BIGO001": 2,
+      "BIGO002": 4
+    },
+    "frontend/src/interior/RoomInfoPopup.tsx": {
+      "BIGO001": 2
+    },
+    "frontend/src/interior/SourceAttribution.tsx": {
+      "BIGO001": 2
+    },
+    "frontend/src/interior/SourceSelector.tsx": {
+      "BIGO001": 2,
+      "BIGO002": 1
+    },
+    "frontend/src/interior/hooks/useFloorLevel.ts": {
+      "BIGO001": 2,
+      "BIGO002": 1
+    },
+    "frontend/src/interior/hooks/useInteriorData.ts": {
+      "BIGO001": 1
+    },
+    "frontend/src/interior/hooks/useInteriorEditor.ts": {
+      "BIGO001": 1
+    },
+    "frontend/src/interior/hooks/useProgressiveInterior.ts": {
+      "BIGO001": 1
+    },
+    "frontend/src/interior/layers/InteriorLabelLayer.ts": {
+      "BIGO001": 5
+    },
+    "frontend/src/interior/layers/InteriorRasterLayer.ts": {
+      "BIGO001": 6
+    },
+    "frontend/src/interior/layers/InteriorVectorLayer.ts": {
+      "BIGO001": 11,
+      "BIGO002": 2
+    },
+    "frontend/src/interior/layers/SanbornCropLayer.ts": {
+      "BIGO001": 6
+    },
+    "frontend/src/interior/utils/coordinateTransform.ts": {
+      "BIGO001": 3
+    },
+    "frontend/src/interior/utils/interiorA11y.ts": {
+      "BIGO001": 7
+    },
+    "frontend/src/interior/utils/interiorCache.ts": {
+      "BIGO001": 3,
+      "BIGO002": 1
+    },
+    "frontend/src/interior/utils/interiorStyles.ts": {
+      "BIGO001": 2
+    },
+    "frontend/src/interior/utils/snapToWall.ts": {
+      "BIGO001": 2,
+      "BIGO002": 1
+    },
+    "frontend/src/map/controls/AccessibilityControls.tsx": {
+      "BIGO001": 1,
+      "BIGO002": 1
+    },
+    "frontend/src/map/controls/CitySelector.tsx": {
+      "BIGO001": 4,
+      "BIGO002": 2
+    },
+    "frontend/src/map/controls/EraSelector.tsx": {
+      "BIGO001": 1,
+      "BIGO002": 1
+    },
+    "frontend/src/map/controls/GroupToggle.tsx": {
+      "BIGO001": 1,
+      "BIGO002": 3
+    },
+    "frontend/src/map/controls/LayerPanel.tsx": {
+      "BIGO001": 1,
+      "BIGO002": 1
+    },
+    "frontend/src/map/controls/LayerToggle.tsx": {
+      "BIGO001": 1
+    },
+    "frontend/src/map/controls/OpacitySlider.tsx": {
+      "BIGO001": 2
+    },
+    "frontend/src/map/controls/SanbornAdjust.tsx": {
+      "BIGO001": 1
+    },
+    "frontend/src/map/controls/SanbornControls.tsx": {
+      "BIGO001": 1
+    },
+    "frontend/src/map/controls/SearchBar.tsx": {
+      "BIGO001": 1,
+      "BIGO002": 2
+    },
+    "frontend/src/map/controls/SearchResults.tsx": {
+      "BIGO001": 3,
+      "BIGO002": 1
+    },
+    "frontend/src/map/controls/ToolsPanel.tsx": {
+      "BIGO001": 1
+    },
+    "frontend/src/map/hooks/useProgressiveLoading.ts": {
+      "BIGO001": 1,
+      "BIGO002": 2
+    },
+    "frontend/src/map/hooks/useSearch.ts": {
+      "BIGO001": 1
+    },
+    "frontend/src/map/layers/FederalPropertyLayer.ts": {
+      "BIGO001": 3,
+      "BIGO002": 1
+    },
+    "frontend/src/map/layers/FloorPlanLayer.ts": {
+      "BIGO001": 6
+    },
+    "frontend/src/map/layers/MajorStreetsLayer.ts": {
+      "BIGO001": 2
+    },
+    "frontend/src/map/layers/POILayer.ts": {
+      "BIGO001": 3,
+      "BIGO002": 1
+    },
+    "frontend/src/map/layers/PoliceDistrictLayer.ts": {
+      "BIGO001": 3,
+      "BIGO002": 1
+    },
+    "frontend/src/map/layers/RailroadLayer.ts": {
+      "BIGO001": 3,
+      "BIGO002": 3
+    },
+    "frontend/src/map/layers/RailroadRowLayer.ts": {
+      "BIGO001": 2
+    },
+    "frontend/src/map/layers/SanbornOverlay.ts": {
+      "BIGO001": 12,
+      "BIGO002": 3
+    },
+    "frontend/src/map/layers/WardLayer.ts": {
+      "BIGO001": 3,
+      "BIGO002": 1
+    },
+    "frontend/src/map/layers/WaterwayLayer.ts": {
+      "BIGO001": 2
+    },
+    "frontend/src/map/layers/ZipCodeLayer.ts": {
+      "BIGO001": 2
+    },
+    "frontend/src/map/layers/ZoningLayer.ts": {
+      "BIGO001": 4,
+      "BIGO002": 2
+    },
+    "frontend/src/panels/BuildingDetail.tsx": {
+      "BIGO001": 2
+    },
+    "frontend/src/panels/ExternalLinksPanel.tsx": {
+      "BIGO001": 2
+    },
+    "frontend/src/panels/FloorPlanUpload.tsx": {
+      "BIGO001": 1,
+      "BIGO002": 1
+    },
+    "frontend/src/panels/FloorPlanViewer.tsx": {
+      "BIGO001": 3,
+      "BIGO002": 3
+    },
+    "frontend/src/panels/POIDetail.tsx": {
+      "BIGO001": 2,
+      "BIGO002": 1
+    },
+    "frontend/src/presets/SavedSearchesPanel.tsx": {
+      "BIGO001": 2,
+      "BIGO002": 2
+    },
+    "frontend/src/presets/SearchStateContext.tsx": {
+      "BIGO001": 2
+    },
+    "frontend/src/presets/savedSearches.ts": {
+      "BIGO001": 1,
+      "BIGO002": 5
+    },
+    "frontend/src/presets/searchState.ts": {
+      "BIGO001": 1,
+      "BIGO002": 7
+    },
+    "frontend/src/utils/accessibility.ts": {
+      "BIGO001": 11
+    },
+    "frontend/src/utils/performance.ts": {
+      "BIGO001": 14,
+      "BIGO002": 1
+    }
+  },
+  "version": 1
+}

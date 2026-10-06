@@ -141,14 +141,41 @@
   <li><strong>Linter report:</strong> <code>bigo_report.html</code> (repo root) lists the 9 annotated super-linear constructs and their exceptions.</li>
 </ul>
 
-<h2>Suggested next steps</h2>
-<ol>
-  <li>Fix the 3 High defects (permit importer, Sanborn masks, line merge), then the Med ones. Each fix annotates its file as it goes.</li>
-  <li>Fix the contour/polygon index misalignment.</li>
-  <li>Rewrite the 52 malformed annotations. This is mechanical, since the analysis already exists.</li>
-  <li>Adopt the ratchet: <code>bigo-lint --update-baseline .</code> and commit <code>.bigo-baseline.json</code>. Unannotated counts can then only go down.</li>
-  <li>Tighten or refactor the 4 weak exceptions.</li>
-</ol>
+<h2>Resolution — branch <code>fix/bigo-defects</code> (2026-10-06)</h2>
+<div class="answer" style="border-left-color: var(--low)">
+  <p><strong>Every finding in this report is fixed.</strong> 0 malformed annotations, 0 unjustified super-linear constructs and 0 weak exceptions remain. The unannotated count is down to 696 (from 798) and is locked by <code>.bigo-baseline.json</code>, so it can only go down.</p>
+</div>
+<div class="scroll"><table>
+<thead><tr><th>Finding</th><th>Before</th><th>After</th><th>How it was verified</th></tr></thead>
+<tbody>
+<tr><td><code>permit_importer.py</code></td><td>O(P·B), P full-table queries, no city filter</td><td>O(P + B), 1 query per run, Chicago only</td><td>Unit tests: one query, first match wins, <code>cities.slug = 'chicago'</code> in the SQL. A read-only run on the live DB built an index of 66,139 Chicago addresses.</td></tr>
+<tr><td><code>sanborn_parser.py</code> masks</td><td>O(R·P)</td><td>O(P + A), A = summed room-box area</td><td>Unit test: the cropped mask gives the same pixel count and material as the full-image mask.</td></tr>
+<tr><td><code>line_detector._merge_collinear</code></td><td>O(L²)</td><td>O(L log L + K), two STRtrees</td><td>Matches a brute-force reference on 13 random inputs. <em>Behaviour change:</em> the threshold now uses the sum of half-lengths. The previously failing <code>test_merge_collinear_merges_parallel_nearby</code> now passes.</td></tr>
+<tr><td><code>text_extractor.match_labels_to_rooms</code></td><td>O(T·R·v)</td><td>O(V + T log R + K)</td><td>Matches a brute-force reference on 8 random sets of overlapping rooms. Boundary labels and empty inputs are covered.</td></tr>
+<tr><td><code>POIListPanel.tsx</code></td><td>O(n²) per render</td><td>O(n) per render (hover by id)</td><td>Type-check and lint clean. Hover can no longer point at the wrong row after the list refreshes.</td></tr>
+<tr><td><code>venue_scraper_service.crawl</code></td><td>O(A·Q)</td><td>O(G + A), deque</td><td>Crawl-order test passes against both the old and the new code, so the visit order is identical.</td></tr>
+<tr><td><code>drawModes.isValidPolygon</code></td><td>O(v²), v unbounded</td><td>O(v²) with v ≤ 100 enforced (<code>MAX_ROOM_VERTICES</code>)</td><td>New vitest. The editor refuses a room's 101st corner with a message.</td></tr>
+<tr><td><code>osm_indoor.py</code></td><td>W round trips</td><td>⌈W/1000⌉ round trips (VALUES join, DISTINCT ON)</td><td>Read-only check on the live PostGIS with 500 points: 346/346 matches identical to the old per-row query.</td></tr>
+<tr><td><code>venue_scraper_runner.py</code></td><td>2 queries per floor plan</td><td>1 query per target, lazily</td><td>Unit tests: 4 plans → 1 query; no plans → 0 queries.</td></tr>
+<tr><td><code>publicRecords.ts</code> activities</td><td>O(r·a) substring search</td><td>O(r), Set per business</td><td>Existing contacts tests pass. Only exact repeats are dropped now.</td></tr>
+<tr><td><code>detroit/common.split_arcgis_rings</code> (weak exception)</td><td>O(r·o), "almost always ≤ 3"</td><td>O(v + r log o + K), STRtree</td><td>New tests: 30-part footprint; first containing shell wins on overlap. Detroit parity tests pass.</td></tr>
+<tr><td><code>ContactListStore.applyOwnerAnswer</code> (weak exception)</td><td>O(m·s), up to 2m commits</td><td>O(s), 1 commit</td><td>New tests: one notify, untouched buildings keep their identity, the reason note is written. The stored list format is unchanged.</td></tr>
+<tr><td>Contour/polygon index bug</td><td>labels and materials shifted after a dropped contour</td><td><code>RoomSegmenter.indexed_polygons</code> keeps contour indices</td><td>New test: bow-tie contour, then Kitchen and Office labels land on the right rooms.</td></tr>
+<tr><td>52 malformed annotations</td><td>BIGO003</td><td>0</td><td>The 49 left after the code fixes were rewritten one by one; the rest went with the rewritten files. Long docstring annotations were moved into <code># O(..)</code> comments above the function.</td></tr>
+</tbody></table></div>
+<h2>Test results vs. baseline (<code>c3a055d</code>)</h2>
+<ul>
+  <li><strong>Backend:</strong> 464 passed and 7 failed. The 7 also fail on the baseline (<code>test_routes</code> buildings/POI endpoints and the map-server range request), and none touch the changed code. One baseline failure was fixed. The run used a stubbed OCR, because Tesseract isn't installed on this Mac.</li>
+  <li><strong>Frontend:</strong> 297 passed and 51 failed. The 51 are identical to the baseline: the interior component tests run in vitest's <code>node</code> environment, which has no <code>document</code>. <code>tsc</code> shows no new errors (one existing error is fixed), ESLint is clean on the changed files, and the production bundle builds.</li>
+  <li><strong>Paid lookup caches:</strong> backed up to <code>backend/data/backup_20261006/</code> (both checkouts, gitignored) and never written. The main checkout still has 76 owner results, with an unchanged file date. Browser storage keys and formats are unchanged.</li>
+</ul>
+<h2>Still open (not part of this report's findings)</h2>
+<ul>
+  <li>696 legacy functions and loops are still unannotated. They are locked by the baseline and get annotated when their files are next edited.</li>
+  <li>The repo has no pre-commit hook, so <code>bigo-lint --changed</code> isn't enforced at commit time. <code>/usr/local/lib/bigo-lint/pre-commit-snippet.yaml</code> can be added.</li>
+  <li>The Sanborn branch runs line detection and OCR twice. That is the same Big O at roughly twice the cost, and is noted in <code>floor_plan_extractor.py</code>.</li>
+  <li>The repo-wide ruff, Prettier and tsc backlogs predate this work. New lines over 100 characters are the one-line §41 annotation comments.</li>
+</ul>
 </main>
 </body>
 </html>

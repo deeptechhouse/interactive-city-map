@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
+import shapely  # vectorised geometry constructors (points, box)
+from shapely import STRtree  # R-tree: O(log n + k) "what overlaps this box" queries
 
 
 class LineDetector:
@@ -14,6 +16,7 @@ class LineDetector:
     segments are merged to reduce fragmentation.
     """
 
+    # O(1) time, O(1) space
     def __init__(self, min_line_length: int = 30, max_line_gap: int = 10) -> None:
         self._min_line_length = min_line_length
         self._max_line_gap = max_line_gap
@@ -22,6 +25,7 @@ class LineDetector:
     # Public API
     # ------------------------------------------------------------------
 
+    # O(P + L log L + K) time, O(P + L) space — P = image pixels; L = Hough segments; K = merge candidate pairs
     def detect(self, image: np.ndarray) -> list[tuple[int, int, int, int]]:
         """Detect lines in a floor plan image.
 
@@ -58,6 +62,7 @@ class LineDetector:
         if lines_raw is None:
             return []
 
+        # O(L) time, O(L) space — L = Hough segments
         lines: list[tuple[int, int, int, int]] = [
             (int(seg[0][0]), int(seg[0][1]), int(seg[0][2]), int(seg[0][3]))
             for seg in lines_raw
@@ -69,6 +74,7 @@ class LineDetector:
     # Internals
     # ------------------------------------------------------------------
 
+    # O(L log L + K) time, O(L + K) space — L = segments; K = candidate pairs the two tree queries return
     def _merge_collinear(
         self,
         lines: list[tuple[int, int, int, int]],
@@ -78,56 +84,93 @@ class LineDetector:
         """Merge lines that are approximately collinear and close together.
 
         Groups segments whose angles differ by less than *angle_thresh*
-        degrees and whose midpoints are within a distance proportional
-        to *dist_thresh* plus half the longer segment length.  Each
-        group is collapsed to a single bounding segment.
+        degrees and whose midpoints are closer than *dist_thresh* plus the two
+        half-lengths — i.e. near-parallel segments whose ends come within about
+        *dist_thresh* px of each other.  Each group is collapsed to a single
+        bounding segment.
+
+        Greedy, in input order: segment i (if not yet used) absorbs every
+        unused j that passes the test against i — direct neighbours only, not
+        a transitive closure.
+
+        BEHAVIOUR CHANGE (2026-10-06): the threshold used to be
+        ``dist_thresh + max(len_i, len_j)/2``, so two collinear 50 px walls
+        with a 5 px gap (midpoints 52.5 px apart vs. a 35 px limit) never
+        merged — tests/test_extractors.py::test_merge_collinear_merges_parallel_nearby
+        had been failing on it. It now uses ``(len_i + len_j)/2``.
+
+        TRAP (fixed 2026-10-06, Big O audit): this used to compare every
+        segment with every other one — O(L²) — and HoughLinesP output is not
+        capped, so a dense Sanborn sheet could spend minutes here. Because
+        ``dist_thresh + h_i + h_j ≤ max(reach_i, reach_j)`` with
+        ``reach = dist_thresh + len`` (h = len/2), every partner j satisfies
+        ``dist < reach_i`` OR ``dist < reach_j``, so two R-trees find all of
+        them without a full scan:
+          * mid_tree   — j whose midpoint lies within reach_i of i's midpoint;
+          * reach_tree — j whose own reach box contains i's midpoint.
+        The exact test is then applied to those candidates, so the output is
+        identical to a brute-force scan (tests/test_bigo_refactors.py checks this
+        on random input).
         """
         if not lines:
             return []
 
+        seg = np.asarray(lines, dtype=float)  # L × 4: x1, y1, x2, y2
+        mids = (seg[:, :2] + seg[:, 2:]) / 2
+        lengths = np.hypot(seg[:, 2] - seg[:, 0], seg[:, 3] - seg[:, 1])
+        angles = np.degrees(np.arctan2(seg[:, 3] - seg[:, 1], seg[:, 2] - seg[:, 0])) % 180
+        reach = dist_thresh + lengths  # ≥ dist_thresh + h_i + h_j whenever len_i is the longer one
+
+        mid_tree = STRtree(shapely.points(mids))
+        reach_tree = STRtree(
+            shapely.box(
+                mids[:, 0] - reach, mids[:, 1] - reach, mids[:, 0] + reach, mids[:, 1] + reach
+            )
+        )
+
         merged: list[tuple[int, int, int, int]] = []
-        used: set[int] = set()
+        used = np.zeros(len(lines), dtype=bool)
 
+        # O(L log L + K) time, O(K) space — L = segments; K = candidate pairs from the tree queries
         for i, (x1, y1, x2, y2) in enumerate(lines):
-            if i in used:
+            if used[i]:
                 continue
-
-            angle_i = np.degrees(np.arctan2(y2 - y1, x2 - x1)) % 180
+            used[i] = True
             group: list[tuple[int, int, int, int]] = [(x1, y1, x2, y2)]
-            used.add(i)
 
-            for j, (x3, y3, x4, y4) in enumerate(lines):
-                if j in used:
+            mx, my, r = mids[i, 0], mids[i, 1], reach[i]
+            near = np.union1d(
+                mid_tree.query(shapely.box(mx - r, my - r, mx + r, my + r)),
+                reach_tree.query(shapely.points(mx, my)),
+            )  # sorted ascending → groups keep the old input order
+
+            # O(k) time, O(1) space — k = candidates for segment i (summed over i this is K)
+            # bigo-lint: disable=BIGO006 — amortised: the k values sum to K across the outer loop
+            for j in near:
+                if used[j]:
                     continue
-
-                angle_j = np.degrees(np.arctan2(y4 - y3, x4 - x3)) % 180
-
-                angle_diff = abs(angle_i - angle_j)
+                angle_diff = abs(angles[i] - angles[j])
                 if angle_diff > angle_thresh and abs(angle_diff - 180) > angle_thresh:
                     continue
+                dist = np.hypot(mids[i, 0] - mids[j, 0], mids[i, 1] - mids[j, 1])
+                if dist < dist_thresh + (lengths[i] + lengths[j]) / 2:
+                    group.append(lines[j])
+                    used[j] = True
 
-                # Distance between midpoints
-                mid_i = ((x1 + x2) / 2, (y1 + y2) / 2)
-                mid_j = ((x3 + x4) / 2, (y3 + y4) / 2)
-                dist = np.sqrt((mid_i[0] - mid_j[0]) ** 2 + (mid_i[1] - mid_j[1]) ** 2)
-
-                max_half_len = max(
-                    np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2),
-                    np.sqrt((x4 - x3) ** 2 + (y4 - y3) ** 2),
-                ) / 2
-
-                if dist < dist_thresh + max_half_len:
-                    group.append((x3, y3, x4, y4))
-                    used.add(j)
-
-            # Collapse group to a single bounding segment
-            all_pts = [(seg[0], seg[1]) for seg in group] + [(seg[2], seg[3]) for seg in group]
-            if abs(angle_i) < 45 or abs(angle_i - 180) < 45:
-                # Mostly horizontal -- sort by x
-                all_pts.sort(key=lambda p: p[0])
-            else:
-                # Mostly vertical -- sort by y
-                all_pts.sort(key=lambda p: p[1])
-            merged.append((all_pts[0][0], all_pts[0][1], all_pts[-1][0], all_pts[-1][1]))
+            merged.append(self._collapse(group, angles[i]))
 
         return merged
+
+    # O(g log g) time, O(g) space — g = segments in the group
+    @staticmethod
+    def _collapse(
+        group: list[tuple[int, int, int, int]], angle: float
+    ) -> tuple[int, int, int, int]:
+        """Collapse a group to one segment spanning its extreme endpoints."""
+        # O(g) time, O(g) space — g = segments in the group
+        all_pts = [(s[0], s[1]) for s in group] + [(s[2], s[3]) for s in group]
+        if abs(angle) < 45 or abs(angle - 180) < 45:
+            all_pts.sort(key=lambda p: p[0])  # mostly horizontal — sort by x
+        else:
+            all_pts.sort(key=lambda p: p[1])  # mostly vertical — sort by y
+        return (all_pts[0][0], all_pts[0][1], all_pts[-1][0], all_pts[-1][1])

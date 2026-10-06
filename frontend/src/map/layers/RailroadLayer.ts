@@ -10,14 +10,17 @@ import { vectorSourceSpec } from '../../utils/layerSourceHelper';
 const SOURCE_ID = 'railroads-source';
 
 /** Build a match expression for railroad owner colors */
+// O(k) time, O(k) space — k = entries in the colour table it reads (a constant table in colorSchemes.ts)
 function ownerColorExpression(): unknown {
   const pairs: string[] = [];
+  // O(k) time, O(k) space — k = entries in RAILROAD_COLORS (a constant table in colorSchemes.ts)
   for (const [owner, color] of Object.entries(RAILROAD_COLORS)) {
     pairs.push(owner, color);
   }
   return ['match', ['get', 'owner'], ...pairs, RAILROAD_DEFAULT_COLOR];
 }
 
+// O(s + k) time, O(k) space — s = entries in RAILROAD_STATUS_STYLES; k = entries in RAILROAD_COLORS
 export function addRailroadLayer(map: maplibregl.Map, config: LayerConfig): void {
   if (map.getSource(SOURCE_ID)) return;
 
@@ -27,13 +30,16 @@ export function addRailroadLayer(map: maplibregl.Map, config: LayerConfig): void
   });
 
   const statuses = Object.keys(RAILROAD_STATUS_STYLES);
+  // Built once and shared by every status layer and the label layer (was rebuilt per layer).
+  const ownerColor = ownerColorExpression();
 
+  // O(s) time, O(s) space — s = entries in RAILROAD_STATUS_STYLES
   for (const status of statuses) {
     const style = RAILROAD_STATUS_STYLES[status];
     const layerId = `${config.id}-${status}`;
 
     const paint: Record<string, unknown> = {
-      'line-color': style.colorOverride ?? ownerColorExpression(),
+      'line-color': style.colorOverride ?? ownerColor,
       'line-width': style.width,
       'line-opacity': config.opacity * style.opacity,
     };
@@ -84,7 +90,7 @@ export function addRailroadLayer(map: maplibregl.Map, config: LayerConfig): void
       'text-ignore-placement': false,
     },
     paint: {
-      'text-color': ownerColorExpression(),
+      'text-color': ownerColor,
       'text-halo-color': '#0d1117',
       'text-halo-width': 1.5,
       'text-opacity': config.opacity * 0.9,
@@ -92,8 +98,10 @@ export function addRailroadLayer(map: maplibregl.Map, config: LayerConfig): void
   } as maplibregl.AddLayerObject);
 }
 
+// O(s) time, O(s) space — s = entries in RAILROAD_STATUS_STYLES (a constant table)
 export function getRailroadLayerIds(configId: string): string[] {
   return [
+    // O(s) time, O(s) space — s = entries in RAILROAD_STATUS_STYLES (a constant table)
     ...Object.keys(RAILROAD_STATUS_STYLES).map((s) => `${configId}-${s}`),
     `${configId}-label`,
   ];

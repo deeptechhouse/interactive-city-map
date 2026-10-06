@@ -6,14 +6,17 @@ import { DISTRICT_COLORS } from '../../utils/colorSchemes';
 const BOUNDARIES_SOURCE = 'police-districts-source';
 const STATIONS_SOURCE = 'police-stations-source';
 
+// O(k) time, O(k) space — k = entries in the colour table it reads (a constant table in colorSchemes.ts)
 function districtColorExpression(): unknown {
   const pairs: (string | number)[] = [];
+  // O(k) time, O(k) space — k = entries in DISTRICT_COLORS (a constant table in colorSchemes.ts)
   for (const [dist, color] of Object.entries(DISTRICT_COLORS)) {
     pairs.push(Number(dist), color);
   }
   return ['match', ['get', 'dist_num'], ...pairs, '#888888'];
 }
 
+// O(k) time, O(k) space — k = entries in DISTRICT_COLORS (a constant table in colorSchemes.ts)
 export function addPoliceDistrictLayer(map: maplibregl.Map, config: LayerConfig): void {
   if (!map.getSource(BOUNDARIES_SOURCE)) {
     map.addSource(BOUNDARIES_SOURCE, {
@@ -122,6 +125,7 @@ export function addPoliceDistrictLayer(map: maplibregl.Map, config: LayerConfig)
   } as maplibregl.AddLayerObject);
 }
 
+// O(1) time, O(1) space
 export function getPoliceDistrictLayerIds(configId: string): string[] {
   return [
     `${configId}-fill`,

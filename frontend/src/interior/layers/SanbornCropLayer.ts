@@ -23,10 +23,12 @@ export interface SanbornCropConfig {
   opacity?: number;
 }
 
+// O(k) time, O(k) space — k = characters in the id string (template concatenation)
 function sourceId(id: string): string {
   return `${SOURCE_PREFIX}-${id}`;
 }
 
+// O(k) time, O(k) space — k = characters in the id string (template concatenation)
 function layerId(id: string): string {
   return `${LAYER_PREFIX}-${id}`;
 }
@@ -36,6 +38,8 @@ function layerId(id: string): string {
  * Uses MapLibre's image source type to position a historical Sanborn map crop
  * at specific coordinates.
  */
+// MapLibre receives the GeoJSON/image config by reference; its own tiling/render work is outside this function and not counted.
+// O(1) time, O(1) space
 export function addSanbornCropOverlay(
   map: maplibregl.Map,
   config: SanbornCropConfig,
@@ -64,6 +68,7 @@ export function addSanbornCropOverlay(
 /**
  * Remove a Sanborn crop overlay from the map.
  */
+// O(1) time, O(1) space
 export function removeSanbornCropOverlay(
   map: maplibregl.Map,
   id: string,
@@ -86,6 +91,7 @@ export function removeSanbornCropOverlay(
 /**
  * Update the opacity of an existing Sanborn crop overlay.
  */
+// O(1) time, O(1) space
 export function setSanbornCropOpacity(
   map: maplibregl.Map,
   id: string,
@@ -104,6 +110,7 @@ export function setSanbornCropOpacity(
 /**
  * Get the MapLibre layer IDs for a given Sanborn crop overlay.
  */
+// O(k) time, O(k) space — k = characters in the id string
 export function getSanbornCropLayerIds(id: string): string[] {
   return [layerId(id)];
 }

@@ -7,6 +7,7 @@ interface CitySelectorProps {
   onChange: (slug: string) => void;
 }
 
+// O(c) time, O(c) space — c = cities returned by the API (state + dropdown rows)
 export const CitySelector: React.FC<CitySelectorProps> = ({
   currentCitySlug,
   onChange,
@@ -42,6 +43,7 @@ export const CitySelector: React.FC<CitySelectorProps> = ({
 
   // Close dropdown on outside click
   useEffect(() => {
+    // O(1) time, O(1) space
     const handleClickOutside = (event: MouseEvent) => {
       if (
         dropdownRef.current &&
@@ -56,6 +58,7 @@ export const CitySelector: React.FC<CitySelectorProps> = ({
 
   // Close dropdown on Escape key
   useEffect(() => {
+    // O(1) time, O(1) space
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setOpen(false);
@@ -67,17 +70,50 @@ export const CitySelector: React.FC<CitySelectorProps> = ({
     }
   }, [open]);
 
+  // O(c) time, O(1) space — c = cities returned by the API
   const currentCity = cities.find((c) => c.slug === currentCitySlug);
   const displayName = currentCity
     ? `${currentCity.name}, ${currentCity.state}`
     : currentCitySlug;
 
+  // O(1) time, O(1) space
   const handleSelect = (slug: string) => {
     setOpen(false);
     if (slug !== currentCitySlug) {
       onChange(slug);
     }
   };
+
+  // Built only while the dropdown is open
+  let cityItems: React.ReactNode = null;
+  if (open) {
+    // O(c) time, O(c) space — c = cities returned by the API
+    cityItems = cities.map((city) => {
+      const isActive = city.slug === currentCitySlug;
+      return (
+        <li
+          key={city.slug}
+          role="option"
+          aria-selected={isActive}
+          style={{
+            ...itemStyle,
+            ...(isActive ? activeItemStyle : {}),
+          }}
+          onClick={() => handleSelect(city.slug)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleSelect(city.slug);
+            }
+          }}
+          tabIndex={0}
+        >
+          <span>{city.name}</span>
+          <span style={stateAbbrStyle}>{city.state}</span>
+        </li>
+      );
+    });
+  }
 
   if (loading) {
     return (
@@ -122,31 +158,7 @@ export const CitySelector: React.FC<CitySelectorProps> = ({
           role="listbox"
           aria-label="Available cities"
         >
-          {cities.map((city) => {
-            const isActive = city.slug === currentCitySlug;
-            return (
-              <li
-                key={city.slug}
-                role="option"
-                aria-selected={isActive}
-                style={{
-                  ...itemStyle,
-                  ...(isActive ? activeItemStyle : {}),
-                }}
-                onClick={() => handleSelect(city.slug)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleSelect(city.slug);
-                  }
-                }}
-                tabIndex={0}
-              >
-                <span>{city.name}</span>
-                <span style={stateAbbrStyle}>{city.state}</span>
-              </li>
-            );
-          })}
+          {cityItems}
         </ul>
       )}
     </div>

@@ -13,7 +13,7 @@ from pathlib import Path
 from shapely.geometry import shape, mapping
 from shapely import Polygon, MultiPolygon
 
-from app.data_import.base_importer import BaseImporter
+from app.data_import.base_importer import BaseImporter, insert_rows
 
 PAGE_SIZE = 50000
 
@@ -21,6 +21,7 @@ PAGE_SIZE = 50000
 class BuildingsImporter(BaseImporter):
     layer_name = "buildings"
 
+    # O(n) time, O(n) space — n = building features downloaded
     def download(self) -> Path:
         cached = self._load_json_cache()
         if cached:
@@ -46,6 +47,7 @@ class BuildingsImporter(BaseImporter):
         # Socrata pagination (Chicago default)
         all_features: list[dict] = []
         offset = 0
+        # O(n) time, O(n) space — n = features downloaded; p = n / 50000 pages
         while True:
             page_url = f"{url}&$offset={offset}" if "?" in url else f"{url}?$offset={offset}"
             data = self._http_get_json(page_url)
@@ -61,10 +63,12 @@ class BuildingsImporter(BaseImporter):
         collection = {"type": "FeatureCollection", "features": all_features}
         return self._save_json_cache(collection)
 
+    # O(n + v) time, O(n + v) space — n = features in the raw file; v = total vertices across all feature geometries
     def transform(self, raw_path: Path) -> list[dict]:
         raw = json.loads(raw_path.read_text())
         features = raw.get("features", [])
         records = []
+        # O(n + v) time, O(n + v) space — n = features in the raw file; v = total vertices across all feature geometries
         for feat in features:
             props = feat.get("properties", {})
             geom_json = feat.get("geometry")
@@ -110,6 +114,8 @@ class BuildingsImporter(BaseImporter):
         self._log.info("transformed", count=len(records))
         return records
 
+    # Rows go through insert_rows (multi-row INSERT, INSERT_PAGE_SIZE per statement).
+    # O(n) time, O(n) space — n = records; c = n / 5000 chunks, each sent by insert_rows
     def load(self, records: list[dict]) -> int:
         if not records:
             return 0
@@ -123,6 +129,7 @@ class BuildingsImporter(BaseImporter):
                 VALUES (%s, %s, %s, %s, %s, %s, %s,
                     ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326))
             """
+            # O(n) time, O(n) space — n = records being turned into insert tuples
             batch = [
                 (r["id"], r["city_id"], r["address"], r["name"],
                  r["year_built"], r["floors"], r["sq_ft"], r["geom_json"])
@@ -131,9 +138,10 @@ class BuildingsImporter(BaseImporter):
             # Insert in chunks of 5000 to avoid memory issues
             chunk_size = 5000
             total = 0
+            # O(n) time, O(1) space — n = rows inserted; k = 5000 rows per chunk slice
             for i in range(0, len(batch), chunk_size):
                 chunk = batch[i : i + chunk_size]
-                cur.executemany(sql, chunk)
+                insert_rows(cur, sql, chunk)
                 total += len(chunk)
                 self._log.info("loaded_chunk", progress=total, total=len(batch))
             conn.commit()
@@ -143,6 +151,7 @@ class BuildingsImporter(BaseImporter):
             conn.close()
 
 
+# O(1) time, O(1) space
 def _safe_int(val) -> int | None:
     """Safely convert a value to int, returning None on failure."""
     if val is None:

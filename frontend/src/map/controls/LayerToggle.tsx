@@ -7,6 +7,7 @@ interface LayerToggleProps {
   onToggle: (id: string) => void;
 }
 
+// O(1) time, O(1) space
 export const LayerToggle: React.FC<LayerToggleProps> = ({
   id,
   name,

@@ -85,7 +85,7 @@ export class SearchStateStore {
     this.#notify();
   }
 
-  /** Attach an external adapter; returns the detach function (use as an effect cleanup). O(1). */
+  /** Attach an external adapter; returns the detach function (use as an effect cleanup). O(1) time, O(1) space. */
   attach(key: string, section: ExternalSection): () => void {
     this.#externals.set(key, section);
     return () => {
@@ -95,12 +95,16 @@ export class SearchStateStore {
 
   /**
    * Capture everything. Sections that were applied but never mounted are passed through
-   * as-is, so re-saving a preset doesn't silently drop them. O(k) — k = sections (+ toJson).
+   * as-is, so re-saving a preset doesn't silently drop them.
+   * O(k) time, O(k) space — k = sections (plus each section's toJson)
    */
   snapshot(): SearchSnapshot {
     const out: SearchSnapshot = {};
+    // O(p) time, O(p) space — p = pending (applied-but-unmounted) sections
     for (const [key, raw] of this.#pending) out[key] = raw;
+    // O(d) time, O(d) space — d = defined sections (plus each toJson call)
     for (const [key, def] of this.#defs) out[key] = def.toJson(this.#values.get(key));
+    // O(x) time, O(x) space — x = attached external adapters (plus each capture call)
     for (const [key, ext] of this.#externals) out[key] = ext.capture();
     return out;
   }
@@ -109,14 +113,16 @@ export class SearchStateStore {
    * Restore a snapshot. An owned section MISSING from the snapshot resets to its initial
    * value — a preset saved before that filter existed means "that filter untouched".
    * External sections missing from the snapshot are left alone (we can't know their default).
-   * O(k) — k = sections (+ fromJson).
+   * O(k) time, O(k) space — k = sections (plus each section's fromJson)
    */
   apply(snap: SearchSnapshot): void {
     this.#pending.clear();
+    // O(d) time, O(d) space — d = defined sections (plus each fromJson call)
     for (const [key, def] of this.#defs) {
       const raw = snap[key];
       this.#values.set(key, (raw === undefined ? null : def.fromJson(raw)) ?? def.initial());
     }
+    // O(s) time, O(s) space — s = keys in the snapshot, each a constant-time Map lookup, plus each external apply call
     for (const [key, raw] of Object.entries(snap)) {
       const ext = this.#externals.get(key);
       if (ext) ext.apply(raw);
@@ -125,6 +131,7 @@ export class SearchStateStore {
     this.#notify();
   }
 
+  // O(1) time, O(1) space
   subscribe(listener: () => void): () => void {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
@@ -132,6 +139,7 @@ export class SearchStateStore {
 
   // O(l) — l = subscribed controls.
   #notify(): void {
+    // O(l) time, O(1) space — l = subscribed controls (plus each listener call)
     for (const l of this.#listeners) l();
   }
 }
@@ -139,7 +147,8 @@ export class SearchStateStore {
 /**
  * SectionDef for a checkbox list stored as a Set of keys. Unknown keys in saved json are
  * dropped (a category removed in a later version must not break the filter expression).
- * Saved as a sorted array so identical selections produce identical json. O(n log n), n = keys.
+ * Saved as a sorted array so identical selections produce identical json.
+ * O(n log n) time, O(n) space — n = keys.
  */
 export function setSection(
   key: string,
@@ -153,6 +162,7 @@ export function setSection(
     toJson: (value) => [...value].sort(),
     fromJson: (raw) =>
       Array.isArray(raw)
+        // O(m) time, O(m) space — m = items in the saved array, each a constant-time Set.has
         ? new Set(raw.filter((x): x is string => typeof x === 'string' && known.has(x)))
         : null,
   };

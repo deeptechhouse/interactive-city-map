@@ -9,7 +9,7 @@
  * or a hand-edited value): callers must validate the shape before using it.
  */
 
-/** Read and JSON-parse a key; ``null`` on any failure. O(n) — n = stored length. */
+/** Read and JSON-parse a key; ``null`` on any failure. O(n) time, O(n) space — n = stored length. */
 export function loadJson(key: string): unknown {
   try {
     const raw = window.localStorage.getItem(key);
@@ -19,7 +19,7 @@ export function loadJson(key: string): unknown {
   }
 }
 
-/** JSON-stringify and store; silently ignores failures. O(n) — n = serialised length. */
+/** JSON-stringify and store; silently ignores failures. O(n) time, O(n) space — n = serialised length. */
 export function saveJson(key: string, value: unknown): void {
   try {
     window.localStorage.setItem(key, JSON.stringify(value));

@@ -17,6 +17,7 @@ class GeoJSONWriter:
     # ------------------------------------------------------------------
 
     @staticmethod
+    # O(n + v) time, O(n + v) space — n = rooms; v = total polygon vertices across all rooms
     def rooms_to_geojson(
         rooms: list[dict],
         affine: list[float] | None = None,
@@ -38,6 +39,7 @@ class GeoJSONWriter:
             GeoJSON FeatureCollection dict.
         """
         features: list[dict] = []
+        # O(n + v) time, O(n + v) space — n = rooms; v = total polygon vertices across all rooms
         for room in rooms:
             poly = room["polygon"]
             if affine:
@@ -59,6 +61,7 @@ class GeoJSONWriter:
         return {"type": "FeatureCollection", "features": features}
 
     @staticmethod
+    # O(n) time, O(n) space — n = wall segments
     def walls_to_geojson(
         lines: list[tuple[int, int, int, int]],
         affine: list[float] | None = None,
@@ -73,6 +76,7 @@ class GeoJSONWriter:
             GeoJSON FeatureCollection dict.
         """
         features: list[dict] = []
+        # O(n) time, O(n) space — n = wall segments
         for x1, y1, x2, y2 in lines:
             if affine:
                 p1 = _pixel_to_world(affine, x1, y1)
@@ -94,6 +98,7 @@ class GeoJSONWriter:
 # Module-level helpers
 # ------------------------------------------------------------------
 
+# O(1) time, O(1) space
 def _pixel_to_world(
     affine: list[float],
     px: float,
@@ -112,11 +117,13 @@ def _pixel_to_world(
     return (wx, wy)
 
 
+# O(v) time, O(v) space — v = vertices in the polygon exterior
 def _transform_polygon(
     poly: ShapelyPolygon,
     affine: list[float],
 ) -> ShapelyPolygon:
     """Apply an affine transform to every vertex of a Shapely Polygon."""
+    # O(v) time, O(v) space — v = vertices in the polygon exterior
     transformed_coords = [
         _pixel_to_world(affine, x, y) for x, y in poly.exterior.coords
     ]

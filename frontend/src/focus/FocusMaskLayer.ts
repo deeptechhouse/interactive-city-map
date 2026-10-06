@@ -26,7 +26,7 @@ const OUTLINE_COLOR = '#58a6ff';
 
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
-/** Add sources/layers once. Idempotent. O(1). */
+/** Add sources/layers once. Idempotent. O(1) time, O(1) space. */
 function ensureLayers(map: maplibregl.Map): void {
   if (!map.getSource(MASK_SOURCE)) {
     map.addSource(MASK_SOURCE, { type: 'geojson', data: EMPTY_FC });
@@ -58,7 +58,8 @@ function ensureLayers(map: maplibregl.Map): void {
 
 /**
  * Show the mask (``mask`` = world minus focus) and outline (``shape``), or hide both
- * when ``mask`` is null. O(v) to hand the geometry to MapLibre — v = vertices.
+ * when ``mask`` is null.
+ * O(v) time, O(v) space — v = vertices handed to MapLibre.
  */
 export function setFocusMask(
   map: maplibregl.Map,

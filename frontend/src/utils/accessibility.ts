@@ -18,6 +18,7 @@ let liveRegion: HTMLElement | null = null;
  * this function is called.  Subsequent calls update its text content,
  * which triggers a screen-reader announcement.
  */
+// O(m) time, O(m) space — m = message length, the live region itself is created once
 export function announceToScreenReader(message: string): void {
   if (!liveRegion) {
     liveRegion = document.createElement('div');
@@ -57,6 +58,7 @@ export function announceToScreenReader(message: string): void {
  *
  * Returns a cleanup function that removes the event listener.
  */
+// O(1) time, O(1) space — h = 1 listener registered, per-keypress cost is on handleKeyDown
 export function trapFocus(container: HTMLElement): () => void {
   const focusableSelector = [
     'a[href]',
@@ -67,6 +69,7 @@ export function trapFocus(container: HTMLElement): () => void {
     '[tabindex]:not([tabindex="-1"])',
   ].join(', ');
 
+  // O(n) time, O(n) space — n = focusable elements inside the container (querySelectorAll + Array.from per Tab press)
   function handleKeyDown(e: KeyboardEvent) {
     if (e.key !== 'Tab') return;
 
@@ -101,6 +104,7 @@ export function trapFocus(container: HTMLElement): () => void {
  * Restore focus to the element that was active before a modal/panel
  * was opened.
  */
+// O(1) time, O(1) space
 export function restoreFocus(previousElement: HTMLElement): void {
   if (previousElement && typeof previousElement.focus === 'function') {
     previousElement.focus();
@@ -112,6 +116,7 @@ export function restoreFocus(previousElement: HTMLElement): void {
 /* ------------------------------------------------------------------ */
 
 /** Parse a hex color (#RGB or #RRGGBB) into [r, g, b] on a 0-255 scale. */
+// O(1) time, O(1) space — c = colour string of 4 to 7 characters
 function parseHex(hex: string): [number, number, number] {
   let raw = hex.replace(/^#/, '');
 
@@ -128,12 +133,14 @@ function parseHex(hex: string): [number, number, number] {
 }
 
 /** Convert an sRGB channel value (0-255) to relative luminance component. */
+// O(1) time, O(1) space
 function srgbToLinear(channel: number): number {
   const c = channel / 255;
   return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
 }
 
 /** Relative luminance per WCAG 2.x (range 0-1). */
+// O(1) time, O(1) space
 function relativeLuminance(hex: string): number {
   const [r, g, b] = parseHex(hex);
   return (
@@ -148,6 +155,7 @@ function relativeLuminance(hex: string): number {
  *
  * @returns A value between 1 and 21.
  */
+// O(1) time, O(1) space
 export function getContrastRatio(fg: string, bg: string): number {
   const l1 = relativeLuminance(fg);
   const l2 = relativeLuminance(bg);
@@ -166,6 +174,7 @@ export function getContrastRatio(fg: string, bg: string): number {
  *
  * This helper checks the **normal-text** threshold for the requested level.
  */
+// O(1) time, O(1) space
 export function meetsContrastRequirement(
   fg: string,
   bg: string,
@@ -234,6 +243,7 @@ export const ARIA_LABELS = {
  * Moves focus up/down (or left/right) and wraps around at the edges.
  * Call this from an `onKeyDown` handler on the list container.
  */
+// O(1) time, O(1) space — i = 1 index lookup into items, never a scan
 export function handleArrowKeyNavigation(
   e: KeyboardEvent,
   items: HTMLElement[],
@@ -276,6 +286,7 @@ export function handleArrowKeyNavigation(
  * );
  * ```
  */
+// O(1) time, O(1) space
 export function handleEscapeKey(
   e: KeyboardEvent,
   onClose: () => void,

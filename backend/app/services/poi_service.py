@@ -16,6 +16,7 @@ class POIService:
     """Service layer for POI operations."""
 
     @staticmethod
+    # O(g) time, O(g) space — g = size of the POI's GeoJSON string
     def _model_to_response(poi: POI, geom_geojson: str | None = None) -> POIResponse:
         """Convert a POI model instance to a POIResponse schema."""
         geom_json = None
@@ -46,6 +47,7 @@ class POIService:
         )
 
     @staticmethod
+    # O(log n + g) time, O(g) space — n = POIs (spatial index); g = total size of the matched POIs and their GeoJSON
     async def get_by_bbox(
         session: AsyncSession,
         city_slug: str,
@@ -85,12 +87,14 @@ class POIService:
         rows = result.all()
 
         pois = []
+        # O(g) time, O(g) space — g = total size of the matched rows and their GeoJSON
         for poi, geom_geojson in rows:
             pois.append(POIService._model_to_response(poi, geom_geojson))
 
         return POIListResponse(pois=pois, total=len(pois))
 
     @staticmethod
+    # O(log n + m) time, O(m) space — n = POIs (index maintenance); m = size of the request payload
     async def create_poi(session: AsyncSession, data: POICreateRequest) -> POIResponse:
         """Create a new POI from the request data.
 
@@ -142,6 +146,7 @@ class POIService:
         return POIService._model_to_response(poi_obj, geom_geojson)
 
     @staticmethod
+    # O(log n + g) time, O(g) space — n = POIs (building_id index); g = total size of the matched POIs and their GeoJSON
     async def get_by_building(
         session: AsyncSession,
         building_id: uuid.UUID,
@@ -164,6 +169,7 @@ class POIService:
         rows = result.all()
 
         pois = []
+        # O(g) time, O(g) space — g = total size of the matched rows and their GeoJSON
         for poi, geom_geojson in rows:
             pois.append(POIService._model_to_response(poi, geom_geojson))
 

@@ -15,6 +15,7 @@ class BuildingService:
     """Service layer for building operations."""
 
     @staticmethod
+    # O(g) time, O(g) space — g = size of the building's GeoJSON string
     def _model_to_response(building: Building) -> BuildingResponse:
         """Convert a Building model instance to a BuildingResponse schema."""
         geom_json = None
@@ -48,6 +49,7 @@ class BuildingService:
         )
 
     @staticmethod
+    # O(log n + g) time, O(g) space — n = buildings (primary-key lookup); g = size of the building's GeoJSON
     async def get_by_id(session: AsyncSession, building_id: uuid.UUID) -> BuildingResponse | None:
         """Retrieve a single building by its ID, with geometry as GeoJSON."""
         stmt = select(
@@ -65,6 +67,7 @@ class BuildingService:
         return BuildingService._model_to_response(building)
 
     @staticmethod
+    # O(log n + g) time, O(g) space — n = buildings (spatial index); g = total size of the matched buildings and their GeoJSON
     async def get_by_bbox(
         session: AsyncSession,
         city_slug: str,
@@ -100,6 +103,7 @@ class BuildingService:
         rows = result.all()
 
         buildings = []
+        # O(g) time, O(g) space — g = total size of the matched rows and their GeoJSON
         for building, geom_geojson in rows:
             building._geom_geojson = geom_geojson
             buildings.append(BuildingService._model_to_response(building))
@@ -107,6 +111,7 @@ class BuildingService:
         return BuildingListResponse(buildings=buildings, total=len(buildings))
 
     @staticmethod
+    # O(log n + g) time, O(g) space — n = buildings (primary-key lookups); g = size of the building's GeoJSON
     async def update_hidden(
         session: AsyncSession,
         building_id: uuid.UUID,
@@ -127,6 +132,7 @@ class BuildingService:
         return await BuildingService.get_by_id(session, building_id)
 
     @staticmethod
+    # O(log n + l + g) time, O(l + g) space — n = buildings (primary-key lookups); l = size of the links JSON; g = size of the building's GeoJSON
     async def update_external_links(
         session: AsyncSession,
         building_id: uuid.UUID,

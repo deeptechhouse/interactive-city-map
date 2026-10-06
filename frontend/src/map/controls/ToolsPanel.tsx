@@ -10,6 +10,7 @@ interface ToolsPanelProps {
   children: React.ReactNode;
 }
 
+// O(1) time, O(1) space
 export const ToolsPanel: React.FC<ToolsPanelProps> = ({ badge, children }) => {
   const [collapsed, setCollapsed] = useState(false);
 

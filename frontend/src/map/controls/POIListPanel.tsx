@@ -1,3 +1,14 @@
+/**
+ * Floating list of the POIs currently rendered on the map, grouped by category.
+ *
+ * FLOW: map moveend/zoomend/sourcedata → debounce 300 ms → queryVisiblePOIs()
+ *       → dedupe by id, sort by category+name → grouped render.
+ *
+ * TRAP (fixed 2026-10-06, Big O audit): hover state used to be an index found
+ * with `pois.indexOf(poi)` for EVERY row on EVERY render — O(n²) per render.
+ * It is now the POI id (ids are unique — queryVisiblePOIs dedupes on them),
+ * which is O(1) per row and can't point at the wrong row after the list changes.
+ */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type maplibregl from 'maplibre-gl';
 import { THEME } from '../../utils/colorSchemes';
@@ -141,12 +152,14 @@ const styles = {
   },
 } as const;
 
+// O(n log n) time, O(n) space — n = POIs rendered in the current view
 export const POIListPanel: React.FC<POIListPanelProps> = ({ mapInstance }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [pois, setPois] = useState<VisiblePOI[]>([]);
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const [hoverId, setHoverId] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // O(f + n log n) time, O(n) space — f = rendered features; n = unique POIs
   const queryVisiblePOIs = useCallback(() => {
     if (!mapInstance) return;
 
@@ -160,6 +173,7 @@ export const POIListPanel: React.FC<POIListPanelProps> = ({ mapInstance }) => {
     const seen = new Set<string>();
     const result: VisiblePOI[] = [];
 
+    // O(f) time, O(n) space — f = rendered features; n = unique POIs kept
     for (const f of features) {
       const p = f.properties ?? {};
       const id = String(p.id ?? p.name ?? Math.random());
@@ -194,6 +208,7 @@ export const POIListPanel: React.FC<POIListPanelProps> = ({ mapInstance }) => {
   useEffect(() => {
     if (!mapInstance) return;
 
+    // O(1) time, O(1) space
     const handler = () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(queryVisiblePOIs, 300);
@@ -229,12 +244,47 @@ export const POIListPanel: React.FC<POIListPanelProps> = ({ mapInstance }) => {
 
   // Group by category
   const grouped: Record<string, VisiblePOI[]> = {};
+  // O(n) time, O(n) space — n = POIs
   for (const poi of pois) {
     if (!grouped[poi.category]) grouped[poi.category] = [];
     grouped[poi.category].push(poi);
   }
 
   const categories = Object.keys(grouped).sort();
+
+  // O(m) time, O(m) space — m = POIs in one category
+  const renderRows = (list: VisiblePOI[]) =>
+    // O(m) time, O(m) space — m = POIs in this category
+    list.map((poi) => (
+      <div
+        key={poi.id}
+        style={{
+          ...styles.item,
+          background: hoverId === poi.id ? THEME.bgTertiary : 'transparent',
+        }}
+        onClick={() => handleClickPOI(poi)}
+        onMouseEnter={() => setHoverId(poi.id)}
+        onMouseLeave={() => setHoverId(null)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter') handleClickPOI(poi); }}
+      >
+        <span style={styles.itemName}>{poi.name}</span>
+        {poi.address && <span style={styles.itemAddr}>{poi.address}</span>}
+      </div>
+    ));
+
+  // O(n) time, O(n) space — n = POIs across all categories (each row renders once)
+  // bigo-lint: disable=BIGO006 — amortised: every POI is in exactly one category's renderRows
+  const categoryGroups = categories.map((cat) => (
+    <div key={cat} style={styles.categoryGroup}>
+      <div style={styles.categoryHeader}>
+        <div style={{ ...styles.dot, background: POI_COLORS[cat] ?? '#888' }} />
+        {CATEGORY_LABELS[cat] ?? cat} ({grouped[cat].length})
+      </div>
+      {renderRows(grouped[cat])}
+    </div>
+  ));
 
   return (
     <div style={styles.panel} role="complementary" aria-label="Visible points of interest">
@@ -256,32 +306,7 @@ export const POIListPanel: React.FC<POIListPanelProps> = ({ mapInstance }) => {
               : 'No POIs in current view'}
           </div>
         )}
-        {categories.map((cat) => (
-          <div key={cat} style={styles.categoryGroup}>
-            <div style={styles.categoryHeader}>
-              <div style={{ ...styles.dot, background: POI_COLORS[cat] ?? '#888' }} />
-              {CATEGORY_LABELS[cat] ?? cat} ({grouped[cat].length})
-            </div>
-            {grouped[cat].map((poi, idx) => (
-              <div
-                key={poi.id}
-                style={{
-                  ...styles.item,
-                  background: hoverIdx === pois.indexOf(poi) ? THEME.bgTertiary : 'transparent',
-                }}
-                onClick={() => handleClickPOI(poi)}
-                onMouseEnter={() => setHoverIdx(pois.indexOf(poi))}
-                onMouseLeave={() => setHoverIdx(null)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleClickPOI(poi); }}
-              >
-                <span style={styles.itemName}>{poi.name}</span>
-                {poi.address && <span style={styles.itemAddr}>{poi.address}</span>}
-              </div>
-            ))}
-          </div>
-        ))}
+        {categoryGroups}
       </div>
     </div>
   );

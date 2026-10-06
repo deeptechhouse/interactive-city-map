@@ -54,6 +54,7 @@ class PhoneLookupResult:
     website: str = ""
 
 
+# O(n) time, O(n) space — n = length of the string
 def parse_city_providers(raw: str) -> dict[str, list[str]]:
     """Parse ``"chicago=google,foursquare;detroit=foursquare"`` into a dict.
 
@@ -62,10 +63,13 @@ def parse_city_providers(raw: str) -> dict[str, list[str]]:
     O(n) time, O(n) space — n = length of the string.
     """
     result: dict[str, list[str]] = {}
+    # O(n) time, O(n) space — n = length of the string
     for segment in raw.split(";"):  # O(segments)
         if "=" not in segment:
             continue
         city, providers = segment.split("=", 1)
+        # bigo-lint: disable=BIGO006 — segments partition the string, so this sums to n
+        # O(m) time, O(m) space — m = length of one segment
         names = [p.strip().lower() for p in providers.split(",") if p.strip()]
         if city.strip() and names:
             result[city.strip().lower()] = names
@@ -80,16 +84,19 @@ class SlidingWindowRateLimiter:
     Space: O(c · limit) — c = active clients.
     """
 
+    # O(1) time, O(1) space
     def __init__(self, limit: int, window_s: float = 60.0, clock: Callable[[], float] = time.monotonic):
         self._limit = limit
         self._window_s = window_s
         self._clock = clock  # injectable so tests don't have to sleep
         self._events: dict[str, deque[float]] = {}
 
+    # O(1) time, O(1) space — e = events kept per client, each appended once and popped once, so amortised
     def allow(self, client_id: str) -> bool:
         now = self._clock()
         events = self._events.setdefault(client_id, deque())
-        # Amortised O(1): drop timestamps that have left the window.
+        # Drop timestamps that have left the window (amortised: each timestamp is popped once).
+        # O(1) time, O(1) space — e = 1 expired event per call, amortised (each event is appended and popped once)
         while events and now - events[0] >= self._window_s:
             events.popleft()
         if len(events) >= self._limit:
@@ -101,16 +108,19 @@ class SlidingWindowRateLimiter:
 class LruCache:
     """Tiny bounded LRU map. get/put O(1) time; O(max_size) space."""
 
+    # O(1) time, O(1) space
     def __init__(self, max_size: int):
         self._max = max_size
         self._data: OrderedDict[tuple, PhoneLookupResult] = OrderedDict()
 
+    # O(a) time, O(1) space — a = length of the key strings (hashing)
     def get(self, key: tuple) -> Optional[PhoneLookupResult]:
         if key not in self._data:
             return None
         self._data.move_to_end(key)
         return self._data[key]
 
+    # O(a) time, O(1) space — a = length of the key strings (hashing)
     def put(self, key: tuple, value: PhoneLookupResult) -> None:
         self._data[key] = value
         self._data.move_to_end(key)
@@ -125,6 +135,7 @@ _CACHE_SIZE = 10_000
 class PhoneLookupService:
     """Business-logic facade used by the route. One instance per process."""
 
+    # O(1) time, O(1) space
     def __init__(
         self,
         default_providers: list[str],
@@ -136,30 +147,40 @@ class PhoneLookupService:
         self._by_city = city_providers
         self._limiter = rate_limiter
         self._chain_factory = chain_factory
-        self._chains: dict[str, ChainedPhoneLookup] = {}  # built lazily, one per city
+        self._chains: dict[str, ChainedPhoneLookup] = {}  # built lazily: configured cities + "" default
         self._cache = LruCache(_CACHE_SIZE)
 
     @classmethod
+    # O(s) time, O(s) space — s = length of the provider settings strings
     def from_settings(cls) -> "PhoneLookupService":
         """Wiring from config.py — the only place settings are read."""
         return cls(
+            # O(s) time, O(s) space — s = length of the provider settings string
             default_providers=[p.strip() for p in settings.phone_lookup_providers.split(",") if p.strip()],
             city_providers=parse_city_providers(settings.phone_lookup_providers_by_city),
             rate_limiter=SlidingWindowRateLimiter(settings.phone_lookup_rate_per_minute),
         )
 
     def _chain_for(self, city: str) -> ChainedPhoneLookup:
-        """O(1) amortised — chains are built once per city then reused."""
+        """O(1) time, O(1) space — c = configured cities plus one shared default chain, built once each.
+
+        Cities without their own provider list share ONE default chain (keyed ""), so a
+        stream of made-up city slugs can't grow the cache — same providers as before.
+        """
         key = city.lower()
+        if key not in self._by_city:
+            key = ""
         if key not in self._chains:
             self._chains[key] = self._chain_factory(self._by_city.get(key, self._default))
         return self._chains[key]
 
+    # O(p) time, O(p) space — p = configured providers (a first call per city also builds the chain)
     def providers_for(self, city: str) -> tuple[str, ...]:
         """Configured (keyed) providers for a city — lets the UI say 'no phone source set up'."""
         return self._chain_for(city).provider_names
 
     @staticmethod
+    # O(a) time, O(a) space — a = length of the name and address strings
     def _cache_key(city: str, query: BusinessQuery) -> tuple:
         # Normalised name + address (+ the address's own city, since owner companies are
         # looked up at their mailing address, often outside Chicago): the same business
@@ -171,8 +192,9 @@ class PhoneLookupService:
             query.city.strip().lower(),
         )
 
+    # O(p) time, O(1) space — p = provider calls on a miss (a cache hit is constant)
     async def lookup(self, city: str, query: BusinessQuery, client_id: str) -> PhoneLookupResult:
-        """Cached lookup. O(1) on a cache hit; O(p) provider calls on a miss."""
+        """Cached lookup."""
         key = self._cache_key(city, query)
         cached = self._cache.get(key)
         if cached is not None:

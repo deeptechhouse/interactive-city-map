@@ -13,13 +13,15 @@ import { SearchStateStore, type SectionDef, type Updater } from './searchState';
 
 export const SearchStateContext = createContext<SearchStateStore>(new SearchStateStore());
 
+// O(1) time, O(1) space
 export function useSearchStore(): SearchStateStore {
   return useContext(SearchStateContext);
 }
 
 /**
  * Like useState, but the value lives in the store: it survives the control unmounting and
- * is saved/restored by presets. `def` must be a module-level constant. O(1) per render.
+ * is saved/restored by presets. `def` must be a module-level constant.
+ * O(1) time, O(1) space — r = 1 store lookup per render.
  */
 export function useSearchSection<T>(def: SectionDef<T>): [T, (next: Updater<T>) => void] {
   const store = useSearchStore();
@@ -36,6 +38,7 @@ export function useSearchSection<T>(def: SectionDef<T>): [T, (next: Updater<T>) 
  * `value` must be JSON-serialisable; `apply` receives UNTRUSTED json and must validate it.
  * The adapter reads through a ref, so it always captures the latest render's value.
  */
+// O(1) time, O(1) space
 export function useSearchAdapter(key: string, value: unknown, apply: (raw: unknown) => void): void {
   const store = useSearchStore();
   const latest = useRef({ value, apply });

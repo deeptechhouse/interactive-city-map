@@ -1,4 +1,14 @@
-"""Batch runner: queries POIs, creates scrape targets, runs crawl+classify pipeline."""
+"""Batch runner: queries POIs, creates scrape targets, runs crawl+classify pipeline.
+
+FLOW
+    run() → POIs with websites in the venue categories → new ScrapeTarget rows
+        → _process_target() per target: crawl → download → classify → upload
+        → InteriorSource row (+ auto-georef from the building footprint).
+
+TRAP (fixed 2026-10-06, Big O audit): every floor plan found on a target
+re-queried the SAME building twice (city_id, then geom). The building row is
+now fetched once per target, on the first floor plan, via _building_info().
+"""
 
 from __future__ import annotations
 
@@ -36,6 +46,7 @@ VENUE_CATEGORIES = [
 class VenueScraperRunner:
     """Orchestrates venue website scraping for floor plan discovery."""
 
+    # O(1) time, O(1) space
     def __init__(self, session: Session) -> None:
         self._session = session
         self._scraper = VenueScraperService()
@@ -44,6 +55,7 @@ class VenueScraperRunner:
         self._storage = get_storage_adapter()
         self._logger = structlog.get_logger()
 
+    # O(T + P) time, O(T + P) space — T = targets processed (network-bound, each crawl ≤ 10 pages); P = venue POIs for the city
     def run(
         self,
         city_id: str,
@@ -81,6 +93,7 @@ class VenueScraperRunner:
         existing_urls = set(self._session.execute(existing_urls_stmt).scalars().all())
 
         targets: list[ScrapeTarget] = []
+        # O(P) time, O(P) space — P = venue POIs (existing_urls is a set: constant-time membership)
         for poi in pois:
             if poi.website in existing_urls:
                 continue
@@ -104,6 +117,7 @@ class VenueScraperRunner:
         # 3. Process each pending target
         targets_to_process = targets[:max_targets] if max_targets else targets
 
+        # O(T) time, O(1) space — T = targets processed (one crawl + one commit each)
         for idx, target in enumerate(targets_to_process):
             try:
                 self._process_target(target, stats)
@@ -134,11 +148,15 @@ class VenueScraperRunner:
         self._logger.info("venue_scraper.complete", **stats)
         return stats
 
+    # O(C) time, O(C) space — C = image candidates on the target's site (network-bound)
     def _process_target(self, target: ScrapeTarget, stats: dict) -> None:
         """Crawl a single target URL and classify/store discovered floor plans."""
         candidates = self._scraper.crawl(target.url)
         floor_plan_urls: list[str] = []
+        # (city_id, geom) of the target's building — fetched once, on the first floor plan
+        building: tuple[uuid.UUID | None, object | None] | None = None
 
+        # O(C) time, O(C) space — C = image candidates (one download + classify each)
         for candidate in candidates:
             image_data, content_type = self._scraper.download_image(candidate["url"])
             if image_data is None:
@@ -162,10 +180,13 @@ class VenueScraperRunner:
                 content_type=content_type or "image/jpeg",
             )
 
-            # Create InteriorSource
+            # Create InteriorSource. The building row is loop-invariant — fetch it once.
+            if building is None:
+                building = self._building_info(target.building_id)
+            city_id, building_geom = building
             source = InteriorSource(
                 building_id=target.building_id,
-                city_id=self._get_building_city_id(target.building_id),
+                city_id=city_id,
                 source_type="venue_scrape",
                 source_url=candidate["url"],
                 fetch_date=datetime.now(timezone.utc),
@@ -184,34 +205,35 @@ class VenueScraperRunner:
             stats["plans_stored"] += 1
 
             # Auto-georef via building polygon
-            self._try_auto_georef(source, image_data, target.building_id)
+            self._try_auto_georef(source, image_data, target.building_id, building_geom)
 
         target.floor_plan_urls = floor_plan_urls if floor_plan_urls else None
 
-    def _get_building_city_id(self, building_id: uuid.UUID | None) -> uuid.UUID | None:
-        """Look up the city_id for a building."""
+    # O(1) time, O(g) space — g = footprint vertices (one primary-key lookup)
+    def _building_info(
+        self, building_id: uuid.UUID | None
+    ) -> tuple[uuid.UUID | None, object | None]:
+        """(city_id, geom) for a building in ONE query; (None, None) when unknown."""
         if building_id is None:
-            return None
-        stmt = select(Building.city_id).where(Building.id == building_id)
-        result = self._session.execute(stmt).scalar_one_or_none()
-        return result
+            return None, None
+        row = self._session.execute(
+            select(Building.city_id, Building.geom).where(Building.id == building_id)
+        ).one_or_none()
+        return (row[0], row[1]) if row else (None, None)
 
+    # O(I + g) time, O(I + g) space — I = image pixels (decode); g = footprint vertices
     def _try_auto_georef(
         self,
         source: InteriorSource,
         image_data: bytes,
         building_id: uuid.UUID | None,
+        geom: object | None,
     ) -> None:
-        """Attempt automatic georeferencing using building polygon."""
-        if building_id is None:
+        """Attempt automatic georeferencing using the building polygon (*geom*, already loaded)."""
+        if building_id is None or geom is None:
             return
         try:
             from geoalchemy2.shape import to_shape
-
-            stmt = select(Building.geom).where(Building.id == building_id)
-            geom = self._session.execute(stmt).scalar_one_or_none()
-            if geom is None:
-                return
 
             import cv2
             import numpy as np

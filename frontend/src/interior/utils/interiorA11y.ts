@@ -24,6 +24,7 @@ export const INTERIOR_ARIA = {
 };
 
 // Keyboard navigation helpers
+// O(l) time, O(1) space — l = floor levels (indexOf scan for the current level)
 export function handleFloorSelectorKeyboard(
   event: React.KeyboardEvent,
   levels: number[],
@@ -42,6 +43,7 @@ export function handleFloorSelectorKeyboard(
   }
 }
 
+// O(1) time, O(1) space
 export function handleEditorKeyboard(
   event: KeyboardEvent,
   callbacks: {
@@ -66,6 +68,7 @@ export function handleEditorKeyboard(
 }
 
 // Screen reader announcements
+// O(m) time, O(m) space — m = characters in the announcement message
 export function announceToScreenReader(message: string): void {
   const el = document.createElement('div');
   el.setAttribute('role', 'status');
@@ -79,6 +82,7 @@ export function announceToScreenReader(message: string): void {
 }
 
 // Focus trap for modals/popups
+// O(1) time, O(1) space
 export function createFocusTrap(
   container: HTMLElement,
 ): { activate: () => void; deactivate: () => void } {
@@ -86,6 +90,7 @@ export function createFocusTrap(
     'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
   let previousFocus: HTMLElement | null = null;
 
+  // O(f) time, O(f) space — f = focusable elements inside the container (querySelectorAll copied to an array on every Tab key)
   function handleKeyDown(e: KeyboardEvent) {
     if (e.key !== 'Tab') return;
     const focusable = Array.from(
@@ -104,12 +109,14 @@ export function createFocusTrap(
   }
 
   return {
+    // O(f) time, O(1) space — f = elements in the container scanned by querySelector for the first focusable one
     activate() {
       previousFocus = document.activeElement as HTMLElement;
       container.addEventListener('keydown', handleKeyDown);
       const first = container.querySelector<HTMLElement>(focusableSelector);
       first?.focus();
     },
+    // O(1) time, O(1) space
     deactivate() {
       container.removeEventListener('keydown', handleKeyDown);
       previousFocus?.focus();

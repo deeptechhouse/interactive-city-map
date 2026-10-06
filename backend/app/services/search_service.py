@@ -14,6 +14,7 @@ class SearchService:
     """Service layer for combined building + POI search using FTS, trigram, and spatial filters."""
 
     @staticmethod
+    # O(B + m log k) time, O(m) space — B = buildings in the city (similarity() in WHERE is not index-assisted, so a scan); m = rows matching the POI full-text index; k = 100 result cap
     async def search(
         session: AsyncSession,
         city_slug: str,
@@ -120,6 +121,7 @@ class SearchService:
         rows = result.all()
 
         items = []
+        # O(1) time, O(1) space — k = 100 result cap enforced by .limit(100)
         for row in rows:
             geom_json = None
             if row.geom_geojson:

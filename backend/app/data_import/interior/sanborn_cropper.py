@@ -15,9 +15,11 @@ class SanbornCropper:
 
     BUFFER_METERS = 5
 
+    # O(1) time, O(1) space
     def __init__(self, storage: StorageAdapter):
         self._storage = storage
 
+    # O(v + P) time, O(P) space — v = vertices in the building polygon; P = pixels in the sheet image
     def crop_building(
         self,
         building_id: uuid.UUID,

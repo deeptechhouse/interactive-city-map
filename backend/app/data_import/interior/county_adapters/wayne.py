@@ -6,10 +6,12 @@ class WayneCountyAdapter(CountyAdapterBase):
 
     BASE_URL = "https://www.waynecounty.com/departments/treasurer/property-search.aspx"
 
+    # O(1) time, O(1) space
     def fetch_property(self, pin: str) -> dict | None:
         """Placeholder — would use httpx + BeautifulSoup to scrape."""
         return None  # Not implemented yet
 
+    # O(1) time, O(1) space
     def search_by_address(self, address: str) -> list[dict]:
         """Placeholder — would use httpx + BeautifulSoup to scrape."""
         return []  # Not implemented yet

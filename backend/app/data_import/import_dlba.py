@@ -10,13 +10,14 @@ from pathlib import Path
 
 from shapely.geometry import shape, mapping
 
-from app.data_import.base_importer import BaseImporter
+from app.data_import.base_importer import BaseImporter, insert_rows
 from app.data_import.arcgis_helper import ArcGISFeatureServerClient
 
 
 class DLBAImporter(BaseImporter):
     layer_name = "dlba_properties"
 
+    # O(n) time, O(n) space — n = DLBA features downloaded
     def download(self) -> Path:
         cached = self._load_json_cache()
         if cached:
@@ -36,10 +37,12 @@ class DLBAImporter(BaseImporter):
 
         return self._save_json_cache(data)
 
+    # O(n + v) time, O(n + v) space — n = features in the raw file; v = total vertices across all feature geometries
     def transform(self, raw_path: Path) -> list[dict]:
         raw = json.loads(raw_path.read_text())
         features = raw.get("features", []) if isinstance(raw, dict) else []
         records = []
+        # O(n + v) time, O(n + v) space — n = features in the raw file; v = total vertices across all feature geometries
         for feat in features:
             props = feat.get("properties", {})
             geom_json = feat.get("geometry")
@@ -96,6 +99,8 @@ class DLBAImporter(BaseImporter):
         self._log.info("transformed", count=len(records))
         return records
 
+    # Rows go through insert_rows (multi-row INSERT, INSERT_PAGE_SIZE per statement).
+    # O(n) time, O(n) space — n = records; c = n / 5000 chunks, each sent by insert_rows
     def load(self, records: list[dict]) -> int:
         if not records:
             return 0
@@ -109,6 +114,7 @@ class DLBAImporter(BaseImporter):
                 VALUES (%s, %s, %s, %s, %s, %s, %s,
                     ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326))
             """
+            # O(n) time, O(n) space — n = records being turned into insert tuples
             batch = [
                 (r["id"], r["city_id"], r["address"], r["status"],
                  r["property_type"], r["neighborhood"], r["council_district"],
@@ -118,9 +124,10 @@ class DLBAImporter(BaseImporter):
             # Insert in chunks to avoid memory issues
             chunk_size = 5000
             total = 0
+            # O(n) time, O(1) space — n = rows inserted; k = 5000 rows per chunk slice
             for i in range(0, len(batch), chunk_size):
                 chunk = batch[i : i + chunk_size]
-                cur.executemany(sql, chunk)
+                insert_rows(cur, sql, chunk)
                 total += len(chunk)
                 self._log.info("loaded_chunk", progress=total, total=len(batch))
             conn.commit()

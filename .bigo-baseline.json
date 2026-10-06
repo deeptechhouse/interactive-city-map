@@ -1,0 +1,20 @@
+{
+  "counts": {
+    "backend/alembic/env.py": {
+      "BIGO001": 2
+    },
+    "backend/alembic/versions/001_initial_schema.py": {
+      "BIGO001": 2
+    },
+    "backend/alembic/versions/002_interior_maps_schema.py": {
+      "BIGO001": 2
+    },
+    "backend/alembic/versions/003_detroit_layers.py": {
+      "BIGO001": 2
+    },
+    "backend/alembic/versions/004_blight_violations.py": {
+      "BIGO001": 2
+    }
+  },
+  "version": 1
+}

@@ -12,6 +12,7 @@ interface GroupToggleProps {
   onOpacityChange: (id: string, value: number) => void;
 }
 
+// O(m) time, O(m) space — m = layers in this group
 export const GroupToggle: React.FC<GroupToggleProps> = ({
   group,
   label,
@@ -21,8 +22,29 @@ export const GroupToggle: React.FC<GroupToggleProps> = ({
   onOpacityChange,
 }) => {
   const [expanded, setExpanded] = useState(true);
+  // O(m) time, O(1) space — m = layers in this group
   const allVisible = layers.every((l) => l.visible);
+  // O(m) time, O(1) space — m = layers in this group
   const someVisible = layers.some((l) => l.visible);
+
+  // O(m) time, O(m) space — m = layers in this group
+  const layerItems = layers.map((layer) => (
+    <div key={layer.id} className="group-toggle__layer-item">
+      <LayerToggle
+        id={layer.id}
+        name={layer.name}
+        visible={layer.visible}
+        onToggle={onToggleLayer}
+      />
+      {layer.visible && (
+        <OpacitySlider
+          id={layer.id}
+          opacity={layer.opacity}
+          onOpacityChange={onOpacityChange}
+        />
+      )}
+    </div>
+  ));
 
   return (
     <div className="group-toggle">
@@ -52,23 +74,7 @@ export const GroupToggle: React.FC<GroupToggleProps> = ({
       </div>
       {expanded && (
         <div className="group-toggle__layers">
-          {layers.map((layer) => (
-            <div key={layer.id} className="group-toggle__layer-item">
-              <LayerToggle
-                id={layer.id}
-                name={layer.name}
-                visible={layer.visible}
-                onToggle={onToggleLayer}
-              />
-              {layer.visible && (
-                <OpacitySlider
-                  id={layer.id}
-                  opacity={layer.opacity}
-                  onOpacityChange={onOpacityChange}
-                />
-              )}
-            </div>
-          ))}
+          {layerItems}
         </div>
       )}
     </div>

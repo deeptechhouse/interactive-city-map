@@ -33,11 +33,14 @@ const LABEL_LAYER_ID = 'interior-labels';
 const RASTER_LAYER_ID = 'interior-raster';
 const ROOMS_FILL_CLICK_LAYER = 'interior-vector-rooms-fill-interior-main';
 
+// O(n) time, O(n) space — n = rooms passed in (filter then map, each one pass)
 function toRoomsGeoJson(rooms: InteriorRoom[]): GeoJSON.FeatureCollection {
   return {
     type: 'FeatureCollection',
     features: rooms
+      // O(n) time, O(n) space — n = rooms passed in
       .filter((r) => r.geom != null)
+      // O(n) time, O(n) space — n = rooms with geometry
       .map((r) => ({
         type: 'Feature' as const,
         geometry: r.geom!,
@@ -53,11 +56,14 @@ function toRoomsGeoJson(rooms: InteriorRoom[]): GeoJSON.FeatureCollection {
   };
 }
 
+// O(w) time, O(w) space — w = walls passed in (filter then map, each one pass)
 function toWallsGeoJson(walls: InteriorWall[]): GeoJSON.FeatureCollection {
   return {
     type: 'FeatureCollection',
     features: walls
+      // O(w) time, O(w) space — w = walls passed in
       .filter((w) => w.geom != null)
+      // O(w) time, O(w) space — w = walls with geometry
       .map((w) => ({
         type: 'Feature' as const,
         geometry: w.geom!,
@@ -71,11 +77,14 @@ function toWallsGeoJson(walls: InteriorWall[]): GeoJSON.FeatureCollection {
   };
 }
 
+// O(f) time, O(f) space — f = features passed in (filter then map, each one pass)
 function toFeaturesGeoJson(features: InteriorFeature[]): GeoJSON.FeatureCollection {
   return {
     type: 'FeatureCollection',
     features: features
+      // O(f) time, O(f) space — f = features passed in
       .filter((f) => f.geom != null)
+      // O(f) time, O(f) space — f = features with geometry
       .map((f) => ({
         type: 'Feature' as const,
         geometry: f.geom!,
@@ -88,9 +97,11 @@ function toFeaturesGeoJson(features: InteriorFeature[]): GeoJSON.FeatureCollecti
   };
 }
 
+// O(n + v) time, O(n) space — n = rooms passed in; v = total polygon vertices (turf centroid visits every vertex once)
 function toLabelsGeoJson(rooms: InteriorRoom[]): GeoJSON.FeatureCollection {
   const labelFeatures: GeoJSON.Feature[] = [];
 
+  // O(n + v) time, O(n) space — n = rooms; v = total polygon vertices across them (one centroid per room)
   for (const room of rooms) {
     if (!room.geom) continue;
     try {
@@ -115,6 +126,7 @@ function toLabelsGeoJson(rooms: InteriorRoom[]): GeoJSON.FeatureCollection {
   };
 }
 
+// O(n + w + f + v) time, O(n + w + f) space — n = rooms, w = walls, f = features in the building; v = total room-polygon vertices (heavy work is memoised: re-runs only when data or floor level changes)
 export const InteriorViewer: React.FC<InteriorViewerProps> = ({
   buildingId,
   mapInstance,
@@ -148,9 +160,13 @@ export const InteriorViewer: React.FC<InteriorViewerProps> = ({
 
     // Compute bounding box of all room geometries
     let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+    // O(v) time, O(1) space — v = total polygon vertices across all rooms (the nested ring/vertex loops below are part of this bound)
     for (const room of rooms) {
       if (!room.geom || room.geom.type !== 'Polygon') continue;
+      // bigo-lint: disable=BIGO006 — amortised: each ring of each room is visited exactly once across the room loop (total work is v vertices)
+      // O(v) time, O(1) space — v = vertices over every ring of every room (each ring visited once across the room loop)
       for (const ring of (room.geom as GeoJSON.Polygon).coordinates) {
+        // O(v) time, O(1) space — v = vertices over every ring of every room (each vertex visited once across the room loop)
         for (const [lng, lat] of ring) {
           if (lng < minLng) minLng = lng;
           if (lat < minLat) minLat = lat;
@@ -172,14 +188,17 @@ export const InteriorViewer: React.FC<InteriorViewerProps> = ({
 
   // Filter by current level
   const levelRooms = useMemo(
+    // O(n) time, O(n) space — n = rooms in the building (all floors)
     () => rooms.filter((r) => r.level === currentLevel),
     [rooms, currentLevel],
   );
   const levelWalls = useMemo(
+    // O(w) time, O(w) space — w = walls in the building (all floors)
     () => walls.filter((w) => w.level === currentLevel),
     [walls, currentLevel],
   );
   const levelFeatures = useMemo(
+    // O(f) time, O(f) space — f = features in the building (all floors)
     () => features.filter((f) => f.level === currentLevel),
     [features, currentLevel],
   );
@@ -241,6 +260,7 @@ export const InteriorViewer: React.FC<InteriorViewerProps> = ({
 
   // Selected source for raster overlay
   const selectedSource = useMemo<InteriorSource | null>(
+    // O(s) time, O(1) space — s = data sources for the building
     () => sources.find((s) => s.id === selectedSourceId) ?? null,
     [sources, selectedSourceId],
   );
@@ -276,12 +296,14 @@ export const InteriorViewer: React.FC<InteriorViewerProps> = ({
   useEffect(() => {
     if (!mapInstance) return;
 
+    // O(r) time, O(1) space — r = rooms on the current floor (linear find of the clicked room per click event)
     const handleRoomClick = (e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }) => {
       if (!e.features || e.features.length === 0) return;
 
       const feature = e.features[0];
       const props = feature.properties;
       const roomId = props?.id as string;
+      // O(r) time, O(1) space — r = rooms on the current floor
       const matchedRoom = levelRooms.find((r) => r.id === roomId);
 
       if (!matchedRoom) return;
@@ -335,6 +357,32 @@ export const InteriorViewer: React.FC<InteriorViewerProps> = ({
       }
     };
   }, [mapInstance]);
+
+  // The 8-photo cap is enforced by slice(0, 8); the source array is sliced, never fully scanned.
+  // O(1) time, O(1) space — c = 8 photo cap applied by slice
+  const photoList =
+    selectedSource?.raw_data && (selectedSource.raw_data as Record<string, unknown>)?.interior_photos
+      ? ((selectedSource.raw_data as Record<string, unknown>).interior_photos as Array<{url: string; alt: string}>).slice(0, 8)
+      : [];
+
+  // O(1) time, O(1) space — c = at most 8 photos (photoList is capped by slice)
+  const photoLinks = photoList.map((photo, i) => (
+    <a key={i} href={photo.url} target="_blank" rel="noopener noreferrer" title={photo.alt || 'Interior photo'}>
+      <img
+        src={photo.url}
+        alt={photo.alt || 'Interior photo'}
+        style={{
+          width: '100px',
+          height: '75px',
+          objectFit: 'cover',
+          borderRadius: '4px',
+          border: `1px solid ${THEME.border}`,
+          cursor: 'pointer',
+        }}
+        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+      />
+    </a>
+  ));
 
   return (
     <div style={styles.container}>
@@ -397,23 +445,7 @@ export const InteriorViewer: React.FC<InteriorViewerProps> = ({
             Interior Photos
           </div>
           <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
-            {((selectedSource.raw_data as Record<string, unknown>).interior_photos as Array<{url: string; alt: string}>).slice(0, 8).map((photo, i) => (
-              <a key={i} href={photo.url} target="_blank" rel="noopener noreferrer" title={photo.alt || 'Interior photo'}>
-                <img
-                  src={photo.url}
-                  alt={photo.alt || 'Interior photo'}
-                  style={{
-                    width: '100px',
-                    height: '75px',
-                    objectFit: 'cover',
-                    borderRadius: '4px',
-                    border: `1px solid ${THEME.border}`,
-                    cursor: 'pointer',
-                  }}
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
-              </a>
-            ))}
+            {photoLinks}
           </div>
         </div>
       )}

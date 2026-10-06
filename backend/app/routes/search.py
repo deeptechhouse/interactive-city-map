@@ -14,9 +14,11 @@ from app.models import Building, POI, ZoningDistrict, City
 router = APIRouter(tags=["search"])
 
 
+# O(b) time, O(b) space — b = characters in the bbox query string (parsed into exactly 4 floats or rejected)
 def _parse_bbox(bbox: str) -> tuple[float, float, float, float]:
     """Parse a 'minlon,minlat,maxlon,maxlat' string into four floats."""
     try:
+        # O(b) time, O(b) space — b = characters in the bbox query string (parsed into exactly 4 floats or rejected)
         parts = [float(x.strip()) for x in bbox.split(",")]
         if len(parts) != 4:
             raise ValueError
@@ -29,6 +31,7 @@ def _parse_bbox(bbox: str) -> tuple[float, float, float, float]:
 
 
 @router.get("/cities/{slug}/search")
+# O(c + g) time, O(g) space — c = rows of this city scanned by the ILIKE/filter queries (index-assisted when bbox/zoning/category narrow it); g = total GeoJSON characters across at most 3 x limit returned rows (limit max 200)
 async def search(
     slug: str,
     q: Optional[str] = Query(None, description="Full-text search query"),
@@ -79,6 +82,7 @@ async def search(
 
         bldg_stmt = bldg_stmt.limit(limit)
         bldg_result = await session.execute(bldg_stmt)
+        # O(g) time, O(g) space — g = total GeoJSON characters across at most limit building rows (limit max 200, enforced in SQL LIMIT)
         for row in bldg_result.all():
             building = row[0]
             geom_json = row[1]
@@ -113,6 +117,7 @@ async def search(
 
         poi_stmt = poi_stmt.limit(limit)
         poi_result = await session.execute(poi_stmt)
+        # O(g) time, O(g) space — g = total GeoJSON characters across at most limit POI rows (limit max 200, enforced in SQL LIMIT)
         for row in poi_result.all():
             poi = row[0]
             geom_json = row[1]
@@ -141,6 +146,7 @@ async def search(
 
         zone_stmt = zone_stmt.limit(limit)
         zone_result = await session.execute(zone_stmt)
+        # O(g) time, O(g) space — g = total GeoJSON characters across at most limit zoning rows (limit max 200, enforced in SQL LIMIT)
         for row in zone_result.all():
             district = row[0]
             geom_json = row[1]

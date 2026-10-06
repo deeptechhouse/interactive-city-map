@@ -15,9 +15,11 @@ from app.models import Building, City
 router = APIRouter(tags=["buildings"])
 
 
+# O(b) time, O(b) space — b = characters in the bbox query string (parsed into exactly 4 floats or rejected)
 def _parse_bbox(bbox: str) -> tuple[float, float, float, float]:
     """Parse a 'minlon,minlat,maxlon,maxlat' string into four floats."""
     try:
+        # O(b) time, O(b) space — b = characters in the bbox query string (parsed into exactly 4 floats or rejected)
         parts = [float(x.strip()) for x in bbox.split(",")]
         if len(parts) != 4:
             raise ValueError
@@ -29,6 +31,7 @@ def _parse_bbox(bbox: str) -> tuple[float, float, float, float]:
         )
 
 
+# O(g) time, O(g) space — g = characters in the row's GeoJSON geometry string
 def _building_to_dict(row) -> dict:
     """Convert a Building row (with GeoJSON geometry) to a response dict."""
     building = row[0] if hasattr(row, "__getitem__") else row
@@ -59,6 +62,7 @@ def _building_to_dict(row) -> dict:
 
 
 @router.get("/cities/{slug}/buildings")
+# O(log n + g) time, O(g) space — n = buildings in the database; g = total GeoJSON characters across the returned rows (visible buildings of this city intersecting the bbox via GiST + city index, no row limit, so g grows with the result size)
 async def list_buildings_by_bbox(
     slug: str,
     bbox: str = Query(..., description="minlon,minlat,maxlon,maxlat"),
@@ -83,10 +87,12 @@ async def list_buildings_by_bbox(
     )
     result = await session.execute(stmt)
     rows = result.all()
+    # O(g) time, O(g) space — g = total GeoJSON characters across the buildings in the bbox result (one dict per row)
     return [_building_to_dict(row) for row in rows]
 
 
 @router.get("/buildings/{building_id}")
+# O(log n + g) time, O(g) space — n = buildings in the database (primary-key lookup); g = GeoJSON characters of the footprint
 async def get_building(
     building_id: uuid.UUID,
     session: AsyncSession = Depends(get_async_session),
@@ -103,6 +109,7 @@ async def get_building(
 
 
 @router.patch("/buildings/{building_id}")
+# O(log n + e + g) time, O(e + g) space — n = buildings in the database (primary-key lookups); e = size of the external_links payload; g = GeoJSON characters of the footprint
 async def update_building(
     building_id: uuid.UUID,
     is_hidden: Optional[bool] = None,

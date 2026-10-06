@@ -182,6 +182,7 @@ const SHORTCUTS: { key: string; description: string }[] = [
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
+// O(s) time, O(s) space — s = rows in the constant SHORTCUTS table (4 today)
 export const AccessibilityControls: React.FC<AccessibilityControlsProps> = ({
   onChange,
 }) => {
@@ -208,6 +209,14 @@ export const AccessibilityControls: React.FC<AccessibilityControlsProps> = ({
     },
     [onChange],
   );
+
+  // O(s) time, O(s) space — s = entries in the constant SHORTCUTS table (4 today)
+  const shortcutRows = SHORTCUTS.map((sc) => (
+    <div key={sc.key} style={styles.shortcutRow}>
+      <kbd style={styles.kbd}>{sc.key}</kbd>
+      <span>{sc.description}</span>
+    </div>
+  ));
 
   /* ------ collapsed state ------ */
   if (collapsed) {
@@ -310,12 +319,7 @@ export const AccessibilityControls: React.FC<AccessibilityControlsProps> = ({
 
         {/* Keyboard shortcuts reference */}
         <p style={styles.shortcutTitle}>Keyboard Navigation</p>
-        {SHORTCUTS.map((sc) => (
-          <div key={sc.key} style={styles.shortcutRow}>
-            <kbd style={styles.kbd}>{sc.key}</kbd>
-            <span>{sc.description}</span>
-          </div>
-        ))}
+        {shortcutRows}
       </div>
     </aside>
   );

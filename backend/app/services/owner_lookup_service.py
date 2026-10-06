@@ -44,6 +44,7 @@ class OwnerLookupAnswer:
 class OwnerLookupService:
     """Business-logic facade for the instant owner route. One instance per process."""
 
+    # O(p) time, O(p) space — p = provider names (the chain factory builds one provider each)
     def __init__(
         self,
         provider_names: list[str],
@@ -56,19 +57,22 @@ class OwnerLookupService:
         self._store = store
 
     @classmethod
+    # O(s) time, O(s) space — s = length of the providers setting string
     def from_settings(cls, store: OwnerResultStore) -> "OwnerLookupService":
         return cls(
+            # O(s) time, O(s) space — s = length of the providers setting string
             provider_names=[p.strip().lower() for p in settings.owner_lookup_providers.split(",") if p.strip()],
             rate_limiter=SlidingWindowRateLimiter(settings.owner_lookup_rate_per_minute),
             store=store,
         )
 
     @property
+    # O(p) time, O(p) space — p = configured providers
     def provider_names(self) -> tuple[str, ...]:
         return self._chain.provider_names
 
     async def lookup(self, query: OwnerQuery, client_id: str, refresh: bool = False) -> OwnerLookupAnswer:
-        """O(log n) on a saved answer (SQLite index); O(p) provider calls otherwise."""
+        """O(log n + p) time, O(1) space — n = saved answers (SQLite index); p = provider calls on a miss."""
         if not refresh:
             saved = self._store.get(query)
             if saved is not None:

@@ -14,6 +14,7 @@ from app.data_import.base_importer import BaseImporter
 class StreetsImporter(BaseImporter):
     layer_name = "streets"
 
+    # O(1) time, O(1) space
     def download(self) -> Path:
         self._log.info(
             "streets_import_skipped",
@@ -25,8 +26,10 @@ class StreetsImporter(BaseImporter):
             p.write_text('{"type": "FeatureCollection", "features": []}')
         return p
 
+    # O(1) time, O(1) space
     def transform(self, raw_path: Path) -> list[dict]:
         return []
 
+    # O(1) time, O(1) space
     def load(self, records: list[dict]) -> int:
         return 0

@@ -6,14 +6,17 @@ import { STATIC_POIS } from './data/static_pois';
 
 const SOURCE_ID = 'pois-source';
 
+// O(k) time, O(k) space — k = entries in the colour table it reads (a constant table in colorSchemes.ts)
 function poiColorExpression(): unknown {
   const pairs: string[] = [];
+  // O(k) time, O(k) space — k = entries in POI_COLORS (a constant table in colorSchemes.ts)
   for (const [cat, color] of Object.entries(POI_COLORS)) {
     pairs.push(cat, color);
   }
   return ['match', ['get', 'category'], ...pairs, '#888888'];
 }
 
+// O(k) time, O(k) space — k = entries in POI_COLORS (a constant table in colorSchemes.ts)
 export function addPOILayer(map: maplibregl.Map, config: LayerConfig): void {
   const { isGeoJson } = addDualModeSource(map, SOURCE_ID, config.sourceUrl, 'pois', STATIC_POIS);
   const slp = sourceLayerProp('pois', isGeoJson);
@@ -43,6 +46,7 @@ export function addPOILayer(map: maplibregl.Map, config: LayerConfig): void {
   } as maplibregl.AddLayerObject);
 }
 
+// O(1) time, O(1) space
 export function getPOILayerIds(configId: string): string[] {
   return [configId];
 }

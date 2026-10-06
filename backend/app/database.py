@@ -17,11 +17,13 @@ class Base(DeclarativeBase):
     pass
 
 
+# O(1) time, O(1) space
 async def get_async_session() -> AsyncSession:
     async with async_session_factory() as session:
         yield session
 
 
+# O(1) time, O(1) space
 def get_sync_session() -> Session:
     with sync_session_factory() as session:
         yield session

@@ -69,6 +69,7 @@ class BatchNotFound(Exception):
     pass
 
 
+# O(1) time, O(1) space
 def _to_dict(q: OwnerQuery) -> dict:
     return {
         "street": q.street, "city": q.city, "state": q.state, "zip": q.zip,
@@ -76,6 +77,7 @@ def _to_dict(q: OwnerQuery) -> dict:
     }
 
 
+# O(1) time, O(1) space
 def _from_dict(d: dict) -> OwnerQuery:
     return OwnerQuery(
         street=d["street"], city=d["city"], state=d["state"], zip=d.get("zip", ""),
@@ -83,11 +85,13 @@ def _from_dict(d: dict) -> OwnerQuery:
     )
 
 
+# O(a) time, O(a) space — a = address length
 def _key(q: OwnerQuery) -> str:
     return property_key(q.street, q.city, q.state)
 
 
 class OwnerBatchService:
+    # O(1) time, O(1) space
     def __init__(
         self,
         client: TracerfyBatchClient,
@@ -101,14 +105,16 @@ class OwnerBatchService:
         self._limiter = rate_limiter or SlidingWindowRateLimiter(limit=3, window_s=300)
 
     @property
+    # O(1) time, O(1) space
     def is_configured(self) -> bool:
         return self._client.is_configured
 
     # ---- start ----
 
     async def start(self, queries: list[OwnerQuery], client_id: str, refresh: bool = False) -> BatchStatus:
-        """O(q) time, O(q) space — q = queries (q store reads + at most two Tracerfy submits). Duplicate properties are sent once."""
+        """O(q log n) time, O(q) space — q = queries; n = saved answers (q indexed store reads + at most two Tracerfy submits). Duplicate properties are sent once."""
         unique: dict[str, OwnerQuery] = {}
+        # O(q) time, O(q) space — q = queries submitted
         for q in queries:  # O(q) — dedupe by property (first occurrence wins, incl. its name)
             unique.setdefault(_key(q), q)
         if len(unique) > MAX_BATCH_ITEMS:
@@ -116,6 +122,7 @@ class OwnerBatchService:
 
         saved: list[BatchItemResult] = []
         to_send: list[OwnerQuery] = []
+        # O(q log n) time, O(q) space — q = unique queries; n = saved answers (one SQLite index lookup each)
         for q in unique.values():  # O(q)
             hit = None if refresh else self._store.get(q)
             if hit:
@@ -127,10 +134,13 @@ class OwnerBatchService:
 
         if not self._limiter.allow(client_id):
             raise RateLimited()
+        # O(q) time, O(q) space — q = queries still to send
         named = [q for q in to_send if q.has_person_name]
+        # O(q) time, O(q) space — q = queries still to send
         unnamed = [q for q in to_send if not q.has_person_name]
 
         job_id = uuid.uuid4().hex
+        # O(q) time, O(q) space — q = queries still to send
         state: dict = {"items": [_to_dict(q) for q in to_send], "queues": [], "followup": [], "done": False}
         first_submit = True
         # O(q) time, O(q) space — q = queries split across k = 2 trace types (named, unnamed)
@@ -158,43 +168,53 @@ class OwnerBatchService:
 
     # ---- poll ----
 
+    # O(q log n) time, O(q) space — q = properties in the job; n = saved answers (one SQLite index lookup each)
     async def poll(self, job_id: str) -> BatchStatus:
         """One Tracerfy status call; one CSV download per finished queue; ≤1 follow-up submit."""
         state = self._store.get_job(job_id)
         if state is None:
             raise BatchNotFound(job_id)
+        # O(q) time, O(q) space — q = properties in the job
         items = [_from_dict(d) for d in state["items"]]
+        # O(k + q) time, O(1) space — k = queues in the job; q = properties in them
         by_name = sum(len(q["items"]) for q in state["queues"] if q["trace_type"] == "normal")
 
         if not state["done"]:
             await self._collect_finished_queues(state)
             await self._submit_followup(job_id, state)
+            # O(k) time, O(1) space — k = queues in the job
             state["done"] = all(q["done"] for q in state["queues"]) and not state["followup"]
             self._store.save_job(job_id, state)
             if not state["done"]:
                 return BatchStatus(job_id, pending=True, results=(), submitted=len(items), by_name=by_name)
 
         results = []
+        # O(q log n) time, O(q) space — q = properties in the job; n = saved answers
         for q in items:  # O(q)
             hit = self._store.get(q)
             if hit:
                 results.append(BatchItemResult(q, hit[0], hit[1], cached=False))
         return BatchStatus(job_id, pending=False, results=tuple(results), submitted=len(items), by_name=by_name)
 
+    # O(k + r + q log n) time, O(k + r) space — k = queues in the job; r = CSV rows downloaded; q = properties in finished queues; n = saved answers
     async def _collect_finished_queues(self, state: dict) -> None:
         """Save results of every queue Tracerfy has finished. Name-trace misses are NOT
         saved — they become follow-ups for an address trace. O(q) per finished queue."""
+        # O(k) time, O(k) space — k = queues in the job
         open_queues = [q for q in state["queues"] if not q["done"]]
         if not open_queues:
             return
+        # O(k) time, O(k) space — k = open queues
         statuses = await self._client.statuses([q["queue_id"] for q in open_queues])
+        # O(r + q log n) time, O(r) space — r = CSV rows downloaded; q = properties in finished queues; n = saved answers
         for queue in open_queues:
             st = statuses.get(str(queue["queue_id"]))
             if st is None or st.pending or not st.download_url:
                 continue
             parsed = parse_results(await self._client.fetch_results(st.download_url), _METHOD[queue["trace_type"]])
             source = f"tracerfy-batch-{queue['trace_type']}"
-            for d in queue["items"]:  # O(q)
+            # O(q log n) time, O(q) space — q = properties in this queue (misses queue up as follow-ups); n = saved answers
+            for d in queue["items"]:
                 q = _from_dict(d)
                 result = parsed.get(_key(q))
                 if result is not None:
@@ -205,11 +225,13 @@ class OwnerBatchService:
                     self._store.put(q, _MISS, source=source)
             queue["done"] = True
 
+    # O(f) time, O(f) space — f = follow-up properties (plus one Tracerfy submit)
     async def _submit_followup(self, job_id: str, state: dict) -> None:
         """Send outstanding follow-ups as one "advanced" queue. On failure they stay in
         the job (saved) and the next poll retries; the error is reported to the caller."""
         if not state["followup"]:
             return
+        # O(f) time, O(f) space — f = follow-up properties
         batch = [_from_dict(d) for d in state["followup"]]
         try:
             queue_id = await self._client.submit(batch, "advanced")

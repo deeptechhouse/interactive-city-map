@@ -46,19 +46,23 @@ def address_key(q: OwnerQuery) -> str:
     return property_key(q.street, q.city, q.state)
 
 
+# O(1) time, O(1) space
 def now_iso() -> str:
     """UTC timestamp, second precision: '2026-10-02T07:22:21Z'."""
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+# O(p) time, O(p) space — p = phones and emails in the result
 def _to_json(r: OwnerContactResult) -> str:
     return json.dumps(asdict(r))
 
 
+# O(p) time, O(p) space — p = phones and emails in the stored JSON
 def _from_json(text: str) -> OwnerContactResult:
     d = json.loads(text)
     return OwnerContactResult(
         person_name=d.get("person_name", ""),
+        # O(p) time, O(p) space — p = phones in the stored JSON
         phones=tuple(OwnerPhone(**p) for p in d.get("phones", [])),
         emails=tuple(d.get("emails", [])),
         provider=d.get("provider", ""),
@@ -71,6 +75,7 @@ class OwnerResultStore:
     """Thread-safe SQLite repository. Each method is one indexed statement: O(1) per key
     (B-tree, so O(log n) strictly — n = saved properties)."""
 
+    # O(1) time, O(1) space
     def __init__(self, path: Path | str = DEFAULT_PATH):
         self._lock = threading.Lock()  # sqlite3 connections aren't safe across threads
         if str(path) != ":memory:":
@@ -103,6 +108,7 @@ class OwnerResultStore:
 
     # ---- results ----
 
+    # O(log n + p) time, O(p) space — n = saved properties (primary-key lookup); p = phones and emails in the result
     def get(self, q: OwnerQuery) -> Optional[tuple[OwnerContactResult, str, str]]:
         """(result, looked_up_at, source) or None when never looked up."""
         with self._lock:
@@ -112,6 +118,7 @@ class OwnerResultStore:
             ).fetchone()
         return (_from_json(row[0]), row[1], row[2]) if row else None
 
+    # O(log n + p) time, O(p) space — n = saved properties (primary-key write); p = phones and emails in the result
     def put(self, q: OwnerQuery, result: OwnerContactResult, source: str, looked_up_at: str = "") -> str:
         """Save (replacing any older answer). Returns the timestamp stored."""
         stamp = looked_up_at or now_iso()
@@ -124,6 +131,7 @@ class OwnerResultStore:
 
     # ---- batch jobs ----
 
+    # O(log j + s) time, O(s) space — j = saved batch jobs (primary-key write); s = size of the job state JSON
     def save_job(self, job_id: str, state: dict) -> None:
         """Create or replace a batch job's state (JSON-serialisable dict)."""
         now = now_iso()
@@ -134,6 +142,7 @@ class OwnerResultStore:
                 (job_id, json.dumps(state), now, now),
             )
 
+    # O(log j + s) time, O(s) space — j = saved batch jobs (primary-key lookup); s = size of the job state JSON
     def get_job(self, job_id: str) -> Optional[dict]:
         with self._lock:
             row = self._db.execute("SELECT state_json FROM batch_jobs_v2 WHERE job_id = ?", (job_id,)).fetchone()

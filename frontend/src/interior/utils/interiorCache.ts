@@ -26,7 +26,11 @@ class InteriorCache {
     });
   }
 
+  // bigo-allow: p = prefix length, a short `interior:<buildingId>:` key prefix (never input-sized); scanning every key for a prefix is the floor for a plain Map
+  // O(c * p) time, O(1) space — c = cached entries; p = characters in the prefix pattern
   invalidate(pattern: string): void {
+    // bigo-allow: p = prefix length, a short `interior:<buildingId>:` key prefix (never input-sized)
+    // O(c * p) time, O(1) space — c = cached entries; p = characters in the prefix pattern
     for (const key of this._cache.keys()) {
       if (key.startsWith(pattern)) {
         this._cache.delete(key);
@@ -34,6 +38,7 @@ class InteriorCache {
     }
   }
 
+  // O(c) time, O(1) space — c = cached entries
   clear(): void {
     this._cache.clear();
   }
@@ -42,6 +47,7 @@ class InteriorCache {
 export const interiorCache = new InteriorCache();
 
 // Cache key builders
+// O(k) time, O(k) space — k = characters in buildingId + type
 export function buildCacheKey(
   buildingId: string,
   type: string,

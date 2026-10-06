@@ -327,26 +327,53 @@ export class ContactListStore {
    * Apply a batch answer to every building at that street (normally one). The skip
    * trace is per PROPERTY, so it fills the building's FIRST owner — for condo buildings
    * with several owners of record, the person found belongs to one unit at most.
-   * Fixed 2026-10-06 (Big O audit): this used to commit — re-copy, re-save to storage and
-   * notify listeners — up to twice PER matching building, quadratic in m and s. It now builds the new
-   * list in one pass and commits once. The stored list format is unchanged.
-   * Each matching building stores its own copy of the answer's phones/emails, and a found
-   * phone/email is either already on that owner or gets added, so the merge work is
-   * bounded by the list size after the write.
+   * Single-answer form of applyOwnerAnswers (same result, one commit).
    * O(s) time, O(s) space — s = total list size after the answer is written
    */
   applyOwnerAnswer(street: string, answer: OwnerAnswer): void {
-    const key = street.trim().toUpperCase();
+    this.applyOwnerAnswers([{ street, answer }]);
+  }
+
+  /**
+   * Apply a whole batch reply in ONE pass and ONE commit (re-copy, re-save, notify).
+   * Fixed 2026-10-06 (Big O audit): OwnerBatchRunner used to call applyOwnerAnswer once
+   * per answer, and each call re-copied and re-saved the entire list — quadratic, r × s for r
+   * answers. The final list is identical to applying the answers one by one, in order:
+   * answers for the same street are folded into that building's first owner in reply
+   * order, and the last non-empty reason becomes its note. Stored format is unchanged.
+   * Each matching building keeps its own copy of the answer's phones/emails, and a found
+   * phone/email is either already on that owner or gets added, so the merge work is
+   * bounded by the list size after the write.
+   * O(r + s) time, O(r + s) space — r = answers in the reply; s = total list size after the write
+   */
+  applyOwnerAnswers(items: readonly { street: string; answer: OwnerAnswer }[]): void {
+    const byStreet = new Map<string, OwnerAnswer[]>();
+    // O(r) time, O(r) space — r = answers in the reply
+    for (const { street, answer } of items) {
+      const key = street.trim().toUpperCase();
+      const list = byStreet.get(key);
+      if (list) list.push(answer);
+      else byStreet.set(key, [answer]);
+    }
     let changed = false;
-    // O(s) time, O(s) space — s = total list size after the write (see the doc comment above)
+    // O(r + s) time, O(s) space — r = answers in the reply; s = total list size after the write
     const next = this.buildings.map((b) => {
-      if (!b.owners.length || b.address.trim().toUpperCase() !== key) return b;
+      const answers = b.owners.length ? byStreet.get(b.address.trim().toUpperCase()) : undefined;
+      if (!answers) return b;
       changed = true;
-      const { reason, ...found } = ownerPatchFromAnswer(answer); // fresh copy per building, as before
-      // O(o) time, O(o) space — o = owners at this building (only the first is merged)
+      let first = b.owners[0];
+      let note: string | undefined;
+      // O(a) time, O(a) space — a = answers for this street (normally 1)
+      // bigo-lint: disable=BIGO006 — amortised: merged data lands in this building, so the work is bounded by s
+      for (const answer of answers) {
+        const { reason, ...found } = ownerPatchFromAnswer(answer); // fresh copy per building, as before
+        first = mergeSkipTrace(first, found);
+        if (reason) note = reason;
+      }
+      // O(o) time, O(o) space — o = owners at this building (only the first changes)
       // bigo-lint: disable=BIGO006 — amortised: each owner is visited once across all buildings
-      const owners = b.owners.map((o, i) => (i === 0 ? mergeSkipTrace(o, found) : o));
-      return reason ? { ...b, owners, note: reason } : { ...b, owners };
+      const owners = b.owners.map((o, i) => (i === 0 ? first : o));
+      return note !== undefined ? { ...b, owners, note } : { ...b, owners };
     });
     if (changed) this.commit(next);
   }
@@ -354,7 +381,26 @@ export class ContactListStore {
   /** First owner back to idle if it's still "searching…" (batch failed).
    *  O(s) time, O(s) space — s = total list size (buildings with their owners and businesses, which commit() re-serialises) */
   resetPendingOwner(buildingId: string): void {
-    this.mapOwner(buildingId, 0, (o) => (o.skipTrace === 'pending' ? { ...o, skipTrace: 'idle' } : o));
+    this.resetPendingOwners([buildingId]);
+  }
+
+  /**
+   * resetPendingOwner for a whole batch in ONE commit (was one full re-save per building).
+   * O(s + k) time, O(s + k) space — s = total list size; k = building ids passed in
+   */
+  resetPendingOwners(buildingIds: readonly string[]): void {
+    const ids = new Set(buildingIds);
+    let changed = false;
+    // O(s) time, O(s) space — s = total list size
+    const next = this.buildings.map((b) => {
+      if (!ids.has(b.id) || b.owners[0]?.skipTrace !== 'pending') return b;
+      changed = true;
+      // O(o) time, O(o) space — o = owners at this building
+      // bigo-lint: disable=BIGO006 — amortised: each owner is visited once across all buildings
+      const owners = b.owners.map((o, i) => (i === 0 ? { ...o, skipTrace: 'idle' as const } : o));
+      return { ...b, owners };
+    });
+    if (changed) this.commit(next);
   }
 
   /** How many of these buildings now have a found owner.

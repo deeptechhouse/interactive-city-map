@@ -19,6 +19,7 @@ router = APIRouter(tags=["interior_contributions"])
 # ── Helpers ─────────────────────────────────────────────────────
 
 
+# O(1) time, O(1) space
 def _source_to_dict(s: InteriorSource) -> dict:
     return {
         "id": s.id,
@@ -38,6 +39,7 @@ def _source_to_dict(s: InteriorSource) -> dict:
     }
 
 
+# O(log n) time, O(1) space — n = buildings in the database (primary-key lookup)
 async def _require_building(building_id: uuid.UUID, session: AsyncSession) -> Building:
     stmt = select(Building).where(Building.id == building_id)
     result = await session.execute(stmt)
@@ -66,6 +68,7 @@ class ModerationActionRequest(BaseModel):
 
 
 @router.post("/buildings/{building_id}/interior/contributions/verify/{source_id}")
+# O(log n) time, O(1) space — n = rows in buildings and interior_sources (primary-key lookups + update)
 async def vote_on_source(
     building_id: uuid.UUID,
     source_id: uuid.UUID,
@@ -82,6 +85,7 @@ async def vote_on_source(
 
 
 @router.post("/buildings/{building_id}/interior/contributions/report/{source_id}")
+# O(log n + r) time, O(r) space — n = rows in buildings and interior_sources (primary-key lookups); r = characters of the report reason stored
 async def report_source(
     building_id: uuid.UUID,
     source_id: uuid.UUID,
@@ -99,16 +103,21 @@ async def report_source(
 
 
 @router.get("/admin/interior/moderation")
+# O(log N + limit) time, O(limit) space — N = interior sources; limit = requested page size (applied in SQL)
 async def list_moderation_queue(
     status: str = "reported",
     limit: int = 50,
     session: AsyncSession = Depends(get_async_session),
 ):
-    sources = await InteriorSourceService.get_sources_by_status(status, session)
-    return [_source_to_dict(s) for s in sources[:limit]]
+    # LIMIT runs in SQL (2026-10-06): this used to load every source with the status and
+    # slice in Python. A negative limit still yields an empty page, as the slice did.
+    sources = await InteriorSourceService.get_sources_by_status(status, session, limit=limit)
+    # O(limit) time, O(limit) space — limit = requested page size
+    return [_source_to_dict(s) for s in sources]
 
 
 @router.patch("/admin/interior/moderation/{source_id}")
+# O(log n) time, O(1) space — n = interior sources in the database (primary-key lookup + update/delete)
 async def moderate_source(
     source_id: uuid.UUID,
     data: ModerationActionRequest,

@@ -13,6 +13,8 @@ const LINE_LAYER_ID = 'measure-tool-line';
 const POINT_LAYER_ID = 'measure-tool-points';
 const LABEL_LAYER_ID = 'measure-tool-labels';
 
+// Per render: one row per segment; map layers are rebuilt only inside click handling, not on render.
+// O(p) time, O(p) space — p = points clicked on the map
 export const MeasureTool: React.FC<MeasureToolProps> = ({
   mapInstance,
   active,
@@ -23,6 +25,7 @@ export const MeasureTool: React.FC<MeasureToolProps> = ({
   const [totalDistance, setTotalDistance] = useState(0);
   const cleanupRef = useRef<(() => void) | null>(null);
 
+  // O(1) time, O(1) space
   const clearMeasureLayers = useCallback(() => {
     if (!mapInstance) return;
     if (mapInstance.getLayer(LABEL_LAYER_ID)) mapInstance.removeLayer(LABEL_LAYER_ID);
@@ -31,6 +34,7 @@ export const MeasureTool: React.FC<MeasureToolProps> = ({
     if (mapInstance.getSource(SOURCE_ID)) mapInstance.removeSource(SOURCE_ID);
   }, [mapInstance]);
 
+  // O(p) time, O(p) space — p = points clicked so far (one point feature, one label feature and one turf distance per point/segment)
   const updateLayers = useCallback(
     (pts: [number, number][]) => {
       if (!mapInstance) return;
@@ -38,6 +42,7 @@ export const MeasureTool: React.FC<MeasureToolProps> = ({
       const features: GeoJSON.Feature[] = [];
 
       // Point features
+      // O(p) time, O(p) space — p = points clicked so far
       for (const pt of pts) {
         features.push({
           type: 'Feature',
@@ -57,6 +62,7 @@ export const MeasureTool: React.FC<MeasureToolProps> = ({
 
       // Label features at midpoint of each segment
       const distances: number[] = [];
+      // O(p) time, O(p) space — p = points clicked so far (one turf distance + label feature per segment)
       for (let i = 1; i < pts.length; i++) {
         const from = turf.point(pts[i - 1]);
         const to = turf.point(pts[i]);
@@ -78,6 +84,7 @@ export const MeasureTool: React.FC<MeasureToolProps> = ({
       }
 
       setSegmentDistances(distances);
+      // O(s) time, O(1) space — s = segments (p - 1 for p points clicked)
       setTotalDistance(distances.reduce((sum, d) => sum + d, 0));
 
       const geojson: GeoJSON.FeatureCollection = {
@@ -144,6 +151,7 @@ export const MeasureTool: React.FC<MeasureToolProps> = ({
 
     let currentPoints: [number, number][] = [];
 
+    // O(p) time, O(p) space — p = points clicked so far (two array copies + updateLayers per click)
     const handleClick = (e: maplibregl.MapMouseEvent) => {
       const pt: [number, number] = [e.lngLat.lng, e.lngLat.lat];
       currentPoints = [...currentPoints, pt];
@@ -178,6 +186,7 @@ export const MeasureTool: React.FC<MeasureToolProps> = ({
     };
   }, [active, clearMeasureLayers]);
 
+  // O(1) time, O(1) space
   const handleClear = useCallback(() => {
     setPoints([]);
     setSegmentDistances([]);
@@ -191,6 +200,18 @@ export const MeasureTool: React.FC<MeasureToolProps> = ({
     totalDistance >= 1000
       ? `${(totalDistance / 1000).toFixed(2)} km`
       : `${totalDistance.toFixed(1)} m`;
+
+  // O(s) time, O(s) space — s = measured segments (one row each)
+  const segmentRows = segmentDistances.map((d, i) => (
+    <div key={i} style={styles.segmentRow}>
+      <span style={styles.segmentLabel}>
+        Segment {i + 1}
+      </span>
+      <span style={styles.segmentValue}>
+        {d >= 1000 ? `${(d / 1000).toFixed(2)} km` : `${d.toFixed(1)} m`}
+      </span>
+    </div>
+  ));
 
   return (
     <div style={styles.panel}>
@@ -207,16 +228,7 @@ export const MeasureTool: React.FC<MeasureToolProps> = ({
 
       {segmentDistances.length > 0 && (
         <div style={styles.segmentList}>
-          {segmentDistances.map((d, i) => (
-            <div key={i} style={styles.segmentRow}>
-              <span style={styles.segmentLabel}>
-                Segment {i + 1}
-              </span>
-              <span style={styles.segmentValue}>
-                {d >= 1000 ? `${(d / 1000).toFixed(2)} km` : `${d.toFixed(1)} m`}
-              </span>
-            </div>
-          ))}
+          {segmentRows}
         </div>
       )}
 

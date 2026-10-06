@@ -10,10 +10,11 @@ from pathlib import Path
 from shapely.geometry import shape, mapping
 from shapely import MultiPolygon, Polygon
 
-from app.data_import.base_importer import BaseImporter
+from app.data_import.base_importer import BaseImporter, insert_rows
 from app.data_import.arcgis_helper import ArcGISFeatureServerClient
 
 
+# O(v) time, O(v) space — v = vertices in the geometry
 def _ensure_multipolygon(geom) -> str | None:
     """Convert a Shapely geometry to a MultiPolygon GeoJSON string."""
     if geom is None or geom.is_empty:
@@ -28,6 +29,7 @@ def _ensure_multipolygon(geom) -> str | None:
 class NeighborhoodsImporter(BaseImporter):
     layer_name = "neighborhoods"
 
+    # O(n) time, O(n) space — n = neighborhood features downloaded
     def download(self) -> Path:
         cached = self._load_json_cache()
         if cached:
@@ -48,10 +50,12 @@ class NeighborhoodsImporter(BaseImporter):
 
         return self._save_json_cache(data)
 
+    # O(n + v) time, O(n + v) space — n = features in the raw file; v = total vertices across all feature geometries
     def transform(self, raw_path: Path) -> list[dict]:
         raw = json.loads(raw_path.read_text())
         features = raw.get("features", []) if isinstance(raw, dict) else []
         records = []
+        # O(n + v) time, O(n + v) space — n = features in the raw file; v = total vertices across all feature geometries
         for feat in features:
             props = feat.get("properties", {})
             geom_json = feat.get("geometry")
@@ -94,6 +98,8 @@ class NeighborhoodsImporter(BaseImporter):
         self._log.info("transformed", count=len(records))
         return records
 
+    # Rows go through insert_rows (multi-row INSERT, INSERT_PAGE_SIZE per statement).
+    # O(n) time, O(n) space — n = records inserted (n / INSERT_PAGE_SIZE statements)
     def load(self, records: list[dict]) -> int:
         if not records:
             return 0
@@ -106,14 +112,14 @@ class NeighborhoodsImporter(BaseImporter):
                 VALUES (%s, %s, %s, %s, %s,
                     ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326))
             """
+            # O(n) time, O(n) space — n = records being turned into insert tuples
             batch = [
                 (r["id"], r["city_id"], r["name"], r["council_district"],
                  r["website"], r["geom_json"])
                 for r in records
             ]
-            cur.executemany(sql, batch)
+            count = insert_rows(cur, sql, batch)
             conn.commit()
-            count = cur.rowcount
             cur.close()
             return count
         finally:

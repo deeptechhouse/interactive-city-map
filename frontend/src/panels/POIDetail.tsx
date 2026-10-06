@@ -110,6 +110,7 @@ const styles = {
   },
 } as const;
 
+// O(1) time, O(1) space
 function DetailField({ label, value }: { label: string; value: React.ReactNode }) {
   if (value === null || value === undefined || value === '') return null;
   return (
@@ -120,6 +121,7 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
   );
 }
 
+// O(e + s) time, O(e + s) space — e = event facilities rendered; s = subcategory length (toLowerCase + includes)
 export const POIDetail: React.FC<POIDetailProps> = ({ poi, onClose }) => {
   const categoryLabel = POI_CATEGORY_LABELS[poi.category] ?? poi.category;
   const categoryColor = POI_CATEGORY_COLORS[poi.category] ?? THEME.accent;
@@ -131,6 +133,15 @@ export const POIDetail: React.FC<POIDetailProps> = ({ poi, onClose }) => {
 
   const isHotel = poi.subcategory?.toLowerCase().includes('hotel');
   const isMotel = poi.subcategory?.toLowerCase().includes('motel');
+
+  // Same guard as the JSX below, so the list is only built when it is shown.
+  // O(e) time, O(e) space — e = event facilities
+  const facilityItems = isHotel && eventFacilities && eventFacilities.length > 0 ? eventFacilities.map((facility, i) => (
+          <div key={i} style={styles.listItem}>
+            &bull; {facility}
+          </div>
+        ))
+      : null;
 
   return (
     <div style={styles.overlay} role="dialog" aria-label="POI details">
@@ -212,11 +223,7 @@ export const POIDetail: React.FC<POIDetailProps> = ({ poi, onClose }) => {
         {isHotel && eventFacilities && eventFacilities.length > 0 && (
           <div style={styles.section}>
             <div style={styles.sectionTitle}>Event Facilities</div>
-            {eventFacilities.map((facility, i) => (
-              <div key={i} style={styles.listItem}>
-                &bull; {facility}
-              </div>
-            ))}
+            {facilityItems}
           </div>
         )}
 

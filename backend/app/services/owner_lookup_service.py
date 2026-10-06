@@ -44,6 +44,7 @@ class OwnerLookupAnswer:
 class OwnerLookupService:
     """Business-logic facade for the instant owner route. One instance per process."""
 
+    # O(p) time, O(p) space — p = provider names (the chain factory builds one provider each)
     def __init__(
         self,
         provider_names: list[str],
@@ -56,14 +57,17 @@ class OwnerLookupService:
         self._store = store
 
     @classmethod
+    # O(s) time, O(s) space — s = length of the providers setting string
     def from_settings(cls, store: OwnerResultStore) -> "OwnerLookupService":
         return cls(
+            # O(s) time, O(s) space — s = length of the providers setting string
             provider_names=[p.strip().lower() for p in settings.owner_lookup_providers.split(",") if p.strip()],
             rate_limiter=SlidingWindowRateLimiter(settings.owner_lookup_rate_per_minute),
             store=store,
         )
 
     @property
+    # O(p) time, O(p) space — p = configured providers
     def provider_names(self) -> tuple[str, ...]:
         return self._chain.provider_names
 

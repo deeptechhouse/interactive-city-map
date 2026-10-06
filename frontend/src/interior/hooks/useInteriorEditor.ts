@@ -26,6 +26,8 @@ export interface UseInteriorEditorResult {
   isEditing: boolean;
 }
 
+// Undo/redo stacks are held in state, not scanned, on render.
+// O(1) time, O(u) space — u = actions held on the undo and redo stacks
 export function useInteriorEditor(): UseInteriorEditorResult {
   const [activeTool, setActiveTool] = useState<EditorTool>(null);
   const [featurePlacementType, setFeaturePlacementType] = useState<FeaturePlacementType>('door');
@@ -33,11 +35,13 @@ export function useInteriorEditor(): UseInteriorEditorResult {
   const [redoStack, setRedoStack] = useState<EditorAction[]>([]);
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
 
+  // O(u) time, O(u) space — u = actions currently on the undo stack (spread copy per push)
   const pushAction = useCallback((action: EditorAction) => {
     setUndoStack((prev) => [...prev, action]);
     setRedoStack([]);
   }, []);
 
+  // O(u + r) time, O(u + r) space — u = actions on the undo stack; r = actions on the redo stack (copy + pop, then spread-copy push)
   const undo = useCallback((): EditorAction | null => {
     let popped: EditorAction | null = null;
     setUndoStack((prev) => {
@@ -52,6 +56,7 @@ export function useInteriorEditor(): UseInteriorEditorResult {
     return popped;
   }, []);
 
+  // O(u + r) time, O(u + r) space — u = actions on the undo stack; r = actions on the redo stack (copy + pop, then spread-copy push)
   const redo = useCallback((): EditorAction | null => {
     let popped: EditorAction | null = null;
     setRedoStack((prev) => {

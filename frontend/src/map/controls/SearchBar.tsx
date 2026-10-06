@@ -13,6 +13,7 @@ interface SearchBarProps {
 const CATEGORY_OPTIONS: { value: string; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'buildings', label: 'Buildings' },
+  // O(p) time, O(p) space — p = entries in POI_CATEGORY_LABELS (a constant table), built once at module load
   ...Object.entries(POI_CATEGORY_LABELS).map(([key, label]) => ({
     value: key,
     label,
@@ -71,6 +72,7 @@ const styles = {
   },
 } as const;
 
+// O(c) time, O(c) space — c = entries in CATEGORY_OPTIONS (2 + the POI categories)
 export const SearchBar: React.FC<SearchBarProps> = ({ citySlug, onSelectResult }) => {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');
@@ -137,6 +139,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({ citySlug, onSelectResult }
 
   const isOpen = showResults && (results.length > 0 || isLoading || error !== null);
 
+  // O(c) time, O(c) space — c = entries in CATEGORY_OPTIONS (2 + the POI categories)
+  const categoryOptions = CATEGORY_OPTIONS.map((opt) => (
+    <option key={opt.value} value={opt.value}>
+      {opt.label}
+    </option>
+  ));
+
   return (
     <div style={styles.wrapper}>
       <div
@@ -167,11 +176,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ citySlug, onSelectResult }
           style={styles.select}
           aria-label="Filter by category"
         >
-          {CATEGORY_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
+          {categoryOptions}
         </select>
       </div>
       {isOpen && (

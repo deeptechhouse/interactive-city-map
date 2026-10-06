@@ -14,6 +14,7 @@
  * Returns a debounced version of `fn` that delays invocation until
  * `ms` milliseconds have elapsed since the last call.
  */
+// O(1) time, O(1) space — t = 1 timer slot, no input-sized state
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function debounce<T extends (...args: any[]) => void>(
   fn: T,
@@ -21,6 +22,7 @@ export function debounce<T extends (...args: any[]) => void>(
 ): T {
   let timer: ReturnType<typeof setTimeout> | null = null;
 
+  // O(a) time, O(a) space — a = arguments per call (captured for the delayed fn call)
   const debounced = (...args: Parameters<T>) => {
     if (timer !== null) {
       clearTimeout(timer);
@@ -39,6 +41,7 @@ export function debounce<T extends (...args: any[]) => void>(
  * every `ms` milliseconds.  The first call fires immediately;
  * subsequent calls within the window are dropped.
  */
+// O(1) time, O(1) space — t = 1 timer slot, no input-sized state
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function throttle<T extends (...args: any[]) => void>(
   fn: T,
@@ -47,6 +50,7 @@ export function throttle<T extends (...args: any[]) => void>(
   let lastCall = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
 
+  // O(a) time, O(a) space — a = arguments per call (captured for the delayed fn call)
   const throttled = (...args: Parameters<T>) => {
     const now = Date.now();
     const remaining = ms - (now - lastCall);
@@ -96,30 +100,37 @@ export interface TileLoadTracker {
  * Creates a tracker that counts in-flight tile loads so the UI can
  * show a loading indicator.
  */
+// O(1) time, O(l) space — l = subscribed listeners (stored in a Set)
 export function createTileLoadTracker(): TileLoadTracker {
   let pending = 0;
   const listeners = new Set<(state: TileLoadState) => void>();
 
+  // O(1) time, O(1) space
   function snapshot(): TileLoadState {
     return { pending, isLoading: pending > 0 };
   }
 
+  // O(l) time, O(1) space — l = subscribed listeners
   function notify() {
     const state = snapshot();
+    // O(l) time, O(1) space — l = subscribed listeners (plus each listener call)
     for (const listener of listeners) {
       listener(state);
     }
   }
 
   return {
+    // O(l) time, O(1) space — l = subscribed listeners (notify)
     tileLoadStart() {
       pending += 1;
       notify();
     },
+    // O(l) time, O(1) space — l = subscribed listeners (notify)
     tileLoadEnd() {
       pending = Math.max(0, pending - 1);
       notify();
     },
+    // O(1) time, O(1) space
     subscribe(listener) {
       listeners.add(listener);
       return () => {
@@ -169,6 +180,7 @@ export type ZoomThresholdLayer = keyof typeof ZOOM_THRESHOLDS;
  * @param bounds  [west, south, east, north]
  * @param zoom    Current map zoom level
  */
+// O(1) time, O(1) space
 export function estimateFeatureCount(
   bounds: [number, number, number, number],
   zoom: number,
@@ -192,6 +204,7 @@ const SIMPLIFY_FEATURE_THRESHOLD = 50_000;
  * feature count suggests the renderer would benefit from simplification
  * (e.g. clustering POIs, reducing building detail, hiding labels).
  */
+// O(1) time, O(1) space
 export function shouldSimplifyLayer(
   zoom: number,
   featureCount: number,

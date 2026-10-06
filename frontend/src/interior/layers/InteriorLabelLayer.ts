@@ -12,10 +12,12 @@ export interface InteriorLabelConfig {
   minZoom?: number;
 }
 
+// O(k) time, O(k) space — k = characters in the id string (template concatenation)
 function sourceId(id: string): string {
   return `${SOURCE_PREFIX}-${id}`;
 }
 
+// O(k) time, O(k) space — k = characters in the id string (template concatenation)
 function layerId(id: string): string {
   return `${LAYER_PREFIX}-${id}`;
 }
@@ -24,6 +26,8 @@ function layerId(id: string): string {
  * Add an interior label layer to the map.
  * Displays room name/type labels at room centroid points using a symbol layer.
  */
+// MapLibre receives the GeoJSON/image config by reference; its own tiling/render work is outside this function and not counted.
+// O(1) time, O(1) space
 export function addInteriorLabelLayer(
   map: maplibregl.Map,
   config: InteriorLabelConfig,
@@ -61,6 +65,7 @@ export function addInteriorLabelLayer(
 /**
  * Remove an interior label layer from the map.
  */
+// O(1) time, O(1) space
 export function removeInteriorLabelLayer(
   map: maplibregl.Map,
   id: string,
@@ -83,6 +88,7 @@ export function removeInteriorLabelLayer(
 /**
  * Get the MapLibre layer IDs for a given interior label layer.
  */
+// O(k) time, O(k) space — k = characters in the id string
 export function getInteriorLabelLayerIds(id: string): string[] {
   return [layerId(id)];
 }

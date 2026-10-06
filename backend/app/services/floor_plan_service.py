@@ -12,6 +12,7 @@ from app.config import settings
 from app.models import FloorPlan
 
 
+# O(f) time, O(f) space — f = bytes in the uploaded file
 async def upload_floor_plan(
     building_id: uuid.UUID,
     level: int,
@@ -58,6 +59,7 @@ async def upload_floor_plan(
     return floor_plan
 
 
+# O(log N + k) time, O(k) space — N = floor_plans rows; k = floors in the building
 async def get_floor_plans(building_id: uuid.UUID, session: AsyncSession) -> list[FloorPlan]:
     """Return all floor plans for a building, ordered by level."""
     stmt = (
@@ -69,6 +71,7 @@ async def get_floor_plans(building_id: uuid.UUID, session: AsyncSession) -> list
     return list(result.scalars().all())
 
 
+# O(log N) time, O(1) space — N = floor_plans rows, primary-key lookup
 async def get_floor_plan(floor_plan_id: uuid.UUID, session: AsyncSession) -> Optional[FloorPlan]:
     """Return a single floor plan by its ID."""
     stmt = select(FloorPlan).where(FloorPlan.id == floor_plan_id)

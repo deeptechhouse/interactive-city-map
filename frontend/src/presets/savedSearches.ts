@@ -37,6 +37,7 @@ export function normaliseName(name: string): string {
 /** Names are matched case-insensitively within a city ("Vacant lots" == "vacant lots"). O(n) time, O(1) space — n = presets. */
 export function findByName(list: readonly SavedSearch[], city: string, name: string): SavedSearch | undefined {
   const target = normaliseName(name).toLowerCase();
+  // O(n) time, O(1) space — n = presets in the list (names are at most MAX_NAME_LENGTH chars)
   return list.find((p) => p.city === city && p.name.toLowerCase() === target);
 }
 
@@ -60,21 +61,25 @@ export function upsertPreset(
     id: existing?.id ?? makeId(),
     savedAt: now.toISOString(),
   };
+  // O(n) time, O(n) space — n = presets in the list
   const next = existing ? list.map((p) => (p.id === existing.id ? preset : p)) : [...list, preset];
   return next.slice(-MAX_PRESETS);
 }
 
 /** O(n) time, O(n) space — n = presets. */
 export function removePreset(list: readonly SavedSearch[], id: string): SavedSearch[] {
+  // O(n) time, O(n) space — n = presets in the list
   return list.filter((p) => p.id !== id);
 }
 
+// O(1) time, O(1) space
 const isFiniteNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
 /** O(1) time, O(1) space. */
 function parseView(raw: unknown): MapView | null {
   if (!raw || typeof raw !== 'object') return null;
   const { center, zoom } = raw as Record<string, unknown>;
+  // O(1) time, O(1) space — k = 2 center coordinates, length checked first so every() sees at most 2
   if (!Array.isArray(center) || center.length !== 2 || !center.every(isFiniteNum) || !isFiniteNum(zoom)) {
     return null;
   }
@@ -90,6 +95,7 @@ function parseView(raw: unknown): MapView | null {
 export function parsePresets(raw: unknown): SavedSearch[] {
   if (!Array.isArray(raw)) return [];
   const out: SavedSearch[] = [];
+  // O(n + t) time, O(n + t) space — n = stored presets; t = total characters in their names (normaliseName is linear and the stored text is untrusted, so unbounded)
   for (const item of raw) {
     if (!item || typeof item !== 'object') continue;
     const p = item as Record<string, unknown>;

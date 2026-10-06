@@ -12,6 +12,7 @@ class POIFetcherAdapter(ABC):
     """Abstract interface for fetching POIs from an external data source."""
 
     @abstractmethod
+    # O(1) time, O(1) space
     async def fetch_pois(
         self, bbox: tuple[float, float, float, float], categories: Optional[list[str]] = None
     ) -> list[dict[str, Any]]:
@@ -45,6 +46,7 @@ class OverpassPOIFetcher(POIFetcherAdapter):
         "place_of_worship": 'node["amenity"="place_of_worship"]',
     }
 
+    # O(c + n) time, O(c + n) space — c = categories requested; n = elements in the response
     async def fetch_pois(
         self, bbox: tuple[float, float, float, float], categories: Optional[list[str]] = None
     ) -> list[dict[str, Any]]:
@@ -53,6 +55,7 @@ class OverpassPOIFetcher(POIFetcherAdapter):
 
         if categories:
             tag_queries = []
+            # O(c) time, O(c) space — c = categories requested
             for cat in categories:
                 tag = self._CATEGORY_TAG_MAP.get(cat)
                 if tag:
@@ -76,6 +79,7 @@ class OverpassPOIFetcher(POIFetcherAdapter):
             data = resp.json()
 
         results: list[dict[str, Any]] = []
+        # O(n) time, O(n) space — n = elements in the response
         for element in data.get("elements", []):
             tags = element.get("tags", {})
             lat = element.get("lat") or element.get("center", {}).get("lat")
@@ -98,6 +102,7 @@ class OverpassPOIFetcher(POIFetcherAdapter):
         return results
 
     @staticmethod
+    # O(1) time, O(1) space
     def _derive_category(tags: dict) -> str:
         if "amenity" in tags:
             return tags["amenity"]
@@ -113,9 +118,11 @@ class FoursquarePOIFetcher(POIFetcherAdapter):
 
     _BASE_URL = "https://api.foursquare.com/v3/places/search"
 
+    # O(1) time, O(1) space
     def __init__(self, api_key: str = settings.foursquare_api_key):
         self._api_key = api_key
 
+    # O(c + n) time, O(c + n) space — c = categories requested; n = places in the response
     async def fetch_pois(
         self, bbox: tuple[float, float, float, float], categories: Optional[list[str]] = None
     ) -> list[dict[str, Any]]:
@@ -144,6 +151,7 @@ class FoursquarePOIFetcher(POIFetcherAdapter):
             data = resp.json()
 
         results: list[dict[str, Any]] = []
+        # O(n) time, O(n) space — n = places in the response
         for place in data.get("results", []):
             geo = place.get("geocodes", {}).get("main", {})
             if not geo:

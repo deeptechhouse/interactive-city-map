@@ -12,6 +12,7 @@ class ContributionService:
     """Handles community votes, reports, and admin moderation actions."""
 
     @staticmethod
+    # O(log n) time, O(1) space — n = interior sources (primary-key lookup)
     async def vote(
         source_id: uuid.UUID, vote: str, session: AsyncSession
     ) -> InteriorSource | None:
@@ -30,6 +31,7 @@ class ContributionService:
         return source
 
     @staticmethod
+    # O(log n + d) time, O(d) space — n = interior sources (primary-key lookup); d = size of the source's raw_data JSON
     async def report(
         source_id: uuid.UUID, reason: str, session: AsyncSession
     ) -> InteriorSource | None:
@@ -49,6 +51,7 @@ class ContributionService:
         return source
 
     @staticmethod
+    # O(log n) time, O(1) space — n = interior sources (primary-key lookup)
     async def moderate(
         source_id: uuid.UUID, action: str, session: AsyncSession
     ) -> InteriorSource | None:

@@ -2,10 +2,12 @@ import { apiClient } from './client';
 import type { Building, BuildingUpdate } from '../types/building';
 import { bboxToParam } from '../utils/geoUtils';
 
+// O(1) time, O(1) space
 export async function getBuilding(id: string): Promise<Building> {
   return apiClient.get<Building>(`/api/v1/buildings/${id}`);
 }
 
+// O(n) time, O(n) space — n = buildings returned in the response (JSON-parsed client-side)
 export async function getBuildingsByBbox(
   slug: string,
   bbox: [number, number, number, number],
@@ -14,6 +16,7 @@ export async function getBuildingsByBbox(
   return apiClient.get<Building[]>(`/api/v1/cities/${slug}/buildings?bbox=${bboxParam}`);
 }
 
+// O(1) time, O(1) space
 export async function updateBuilding(id: string, data: BuildingUpdate): Promise<Building> {
   return apiClient.patch<Building>(`/api/v1/buildings/${id}`, data);
 }

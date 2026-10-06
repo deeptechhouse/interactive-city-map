@@ -26,6 +26,7 @@ class InteriorService:
     # ── Sources ─────────────────────────────────────────────────
 
     @staticmethod
+    # O(log N + k) time, O(k) space — N = interior_sources rows; k = sources in the building
     async def get_sources(building_id: uuid.UUID, session: AsyncSession) -> list[InteriorSource]:
         stmt = (
             select(InteriorSource)
@@ -36,6 +37,7 @@ class InteriorService:
         return list(result.scalars().all())
 
     @staticmethod
+    # O(log N) time, O(1) space — N = interior_sources rows
     async def create_source(
         building_id: uuid.UUID,
         city_id: uuid.UUID,
@@ -58,6 +60,7 @@ class InteriorService:
         return source
 
     @staticmethod
+    # O(log N) time, O(1) space — N = interior_sources rows, primary-key lookup
     async def update_source_status(
         source_id: uuid.UUID, status: str, session: AsyncSession
     ) -> InteriorSource | None:
@@ -74,6 +77,7 @@ class InteriorService:
     # ── Rooms ───────────────────────────────────────────────────
 
     @staticmethod
+    # O(log N + k log k) time, O(k) space — N = interior_rooms rows; k = rooms returned
     async def get_rooms(
         building_id: uuid.UUID, session: AsyncSession, level: int | None = None
     ) -> list[InteriorRoom]:
@@ -85,6 +89,7 @@ class InteriorService:
         return list(result.scalars().all())
 
     @staticmethod
+    # O(g + log N) time, O(g) space — g = vertices in the room geometry; N = interior_rooms rows
     async def create_room(
         building_id: uuid.UUID, data: InteriorRoomCreateRequest, session: AsyncSession
     ) -> InteriorRoom:
@@ -104,6 +109,7 @@ class InteriorService:
         return room
 
     @staticmethod
+    # O(log N) time, O(1) space — N = interior_rooms rows
     async def delete_room(room_id: uuid.UUID, session: AsyncSession) -> bool:
         stmt = delete(InteriorRoom).where(InteriorRoom.id == room_id)
         result = await session.execute(stmt)
@@ -113,6 +119,7 @@ class InteriorService:
     # ── Walls ───────────────────────────────────────────────────
 
     @staticmethod
+    # O(log N + k log k) time, O(k) space — N = interior_walls rows; k = walls returned
     async def get_walls(
         building_id: uuid.UUID, session: AsyncSession, level: int | None = None
     ) -> list[InteriorWall]:
@@ -124,6 +131,7 @@ class InteriorService:
         return list(result.scalars().all())
 
     @staticmethod
+    # O(g + log N) time, O(g) space — g = vertices in the wall geometry; N = interior_walls rows
     async def create_wall(
         building_id: uuid.UUID, data: InteriorWallCreateRequest, session: AsyncSession
     ) -> InteriorWall:
@@ -142,6 +150,7 @@ class InteriorService:
         return wall
 
     @staticmethod
+    # O(log N) time, O(1) space — N = interior_walls rows
     async def delete_wall(wall_id: uuid.UUID, session: AsyncSession) -> bool:
         stmt = delete(InteriorWall).where(InteriorWall.id == wall_id)
         result = await session.execute(stmt)
@@ -151,6 +160,7 @@ class InteriorService:
     # ── Features ────────────────────────────────────────────────
 
     @staticmethod
+    # O(log N + k log k) time, O(k) space — N = interior_features rows; k = features returned
     async def get_features(
         building_id: uuid.UUID, session: AsyncSession, level: int | None = None
     ) -> list[InteriorFeature]:
@@ -162,6 +172,7 @@ class InteriorService:
         return list(result.scalars().all())
 
     @staticmethod
+    # O(g + log N) time, O(g) space — g = vertices in the feature geometry; N = interior_features rows
     async def create_feature(
         building_id: uuid.UUID, data: InteriorFeatureCreateRequest, session: AsyncSession
     ) -> InteriorFeature:
@@ -179,6 +190,7 @@ class InteriorService:
         return feature
 
     @staticmethod
+    # O(log N) time, O(1) space — N = interior_features rows
     async def delete_feature(feature_id: uuid.UUID, session: AsyncSession) -> bool:
         stmt = delete(InteriorFeature).where(InteriorFeature.id == feature_id)
         result = await session.execute(stmt)
@@ -188,6 +200,7 @@ class InteriorService:
     # ── Summary ─────────────────────────────────────────────────
 
     @staticmethod
+    # O(log N + b) time, O(1) space — N = largest interior table; b = rows belonging to the building, counted by 4 index scans
     async def get_summary(building_id: uuid.UUID, session: AsyncSession) -> InteriorSummaryResponse:
         source_count = await session.scalar(
             select(func.count()).where(InteriorSource.building_id == building_id)

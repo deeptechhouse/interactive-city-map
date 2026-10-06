@@ -34,6 +34,8 @@ const EMPTY_RESULT: UseInteriorDataResult = {
   refetch: () => {},
 };
 
+// API rows are held in state by reference and never scanned here.
+// O(1) time, O(n) space — n = rows returned by the API (rooms + walls + features + sources)
 export function useInteriorData(
   buildingId: string | null,
   level?: number,

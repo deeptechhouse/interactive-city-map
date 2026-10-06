@@ -13,6 +13,7 @@ interface FloorPlanViewerProps {
   onFloorChange?: (floorPlan: FloorPlan) => void;
 }
 
+// O(n log n) time, O(n) space — n = floor plans in the building (find per render + sorted tab list)
 export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
   buildingId,
   initialLevel,
@@ -29,6 +30,7 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
   useEffect(() => {
     let cancelled = false;
 
+    // O(n) time, O(n) space — n = floor plans returned by the API (stored in state)
     const fetchPlans = async () => {
       setLoading(true);
       setError(null);
@@ -57,6 +59,7 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
     };
   }, [buildingId, initialLevel]);
 
+  // O(n) time, O(1) space — n = floor plans in the building
   const activeFloorPlan = floorPlans.find((fp) => fp.level === activeLevel);
 
   useEffect(() => {
@@ -79,6 +82,7 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
   const handleLevelSelect = useCallback(
     (level: number) => {
       setActiveLevel(level);
+      // O(n) time, O(1) space — n = floor plans in the building
       const plan = floorPlans.find((fp) => fp.level === level);
       if (plan && onFloorChange) {
         onFloorChange(plan);
@@ -87,6 +91,7 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
     [floorPlans, onFloorChange],
   );
 
+  // O(1) time, O(1) space
   const getLevelLabel = (level: number): string => {
     if (level < 0) return `B${Math.abs(level)}`;
     if (level === 0) return 'G';
@@ -131,6 +136,26 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
     );
   }
 
+  // O(n log n) time, O(n) space — n = floor plans (copy, sort by level, then one pass to build tabs)
+  const levelTabs = floorPlans
+    .slice()
+    .sort((a, b) => a.level - b.level)
+    .map((fp) => (
+      <button
+        key={fp.level}
+        style={{
+          ...styles.levelTab,
+          ...(fp.level === activeLevel ? styles.levelTabActive : {}),
+        }}
+        onClick={() => handleLevelSelect(fp.level)}
+        role="tab"
+        aria-selected={fp.level === activeLevel}
+        aria-label={`Floor level ${getLevelLabel(fp.level)}`}
+      >
+        {getLevelLabel(fp.level)}
+      </button>
+    ));
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
@@ -142,24 +167,7 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
 
       {/* Floor level selector tabs */}
       <div style={styles.levelTabs} role="tablist" aria-label="Floor levels">
-        {floorPlans
-          .slice()
-          .sort((a, b) => a.level - b.level)
-          .map((fp) => (
-            <button
-              key={fp.level}
-              style={{
-                ...styles.levelTab,
-                ...(fp.level === activeLevel ? styles.levelTabActive : {}),
-              }}
-              onClick={() => handleLevelSelect(fp.level)}
-              role="tab"
-              aria-selected={fp.level === activeLevel}
-              aria-label={`Floor level ${getLevelLabel(fp.level)}`}
-            >
-              {getLevelLabel(fp.level)}
-            </button>
-          ))}
+        {levelTabs}
       </div>
 
       {/* Floor plan image display */}

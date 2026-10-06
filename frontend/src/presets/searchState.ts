@@ -100,8 +100,11 @@ export class SearchStateStore {
    */
   snapshot(): SearchSnapshot {
     const out: SearchSnapshot = {};
+    // O(p) time, O(p) space — p = pending (applied-but-unmounted) sections
     for (const [key, raw] of this.#pending) out[key] = raw;
+    // O(d) time, O(d) space — d = defined sections (plus each toJson call)
     for (const [key, def] of this.#defs) out[key] = def.toJson(this.#values.get(key));
+    // O(x) time, O(x) space — x = attached external adapters (plus each capture call)
     for (const [key, ext] of this.#externals) out[key] = ext.capture();
     return out;
   }
@@ -114,10 +117,12 @@ export class SearchStateStore {
    */
   apply(snap: SearchSnapshot): void {
     this.#pending.clear();
+    // O(d) time, O(d) space — d = defined sections (plus each fromJson call)
     for (const [key, def] of this.#defs) {
       const raw = snap[key];
       this.#values.set(key, (raw === undefined ? null : def.fromJson(raw)) ?? def.initial());
     }
+    // O(s) time, O(s) space — s = keys in the snapshot, each a constant-time Map lookup, plus each external apply call
     for (const [key, raw] of Object.entries(snap)) {
       const ext = this.#externals.get(key);
       if (ext) ext.apply(raw);
@@ -126,6 +131,7 @@ export class SearchStateStore {
     this.#notify();
   }
 
+  // O(1) time, O(1) space
   subscribe(listener: () => void): () => void {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
@@ -133,6 +139,7 @@ export class SearchStateStore {
 
   // O(l) — l = subscribed controls.
   #notify(): void {
+    // O(l) time, O(1) space — l = subscribed controls (plus each listener call)
     for (const l of this.#listeners) l();
   }
 }
@@ -155,6 +162,7 @@ export function setSection(
     toJson: (value) => [...value].sort(),
     fromJson: (raw) =>
       Array.isArray(raw)
+        // O(m) time, O(m) space — m = items in the saved array, each a constant-time Set.has
         ? new Set(raw.filter((x): x is string => typeof x === 'string' && known.has(x)))
         : null,
   };

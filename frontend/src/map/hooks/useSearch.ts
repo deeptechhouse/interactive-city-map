@@ -25,6 +25,7 @@ export interface UseSearchReturn {
 
 const DEBOUNCE_MS = 300;
 
+// O(1) time, O(r) space — r = results held in state (returned by the search API)
 export function useSearch(citySlug: string): UseSearchReturn {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);

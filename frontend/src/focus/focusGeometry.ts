@@ -62,6 +62,7 @@ export function indexBoundaries(
   idProp: string,
 ): Map<string, AreaFeature[]> {
   const index = new Map<string, AreaFeature[]>();
+  // O(n) time, O(n) space — n = features in the collection
   for (const f of fc.features) {
     // O(n)
     const type = f.geometry?.type;
@@ -97,6 +98,8 @@ function unionOf(features: readonly AreaFeature[]): AreaFeature | null {
  */
 export function buildFocusShape(sel: FocusSelection, boundaries: BoundaryIndex): AreaFeature | null {
   const perKind: AreaFeature[] = [];
+  // Runs 3 times (FOCUS_KINDS is fixed).
+  // O(a + v log v) time, O(a + v) space — a = selected area ids; v = vertices of the selected boundaries
   for (const kind of FOCUS_KINDS) {
     // O(v log v) time, O(v) space — v = vertices of the selected boundaries; k = 3 focus kinds
     const feats = sel[kind].flatMap((id) => boundaries[kind].get(id) ?? []);
@@ -109,6 +112,7 @@ export function buildFocusShape(sel: FocusSelection, boundaries: BoundaryIndex):
   if (sel.mode === 'union') return unionOf(perKind);
   // Intersection across kinds: pairwise fold. intersect() needs ≥2 features per call.
   let acc: AreaFeature | null = perKind[0];
+  // O(v log v) time, O(v) space — v = vertices of the per-kind shapes
   for (let i = 1; i < perKind.length && acc; i++) {
     // O(k) folds, k ≤ 3
     acc = intersect(featureCollection([acc, perKind[i]])) as AreaFeature | null;

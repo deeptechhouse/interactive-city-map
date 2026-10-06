@@ -29,11 +29,15 @@ function sortedIds(index: ReadonlyMap<string, unknown>): string[] {
 }
 
 export const AREA_OPTIONS: Record<FocusKind, readonly AreaOption[]> = {
+  // sortedIds sorts, then map is linear.
+  // O(n log n) time, O(n) space — n = zip boundary ids
   zip: sortedIds(CHICAGO_BOUNDARIES.zip).map((id) => ({ id, label: id })),
+  // O(n log n) time, O(n) space — n = police-district boundary ids
   police: sortedIds(CHICAGO_BOUNDARIES.police).map((id) => {
     const info = DISTRICT_INFO[Number(id)];
     return { id, label: info ? `District ${id} — ${info.name}` : `District ${id}` };
   }),
+  // O(n log n) time, O(n) space — n = ward boundary ids
   ward: sortedIds(CHICAGO_BOUNDARIES.ward).map((id) => {
     const info = WARD_INFO[Number(id)];
     return { id, label: info ? `Ward ${id} — ${info.alderman}` : `Ward ${id}` };

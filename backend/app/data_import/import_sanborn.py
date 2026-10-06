@@ -10,6 +10,7 @@ The output of this script feeds into the georeference_to_pmtiles.sh pipeline.
 """
 
 import json
+import re
 import time
 from pathlib import Path
 
@@ -36,6 +37,7 @@ class SanbornImporter:
         _client: Reusable HTTP client for the session.
     """
 
+    # O(1) time, O(1) space
     def __init__(self, city: str, output_dir: str):
         self._city = city.lower()
         self._output_dir = Path(output_dir)
@@ -47,6 +49,7 @@ class SanbornImporter:
     # Public API
     # ------------------------------------------------------------------
 
+    # O(p + d) time, O(s) space — p = LoC result pages; s = sheets found; d = sheets downloaded (min of max_sheets and s)
     def run(self, max_sheets: int = 50) -> int:
         """Download up to *max_sheets* Sanborn maps. Returns count downloaded."""
         self._log.info("import_start", max_sheets=max_sheets)
@@ -59,6 +62,7 @@ class SanbornImporter:
 
             downloaded = 0
             manifest_entries: list[dict] = []
+            # O(d) time, O(d) space — d = sheets downloaded (min of max_sheets and s)
             for sheet in sheets[:max_sheets]:
                 try:
                     path = self.download_sheet(sheet)
@@ -88,6 +92,7 @@ class SanbornImporter:
                 self._client.close()
                 self._client = None
 
+    # O(p) time, O(s) space — p = LoC result pages; s = sheets kept
     def search_sheets(self) -> list[dict]:
         """Search the LoC API for Sanborn map sheets matching the target city.
 
@@ -97,6 +102,7 @@ class SanbornImporter:
         all_sheets: list[dict] = []
         page = 1
 
+        # O(p) time, O(s) space — p = LoC result pages; s = sheets kept
         while True:
             params = {
                 "fo": "json",
@@ -115,6 +121,8 @@ class SanbornImporter:
             if not results:
                 break
 
+            # bigo-lint: disable=BIGO006 — amortised: each result is visited once, so the pages sum to s sheets (c=50 is only requested, not enforced)
+            # O(k) time, O(k) space — k = results on this page (appended to all_sheets)
             for item in results:
                 sheet_info = self._parse_search_result(item)
                 if sheet_info:
@@ -130,6 +138,7 @@ class SanbornImporter:
 
         return all_sheets
 
+    # O(b) time, O(b) space — b = bytes of the sheet image
     def download_sheet(self, sheet_info: dict) -> Path:
         """Download a single Sanborn sheet image to a year-organized directory.
 
@@ -172,6 +181,7 @@ class SanbornImporter:
     # Private helpers
     # ------------------------------------------------------------------
 
+    # O(b) time, O(b) space — b = bytes of the JSON response body
     def _api_get(self, url: str, params: dict | None = None) -> dict | None:
         """Make a GET request to the LoC API and return parsed JSON."""
         assert self._client is not None
@@ -183,6 +193,7 @@ class SanbornImporter:
             self._log.exception("api_request_failed", url=url[:120])
             return None
 
+    # O(r) time, O(1) space — r = IIIF resources listed on one search result
     def _parse_search_result(self, item: dict) -> dict | None:
         """Extract sheet metadata from a single LoC search result item.
 
@@ -198,6 +209,7 @@ class SanbornImporter:
         image_url = ""
         resources = item.get("resources", [])
         if resources:
+            # O(r) time, O(1) space — r = IIIF resources listed on one search result (breaks at the first with an image)
             for resource in resources:
                 iiif_service = resource.get("image", "")
                 if iiif_service:
@@ -221,11 +233,13 @@ class SanbornImporter:
             "image_url": image_url,
         }
 
+    # O(L) time, O(L) space — L = characters in the date string
     def _extract_year_folder(self, date_str: str) -> str:
         """Convert a date string like '1895' or '1905-1910' into a folder name."""
         if not date_str:
             return "unknown_era"
         # Take the first 4-digit year found
+        # O(L) time, O(L) space — L = characters in the date string
         for part in date_str.replace("-", " ").split():
             if len(part) == 4 and part.isdigit():
                 year = int(part)
@@ -234,18 +248,20 @@ class SanbornImporter:
         return date_str.replace(" ", "_").replace("/", "_")[:20]
 
     @staticmethod
+    # O(L) time, O(L) space — L = characters in the title
     def _safe_filename(title: str) -> str:
         """Convert an arbitrary title into a filesystem-safe filename."""
         safe = title.lower().strip()
         # Replace problematic characters
+        # O(L) time, O(L) space — L = characters in the title; k = 9 forbidden characters
         for ch in r'\/:"*?<>|':
             safe = safe.replace(ch, "_")
         safe = safe.replace(" ", "_")
-        # Collapse multiple underscores and trim length
-        while "__" in safe:
-            safe = safe.replace("__", "_")
+        # Collapse runs of underscores in one regex pass (was a repeat-until-stable loop) and trim length
+        safe = re.sub(r"_{2,}", "_", safe)
         return safe[:120].strip("_") or "sheet"
 
+    # O(s) time, O(s) space — s = manifest entries serialised by json.dumps
     def _write_manifest(self, entries: list[dict]) -> None:
         """Write a manifest.json file cataloguing all downloaded sheets."""
         manifest_path = self._output_dir / "manifest.json"
@@ -263,6 +279,7 @@ class SanbornImporter:
 # CLI entry point
 # ------------------------------------------------------------------
 
+# O(p + d) time, O(s) space — p = LoC result pages; s = sheets found; d = sheets downloaded (min of max_sheets and s)
 def main() -> None:
     """CLI entry point for downloading Sanborn maps."""
     import argparse

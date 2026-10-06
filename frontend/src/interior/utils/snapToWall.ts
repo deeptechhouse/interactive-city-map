@@ -9,6 +9,7 @@ export interface ProjectionResult {
   t: number;
 }
 
+// O(1) time, O(1) space
 export function projectPointOnSegment(
   point: [number, number],
   segStart: [number, number],
@@ -36,6 +37,7 @@ export function projectPointOnSegment(
   return { projected: [projX, projY], distance: dist, t };
 }
 
+// O(w) time, O(1) space — w = wall segments passed in
 export function snapToWall(
   point: [number, number],
   walls: WallSegment[],
@@ -44,6 +46,7 @@ export function snapToWall(
   let closest: [number, number] | null = null;
   let minDist = Infinity;
 
+  // O(w) time, O(1) space — w = wall segments (constant work per segment)
   for (const wall of walls) {
     const result = projectPointOnSegment(point, wall.start, wall.end);
     if (result.distance < minDist) {

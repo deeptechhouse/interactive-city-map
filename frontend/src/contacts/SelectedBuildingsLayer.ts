@@ -18,6 +18,8 @@ function idFilter(ids: readonly string[]): maplibregl.FilterSpecification {
 }
 
 /** Show outlines for ``ids``. No-op until the buildings layer has created its source. */
+// Assumes MapLibre's filter compile/validate is linear in the literal (not verified).
+// O(n) time, O(n) space — n = selected ids
 export function setSelectedBuildings(map: maplibregl.Map, ids: readonly string[]): void {
   if (!map.getSource(BUILDINGS_SOURCE)) return;
   if (!map.getLayer(FILL_ID)) {

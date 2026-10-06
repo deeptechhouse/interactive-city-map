@@ -21,6 +21,7 @@ const FLOOR_LEVELS = [
   { value: 5, label: '6th Floor' },
 ];
 
+// O(1) time, O(1) space — k = 7 FLOOR_LEVELS entries rendered per render
 export const FloorPlanUpload: React.FC<FloorPlanUploadProps> = ({
   buildingId,
   onUploadComplete,
@@ -127,6 +128,13 @@ export const FloorPlanUpload: React.FC<FloorPlanUploadProps> = ({
     }
   }, [selectedFile, buildingId, level, onUploadComplete]);
 
+  // O(1) time, O(1) space — k = 7 FLOOR_LEVELS entries, a module constant
+  const levelOptions = FLOOR_LEVELS.map((fl) => (
+    <option key={fl.value} value={fl.value}>
+      {fl.label}
+    </option>
+  ));
+
   return (
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -213,11 +221,7 @@ export const FloorPlanUpload: React.FC<FloorPlanUploadProps> = ({
             onChange={(e) => setLevel(Number(e.target.value))}
             disabled={uploading}
           >
-            {FLOOR_LEVELS.map((fl) => (
-              <option key={fl.value} value={fl.value}>
-                {fl.label}
-              </option>
-            ))}
+            {levelOptions}
           </select>
         </div>
 

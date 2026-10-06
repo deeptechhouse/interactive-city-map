@@ -121,6 +121,7 @@ const styles = {
   },
 } as const;
 
+// O(1) time, O(1) space
 function DetailField({ label, value }: { label: string; value: React.ReactNode }) {
   if (value === null || value === undefined || value === '') return null;
   return (
@@ -131,6 +132,7 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
   );
 }
 
+// O(1) time, O(1) space — f = fixed field set; l = at most 2 external links
 export const BuildingDetail: React.FC<BuildingDetailProps> = ({
   building,
   onClose,

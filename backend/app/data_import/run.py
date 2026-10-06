@@ -64,6 +64,7 @@ IMPORTER_CLASSES = {
 }
 
 
+# O(c) time, O(c) space — c = bytes in the city YAML config file
 def _load_city_config(city_slug: str) -> dict:
     """Load city configuration from the YAML file."""
     config_dir = Path(__file__).parent / "configs"
@@ -74,6 +75,7 @@ def _load_city_config(city_slug: str) -> dict:
         return yaml.safe_load(f)
 
 
+# O(1) time, O(1) space
 def _ensure_city_record(db_url: str, city_config: dict) -> str:
     """Insert the city record if it doesn't exist. Return the city ID."""
     city = city_config["city"]
@@ -122,6 +124,7 @@ def _ensure_city_record(db_url: str, city_config: dict) -> str:
         conn.close()
 
 
+# O(1) time, O(1) space
 def _get_importer_config(sources: dict, layer: str) -> dict:
     """Extract the config dict for a specific importer from sources."""
     if layer == "transit":
@@ -133,6 +136,7 @@ def _get_importer_config(sources: dict, layer: str) -> dict:
     return sources.get(layer, {})
 
 
+# O(f) time, O(1) space — f = cached files and folders removed
 def clear_cache():
     """Remove all cached download files."""
     if CACHE_DIR.exists():
@@ -142,6 +146,7 @@ def clear_cache():
         logger.info("cache_cleared", path=str(CACHE_DIR))
 
 
+# O(a + n) time, O(m) space — a = chars in the --only argument; n = records across all selected layers; m = records in the largest selected layer
 def main():
     parser = argparse.ArgumentParser(description="Import spatial data into PostGIS")
     parser.add_argument("--city", required=True, help="City slug (e.g., 'chicago')")
@@ -162,8 +167,10 @@ def main():
 
     # Determine which layers to run
     if args.only:
+        # O(a) time, O(a) space — a = chars in the --only argument
         layers = [l.strip() for l in args.only.split(",") if l.strip()]
         # Validate
+        # O(l) time, O(1) space — l = layer names given in --only
         for layer in layers:
             if layer not in IMPORTER_CLASSES:
                 print(f"Unknown layer: {layer}. Available: {', '.join(IMPORTER_ORDER)}")
@@ -173,6 +180,7 @@ def main():
 
     # Run importers
     results: dict[str, int] = {}
+    # O(l + n) time, O(m) space — l = layer names given in --only; n = records across selected layers; m = records in the largest selected layer
     for layer in IMPORTER_ORDER:
         if layer not in layers:
             continue
@@ -187,6 +195,7 @@ def main():
     print(f"Import Results for {config['city']['name']}")
     print("=" * 50)
     total = 0
+    # O(1) time, O(1) space
     for layer, count in results.items():
         status = f"{count:>8,} rows" if count > 0 else "  skipped"
         print(f"  {layer:<20} {status}")

@@ -91,6 +91,7 @@ const styles = {
   },
 } as const;
 
+// O(1) time, O(1) space
 function getResultIcon(result: SearchResult): { symbol: string; bg: string; color: string } {
   if (result.type === 'building') {
     return { symbol: 'B', bg: `${THEME.accent}22`, color: THEME.accent };
@@ -99,6 +100,7 @@ function getResultIcon(result: SearchResult): { symbol: string; bg: string; colo
   return { symbol: 'P', bg: `${catColor}22`, color: catColor };
 }
 
+// O(c) time, O(c) space — c = characters in the category name
 function formatCategory(result: SearchResult): string {
   if (result.type === 'building') return 'Building';
   if (!result.category) return 'POI';
@@ -107,6 +109,7 @@ function formatCategory(result: SearchResult): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+// O(d) time, O(d) space — d = rows displayed (at most MAX_RESULTS = 20)
 export const SearchResults: React.FC<SearchResultsProps> = ({
   results,
   isLoading,
@@ -141,51 +144,54 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
 
   const displayed = results.slice(0, MAX_RESULTS);
 
+  // O(d) time, O(d) space — d = displayed rows (at most MAX_RESULTS, a constant)
+  const resultRows = displayed.map((result) => {
+    const icon = getResultIcon(result);
+    const categoryLabel = formatCategory(result);
+
+    return (
+      <div
+        key={`${result.type}-${result.id}`}
+        style={styles.item}
+        role="option"
+        tabIndex={0}
+        onClick={() => onSelectResult(result)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onSelectResult(result);
+          }
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLDivElement).style.background = THEME.bgTertiary;
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLDivElement).style.background = 'transparent';
+        }}
+      >
+        <div style={{ ...styles.icon, background: icon.bg, color: icon.color }}>
+          {icon.symbol}
+        </div>
+        <div style={styles.info}>
+          <div style={styles.name}>{result.name}</div>
+          {result.address && <div style={styles.address}>{result.address}</div>}
+        </div>
+        <span
+          style={{
+            ...styles.badge,
+            background: `${icon.color}18`,
+            color: icon.color,
+          }}
+        >
+          {categoryLabel}
+        </span>
+      </div>
+    );
+  });
+
   return (
     <div style={styles.container} role="listbox" aria-label="Search results">
-      {displayed.map((result) => {
-        const icon = getResultIcon(result);
-        const categoryLabel = formatCategory(result);
-
-        return (
-          <div
-            key={`${result.type}-${result.id}`}
-            style={styles.item}
-            role="option"
-            tabIndex={0}
-            onClick={() => onSelectResult(result)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onSelectResult(result);
-              }
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLDivElement).style.background = THEME.bgTertiary;
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLDivElement).style.background = 'transparent';
-            }}
-          >
-            <div style={{ ...styles.icon, background: icon.bg, color: icon.color }}>
-              {icon.symbol}
-            </div>
-            <div style={styles.info}>
-              <div style={styles.name}>{result.name}</div>
-              {result.address && <div style={styles.address}>{result.address}</div>}
-            </div>
-            <span
-              style={{
-                ...styles.badge,
-                background: `${icon.color}18`,
-                color: icon.color,
-              }}
-            >
-              {categoryLabel}
-            </span>
-          </div>
-        );
-      })}
+      {resultRows}
     </div>
   );
 };

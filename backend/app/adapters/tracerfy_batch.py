@@ -56,11 +56,12 @@ _BASE = "https://tracerfy.com/v1/api"
 _ALLOWED_RESULT_DOMAINS = ("digitaloceanspaces.com", "tracerfy.com")
 
 
-# O(d) time, O(1) space — d = allowed domains
+# O(n) time, O(n) space — n = url length
 def _allowed_result_url(url: str) -> bool:
     """https and host is an allowed domain or a subdomain of one."""
     parsed = urlparse(url)
     host = (parsed.hostname or "").lower()
+    # O(h) time, O(1) space — h = hostname length
     return parsed.scheme == "https" and any(host == d or host.endswith(f".{d}") for d in _ALLOWED_RESULT_DOMAINS)
 
 # Result CSV phone columns, best first. Names are matched after _norm_col(): the real
@@ -68,9 +69,12 @@ def _allowed_result_url(url: str) -> bool:
 # list "email_1"/"mobile_1" — case and "-" vs "_" are ignored so either spelling works.
 _PHONE_COLUMNS = (
     ("primary_phone", None),  # type comes from primary_phone_type
+    # O(1) time, O(1) space
     *((f"mobile_{i}", "Mobile") for i in range(1, 6)),
+    # O(1) time, O(1) space
     *((f"landline_{i}", "Landline") for i in range(1, 4)),
 )
+# O(1) time, O(1) space
 _EMAIL_COLUMNS = tuple(f"email_{i}" for i in range(1, 6))
 
 
@@ -92,17 +96,21 @@ class TracerfyBatchClient:
     """Thin HTTP client for Tracerfy's queue API. No caching / bookkeeping — the
     batch service owns that."""
 
+    # O(1) time, O(1) space
     def __init__(self, api_key: str = "", client: Optional[httpx.AsyncClient] = None):
         self._api_key = real_key(api_key or settings.tracerfy_api_key)
         self._client = client
 
     @property
+    # O(1) time, O(1) space
     def is_configured(self) -> bool:
         return bool(self._api_key)
 
+    # O(1) time, O(1) space
     def _headers(self) -> dict:
         return {"Authorization": f"Bearer {self._api_key}", "Accept": "application/json"}
 
+    # O(b) time, O(b) space — b = response size
     async def _request(self, method: str, url: str, **kw) -> httpx.Response:
         """One HTTP call; any 4xx/5xx/network error becomes ProviderUnavailable so the
         route can say exactly what went wrong (e.g. 402 out of credits)."""
@@ -151,10 +159,12 @@ class TracerfyBatchClient:
             raise ProviderUnavailable("tracerfy", 502, f"No queue id in response: {str(data)[:200]}")
         return str(queue_id)
 
+    # O(k) time, O(k) space — k = queues listed by Tracerfy
     async def status(self, queue_id: str) -> QueueStatus:
         """Status of one queue — see statuses()."""
         return (await self.statuses([queue_id]))[str(queue_id)]
 
+    # O(k + q) time, O(k + q) space — k = queues listed; q = ids asked
     async def statuses(self, queue_ids: list[str]) -> dict[str, QueueStatus]:
         """Status of several queues from ONE list call (newest first, ≤100 per page).
         One call, not one per queue: Tracerfy rate-limits this endpoint to roughly one
@@ -163,6 +173,7 @@ class TracerfyBatchClient:
         O(k + q) — k = queues listed, q = ids asked. A just-submitted queue is always on
         page 1; one that isn't listed (yet) — or a throttled check — counts as pending.
         """
+        # O(q) time, O(q) space — q = ids asked
         still = {str(q): QueueStatus(True, "", 0) for q in queue_ids}
         try:
             resp = await self._request("GET", f"{_BASE}/queues/", headers=self._headers())
@@ -173,9 +184,11 @@ class TracerfyBatchClient:
                 return still
             raise
         data = resp.json()
+        # O(k) time, O(k) space — k = queues listed
         listed = {str(q.get("id")): q for q in (data if isinstance(data, list) else data.get("results", []))}
         out = dict(still)
-        for qid in still:  # O(q)
+        # O(q) time, O(q) space — q = ids asked
+        for qid in still:
             d = listed.get(qid)
             if d is None:
                 continue
@@ -183,6 +196,7 @@ class TracerfyBatchClient:
             out[qid] = QueueStatus(pending, str(d.get("download_url") or ""), int(d.get("credits_deducted") or 0))
         return out
 
+    # O(u + b) time, O(u + b) space — u = url length; b = result CSV size
     async def fetch_results(self, download_url: str) -> str:
         """Download the result CSV — only from Tracerfy's storage hosts (SSRF guard)."""
         if not _allowed_result_url(download_url):
@@ -199,7 +213,8 @@ def build_upload_csv(queries: list[OwnerQuery], with_names: bool = False) -> str
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(["address", "city", "state", "zip", "first_name", "last_name", "mail_address", "mail_city", "mail_state", "mailing_zip"])
-    for q in queries:  # O(q)
+    # O(q) time, O(q) space — q = queries
+    for q in queries:
         first, last = (q.first_name.strip(), q.last_name.strip()) if with_names else ("", "")
         writer.writerow([q.street, q.city, q.state, q.zip, first, last, "", "", "", ""])
     return buf.getvalue()
@@ -210,6 +225,7 @@ def _norm_col(name: str) -> str:
     return "_".join(name.strip().lower().replace("-", " ").replace("_", " ").split())
 
 
+# O(b) time, O(b) space — b = CSV text size
 def parse_results(csv_text: str, method: str = "address") -> dict[str, OwnerContactResult]:
     """Result CSV → {property_key: OwnerContactResult}. Rows without any phone or email
     are skipped (misses). All results are dnc_checked=False — see module doc.
@@ -219,10 +235,15 @@ def parse_results(csv_text: str, method: str = "address") -> dict[str, OwnerCont
     O(r · c) — r rows × c columns (c is fixed ≈ 23, so effectively O(r)).
     """
     out: dict[str, OwnerContactResult] = {}
-    for raw in csv.DictReader(io.StringIO(csv_text.lstrip("\ufeff"))):  # O(r)
+    # O(b) time, O(b) space — b = CSV text size
+    for raw in csv.DictReader(io.StringIO(csv_text.lstrip("\ufeff"))):
+        # bigo-lint: disable=BIGO006 — per-row work, w summed over all rows is the CSV size b
+        # O(w) time, O(w) space — w = characters in one row
         row = {_norm_col(k): (v or "") for k, v in raw.items() if k}
         phones: list[OwnerPhone] = []
         seen: set[str] = set()
+        # bigo-lint: disable=BIGO006 — per-row work, w summed over all rows is the CSV size b
+        # O(w) time, O(w) space — w = characters in one row
         for col, kind in _PHONE_COLUMNS:  # O(9)
             number = digits_phone(row.get(col))
             if not number or number in seen:
@@ -230,9 +251,13 @@ def parse_results(csv_text: str, method: str = "address") -> dict[str, OwnerCont
             seen.add(number)
             label = (row.get("primary_phone_type") or "").strip().title() if kind is None else kind
             phones.append(OwnerPhone(number, label, dnc=False))
+        # bigo-lint: disable=BIGO006 — per-row work, w summed over all rows is the CSV size b
+        # O(w) time, O(w) space — w = characters in one row
         emails = tuple(dict.fromkeys(e.strip() for c in _EMAIL_COLUMNS if (e := row.get(c) or "").strip()))
         if not phones and not emails:
             continue
+        # bigo-lint: disable=BIGO006 — per-row work, w summed over all rows is the CSV size b
+        # O(w) time, O(w) space — w = characters in one row
         name = " ".join(x for x in ((row.get("first_name") or "").strip(), (row.get("last_name") or "").strip()) if x)
         out[property_key(row.get("address", ""), row.get("city", ""), row.get("state", ""))] = OwnerContactResult(
             person_name=name, phones=tuple(phones), emails=emails, provider="tracerfy", dnc_checked=False,

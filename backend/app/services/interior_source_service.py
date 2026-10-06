@@ -20,6 +20,7 @@ class InteriorSourceService:
     }
 
     @staticmethod
+    # O(1) time, O(1) space
     def compute_confidence(source: InteriorSource) -> float:
         """Compute confidence score for a source based on type and data completeness."""
         base = InteriorSourceService._BASE_CONFIDENCE.get(source.source_type, 0.3)
@@ -33,6 +34,7 @@ class InteriorSourceService:
         return min(base + boost, 1.0)
 
     @staticmethod
+    # O(log N + k) time, O(k) space — N = interior_sources rows; k = matching sources
     async def get_sources_by_type(
         building_id: uuid.UUID, source_type: str, session: AsyncSession
     ) -> list[InteriorSource]:
@@ -44,16 +46,24 @@ class InteriorSourceService:
         return list(result.scalars().all())
 
     @staticmethod
+    # O(log N + k) time, O(k) space — N = interior_sources rows; k = sources returned (≤ limit when given)
     async def get_sources_by_status(
-        status: str, session: AsyncSession, city_id: uuid.UUID | None = None
+        status: str,
+        session: AsyncSession,
+        city_id: uuid.UUID | None = None,
+        limit: int | None = None,
     ) -> list[InteriorSource]:
+        """``limit`` is applied in SQL so a page never loads the whole status bucket."""
         stmt = select(InteriorSource).where(InteriorSource.status == status)
         if city_id is not None:
             stmt = stmt.where(InteriorSource.city_id == city_id)
+        if limit is not None:
+            stmt = stmt.limit(max(limit, 0))
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
     @staticmethod
+    # O(log N) time, O(1) space — N = interior_sources rows, primary-key lookup
     async def mark_extracted(
         source_id: uuid.UUID, geojson_data: dict, session: AsyncSession
     ) -> InteriorSource | None:

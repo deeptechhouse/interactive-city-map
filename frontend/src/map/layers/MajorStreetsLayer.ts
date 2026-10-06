@@ -5,6 +5,7 @@ import { STATIC_MAJOR_STREETS } from './data/static_major_streets';
 
 const SOURCE_ID = 'major-streets-source';
 
+// O(1) time, O(1) space
 export function addMajorStreetsLayer(map: maplibregl.Map, config: LayerConfig): void {
   const { isGeoJson } = addDualModeSource(map, SOURCE_ID, config.sourceUrl, 'major_streets', STATIC_MAJOR_STREETS);
   const slp = sourceLayerProp('major_streets', isGeoJson);
@@ -63,6 +64,7 @@ export function addMajorStreetsLayer(map: maplibregl.Map, config: LayerConfig): 
   } as maplibregl.AddLayerObject);
 }
 
+// O(1) time, O(1) space
 export function getMajorStreetsLayerIds(configId: string): string[] {
   return [`${configId}-line`, `${configId}-label`];
 }

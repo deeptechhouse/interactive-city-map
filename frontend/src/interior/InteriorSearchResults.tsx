@@ -14,6 +14,7 @@ interface InteriorSearchResultsProps {
   onBuildingSelect: (buildingId: string) => void;
 }
 
+// O(n) time, O(n) space — n = search results rendered (one card each)
 export const InteriorSearchResults: React.FC<InteriorSearchResultsProps> = ({
   results,
   onBuildingSelect,
@@ -26,43 +27,42 @@ export const InteriorSearchResults: React.FC<InteriorSearchResultsProps> = ({
     );
   }
 
-  return (
-    <div style={styles.container}>
-      {results.map((result) => (
-        <button
-          key={result.building_id}
-          style={styles.card}
-          onClick={() => onBuildingSelect(result.building_id)}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.borderColor = THEME.accent;
-            (e.currentTarget as HTMLButtonElement).style.background = THEME.bgTertiary;
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.borderColor = THEME.border;
-            (e.currentTarget as HTMLButtonElement).style.background = THEME.bgSecondary;
-          }}
-        >
-          <div style={styles.cardHeader}>
-            <span style={styles.cardTitle}>
-              {result.building_name ?? result.building_address ?? 'Unknown Building'}
-            </span>
-          </div>
-          {result.building_address && result.building_name && (
-            <span style={styles.cardAddress}>{result.building_address}</span>
-          )}
-          <div style={styles.cardStats}>
-            <span style={styles.stat}>
-              <span style={styles.statValue}>{result.room_count}</span> rooms
-            </span>
-            <span style={styles.statSeparator}>&middot;</span>
-            <span style={styles.stat}>
-              <span style={styles.statValue}>{result.source_count}</span> sources
-            </span>
-          </div>
-        </button>
-      ))}
-    </div>
-  );
+  // O(n) time, O(n) space — n = search results (one card each)
+  const cards = results.map((result) => (
+    <button
+      key={result.building_id}
+      style={styles.card}
+      onClick={() => onBuildingSelect(result.building_id)}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.borderColor = THEME.accent;
+        (e.currentTarget as HTMLButtonElement).style.background = THEME.bgTertiary;
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.borderColor = THEME.border;
+        (e.currentTarget as HTMLButtonElement).style.background = THEME.bgSecondary;
+      }}
+    >
+      <div style={styles.cardHeader}>
+        <span style={styles.cardTitle}>
+          {result.building_name ?? result.building_address ?? 'Unknown Building'}
+        </span>
+      </div>
+      {result.building_address && result.building_name && (
+        <span style={styles.cardAddress}>{result.building_address}</span>
+      )}
+      <div style={styles.cardStats}>
+        <span style={styles.stat}>
+          <span style={styles.statValue}>{result.room_count}</span> rooms
+        </span>
+        <span style={styles.statSeparator}>&middot;</span>
+        <span style={styles.stat}>
+          <span style={styles.statValue}>{result.source_count}</span> sources
+        </span>
+      </div>
+    </button>
+  ));
+
+  return <div style={styles.container}>{cards}</div>;
 };
 
 const styles = {

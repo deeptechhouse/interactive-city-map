@@ -54,16 +54,19 @@ class OwnerQuery:
     last_name: str = ""
 
     @property
+    # O(n) time, O(n) space — n = name length
     def has_person_name(self) -> bool:
         return bool(self.first_name.strip() and self.last_name.strip())
 
 
+# O(n) time, O(n) space — n = total characters in street, city and state
 def property_key(street: str, city: str, state: str) -> str:
     """Normalised "STREET|CITY|STATE" — THE key for one property everywhere: the saved
     results store, and matching batch-result CSV rows back to submitted buildings. ZIP is
     left out on purpose (the county sometimes omits it; street + city + state is enough).
     O(n) — n = address length.
     """
+    # O(n) time, O(n) space — n = total characters in street, city and state
     return "|".join(" ".join((x or "").upper().split()) for x in (street, city, state))
 
 
@@ -93,6 +96,7 @@ class OwnerContactResult:
     method: str = ""
 
     @property
+    # O(1) time, O(1) space
     def is_hit(self) -> bool:
         return bool(self.phones or self.emails)
 
@@ -102,19 +106,23 @@ class OwnerLookupAdapter(ABC):
 
     @property
     @abstractmethod
+    # O(1) time, O(1) space
     def name(self) -> str: ...
 
     @property
+    # O(1) time, O(1) space
     def is_configured(self) -> bool:
         return True
 
     @abstractmethod
+    # O(1) time, O(1) space
     async def lookup(self, query: OwnerQuery) -> Optional[OwnerContactResult]: ...
 
 
 def digits_phone(raw: Any) -> str:
     """O(n) time, O(n) space — n = input length. '5125550100' / '+1-512-555-0100' → '(512) 555-0100'; other shapes as-is."""
     text = str(raw or "").strip()
+    # O(n) time, O(n) space — n = input length
     digits = "".join(ch for ch in text if ch.isdigit())
     if len(digits) == 11 and digits.startswith("1"):
         digits = digits[1:]
@@ -123,6 +131,7 @@ def digits_phone(raw: Any) -> str:
     return text
 
 
+# O(p log p) time, O(p) space — p = phones
 def _sort_phones(phones: list[OwnerPhone]) -> tuple[OwnerPhone, ...]:
     """Callable-first: non-DNC numbers ahead of DNC ones, provider rank kept otherwise.
 
@@ -139,15 +148,18 @@ class TracerfyOwnerLookup(OwnerLookupAdapter):
 
     _URL = "https://tracerfy.com/v1/api/trace/lookup/"
 
+    # O(1) time, O(1) space
     def __init__(self, api_key: str = "", client: Optional[httpx.AsyncClient] = None):
         self._api_key = real_key(api_key or settings.tracerfy_api_key)
         self._client = client
 
     @property
+    # O(1) time, O(1) space
     def name(self) -> str:
         return "tracerfy"
 
     @property
+    # O(1) time, O(1) space
     def is_configured(self) -> bool:
         return bool(self._api_key)
 
@@ -166,7 +178,9 @@ class TracerfyOwnerLookup(OwnerLookupAdapter):
         if not data.get("hit"):
             return None
         # Living people only; prefer the one flagged as property owner, else the first.
+        # O(p) time, O(p) space — p = persons in the reply
         persons = [p for p in data.get("persons") or [] if not p.get("deceased")]
+        # O(p) time, O(p) space — p = persons in the reply
         person = next((p for p in persons if p.get("property_owner")), persons[0] if persons else None)
         if not person:
             return None
@@ -174,16 +188,21 @@ class TracerfyOwnerLookup(OwnerLookupAdapter):
         # litigator=true, "should not be called for telemarketing or cold outreach".
         litigator = bool(person.get("litigator"))
 
+        # O(m) time, O(m) space — m = phone number length
         def to_phone(p: dict) -> OwnerPhone:
+            # O(1) time, O(1) space
             reasons = [r for r, on in (("TCPA", p.get("tcpa")), ("litigator", litigator)) if on]
+            # O(1) time, O(1) space
             label = " · ".join(x for x in [str(p.get("type") or ""), *reasons] if x)
             return OwnerPhone(digits_phone(p.get("number")), label, bool(p.get("dnc")) or bool(reasons))
 
+        # O(p log p + b) time, O(p + b) space — p = phones in the reply; b = total characters of their numbers
         phones = [
             to_phone(p)
             for p in sorted(person.get("phones") or [], key=lambda p: p.get("rank") or 99)
             if p.get("number")
         ]
+        # O(e log e + b) time, O(e + b) space — e = emails in the reply; b = total characters of the emails
         emails = [
             str(e.get("email"))
             for e in sorted(person.get("emails") or [], key=lambda e: e.get("rank") or 99)
@@ -211,18 +230,22 @@ class BatchDataOwnerLookup(OwnerLookupAdapter):
 
     _URL = "https://api.batchdata.com/api/v1/property/skip-trace"
 
+    # O(1) time, O(1) space
     def __init__(self, api_key: str = "", client: Optional[httpx.AsyncClient] = None):
         self._api_key = real_key(api_key or settings.batchdata_api_key)
         self._client = client
 
     @property
+    # O(1) time, O(1) space
     def name(self) -> str:
         return "batchdata"
 
     @property
+    # O(1) time, O(1) space
     def is_configured(self) -> bool:
         return bool(self._api_key)
 
+    # O(b) time, O(b) space — b = response size
     async def lookup(self, query: OwnerQuery) -> Optional[OwnerContactResult]:
         body = {
             "requests": [
@@ -256,12 +279,15 @@ class BatchDataOwnerLookup(OwnerLookupAdapter):
                 return None
             person = persons[0]
             name = person.get("name") or {}
+            # O(n) time, O(n) space — n = name length
             full = name.get("full") or " ".join(x for x in (name.get("first"), name.get("last")) if x)
+            # O(p + b) time, O(p + b) space — p = phones in the reply; b = total characters of their numbers
             phones = [
                 OwnerPhone(digits_phone(p.get("number")), str(p.get("type") or ""), bool(p.get("dnc")))
                 for p in person.get("phoneNumbers") or []
                 if p.get("number")
             ]
+            # O(e + b) time, O(e + b) space — e = emails in the reply; b = total characters of the emails
             emails = [
                 str(e.get("email") if isinstance(e, dict) else e)
                 for e in person.get("emails") or []
@@ -272,6 +298,7 @@ class BatchDataOwnerLookup(OwnerLookupAdapter):
         if isinstance(results, list) and results:
             r = results[0]
             dnc = bool(r.get("dnc_status"))
+            # O(m) time, O(m) space — m = phone number length
             phones = [
                 OwnerPhone(digits_phone(r[k]), label, dnc)
                 for k, label in (("mobile_phone", "Mobile"), ("landline_phone", "Landline"))
@@ -285,19 +312,26 @@ class BatchDataOwnerLookup(OwnerLookupAdapter):
 class ChainedOwnerLookup(OwnerLookupAdapter):
     """Providers in order; first hit wins. Later providers are only billed on a miss."""
 
+    # O(p) time, O(p) space — p = providers passed in
     def __init__(self, providers: list[OwnerLookupAdapter]):
-        self._providers = tuple(p for p in providers if p.is_configured)  # O(p)
+        # O(p) time, O(p) space — p = providers passed in
+        self._providers = tuple(p for p in providers if p.is_configured)
 
     @property
+    # O(p) time, O(p) space — p = configured providers
     def name(self) -> str:
+        # O(p) time, O(p) space — p = configured providers
         return "+".join(p.name for p in self._providers) or "none"
 
     @property
+    # O(1) time, O(1) space
     def is_configured(self) -> bool:
         return bool(self._providers)
 
     @property
+    # O(p) time, O(p) space — p = configured providers
     def provider_names(self) -> tuple[str, ...]:
+        # O(p) time, O(p) space — p = configured providers
         return tuple(p.name for p in self._providers)
 
     async def lookup(self, query: OwnerQuery) -> Optional[OwnerContactResult]:
@@ -308,6 +342,7 @@ class ChainedOwnerLookup(OwnerLookupAdapter):
         """
         errors: list[tuple[str, Exception]] = []
         answered = False
+        # O(p) time, O(p) space — p = configured providers, at most 2 with one HTTP call each
         for provider in self._providers:
             try:
                 result = await provider.lookup(query)
@@ -329,4 +364,5 @@ _OWNER_FACTORIES: dict[str, Callable[[], OwnerLookupAdapter]] = {
 
 def build_owner_lookup(provider_names: list[str]) -> ChainedOwnerLookup:
     """Config names → chain; unknown names ignored. O(p) time, O(p) space — p = provider names."""
+    # O(p) time, O(p) space — p = provider names
     return ChainedOwnerLookup([_OWNER_FACTORIES[n]() for n in provider_names if n in _OWNER_FACTORIES])

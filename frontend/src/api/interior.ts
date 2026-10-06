@@ -70,12 +70,14 @@ export interface InteriorSummary {
 
 // --- Sources ---
 
+// O(n) time, O(n) space — n = sources returned in the response (JSON-parsed client-side)
 export async function getSources(buildingId: string): Promise<InteriorSource[]> {
   return apiClient.get<InteriorSource[]>(
     `/api/v1/buildings/${buildingId}/interior/sources`,
   );
 }
 
+// O(1) time, O(1) space
 export async function createSource(
   buildingId: string,
   data: {
@@ -91,6 +93,7 @@ export async function createSource(
   );
 }
 
+// O(1) time, O(1) space
 export async function updateSourceStatus(
   sourceId: string,
   status: string,
@@ -101,6 +104,7 @@ export async function updateSourceStatus(
   );
 }
 
+// O(1) time, O(1) space
 export async function triggerExtraction(
   sourceId: string,
 ): Promise<{ status: string; source_id: string }> {
@@ -112,6 +116,7 @@ export async function triggerExtraction(
 
 // --- Rooms ---
 
+// O(n) time, O(n) space — n = rooms returned in the response (JSON-parsed client-side)
 export async function getRooms(
   buildingId: string,
   level?: number,
@@ -122,6 +127,7 @@ export async function getRooms(
   );
 }
 
+// O(v) time, O(v) space — v = vertices in the geometry (JSON-serialised into the request body)
 export async function createRoom(
   buildingId: string,
   data: {
@@ -139,12 +145,14 @@ export async function createRoom(
   );
 }
 
+// O(1) time, O(1) space
 export async function deleteRoom(roomId: string): Promise<void> {
   return apiClient.delete(`/api/v1/interior/rooms/${roomId}`);
 }
 
 // --- Walls ---
 
+// O(n) time, O(n) space — n = walls returned in the response (JSON-parsed client-side)
 export async function getWalls(
   buildingId: string,
   level?: number,
@@ -155,6 +163,7 @@ export async function getWalls(
   );
 }
 
+// O(v) time, O(v) space — v = vertices in the geometry (JSON-serialised into the request body)
 export async function createWall(
   buildingId: string,
   data: {
@@ -171,12 +180,14 @@ export async function createWall(
   );
 }
 
+// O(1) time, O(1) space
 export async function deleteWall(wallId: string): Promise<void> {
   return apiClient.delete(`/api/v1/interior/walls/${wallId}`);
 }
 
 // --- Features ---
 
+// O(n) time, O(n) space — n = features returned in the response (JSON-parsed client-side)
 export async function getFeatures(
   buildingId: string,
   level?: number,
@@ -187,6 +198,7 @@ export async function getFeatures(
   );
 }
 
+// O(v) time, O(v) space — v = vertices in the geometry (JSON-serialised into the request body)
 export async function createFeature(
   buildingId: string,
   data: {
@@ -203,12 +215,14 @@ export async function createFeature(
   );
 }
 
+// O(1) time, O(1) space
 export async function deleteFeature(featureId: string): Promise<void> {
   return apiClient.delete(`/api/v1/interior/features/${featureId}`);
 }
 
 // --- Summary ---
 
+// O(1) time, O(1) space
 export async function getSummary(buildingId: string): Promise<InteriorSummary> {
   return apiClient.get<InteriorSummary>(
     `/api/v1/buildings/${buildingId}/interior/summary`,

@@ -23,10 +23,12 @@ export interface FloorPlanOverlayConfig {
   opacity?: number;
 }
 
+// O(1) time, O(1) space
 function sourceId(id: string): string {
   return `${SOURCE_PREFIX}-${id}`;
 }
 
+// O(1) time, O(1) space
 function layerId(id: string): string {
   return `${LAYER_PREFIX}-${id}`;
 }
@@ -35,6 +37,7 @@ function layerId(id: string): string {
  * Add a floor plan raster image overlay to the map.
  * Uses MapLibre's image source type to position a raster at specific coordinates.
  */
+// O(1) time, O(1) space
 export function addFloorPlanOverlay(
   map: maplibregl.Map,
   config: FloorPlanOverlayConfig,
@@ -63,6 +66,7 @@ export function addFloorPlanOverlay(
 /**
  * Remove a floor plan overlay from the map.
  */
+// O(1) time, O(1) space
 export function removeFloorPlanOverlay(
   map: maplibregl.Map,
   id: string,
@@ -85,6 +89,7 @@ export function removeFloorPlanOverlay(
 /**
  * Update the opacity of an existing floor plan overlay.
  */
+// O(1) time, O(1) space
 export function setFloorPlanOpacity(
   map: maplibregl.Map,
   id: string,
@@ -103,6 +108,7 @@ export function setFloorPlanOpacity(
 /**
  * Get the MapLibre layer IDs for a given floor plan overlay.
  */
+// O(1) time, O(1) space
 export function getFloorPlanLayerIds(id: string): string[] {
   return [layerId(id)];
 }

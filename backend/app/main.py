@@ -19,6 +19,7 @@ app.add_middleware(
 
 
 @app.get("/health")
+# O(1) time, O(1) space
 async def health():
     return {"status": "ok"}
 

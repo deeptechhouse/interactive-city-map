@@ -42,8 +42,9 @@ function isNameWord(w: string): boolean {
   return /^[\p{L}][\p{L}'-]*$/u.test(w) && w.replace(/['-]/g, '').length >= 2;
 }
 
-/** Tidy title-ish casing is not needed — Tracerfy matches case-insensitively. */
+/** Tidy title-ish casing is not needed — Tracerfy matches case-insensitively. O(n) time, O(n) space — n = text length. */
 function words(text: string): string[] {
+  // O(n) time, O(n) space — n = text length (split/filter over its words)
   return text.replace(/[.,]/g, ' ').split(/\s+/).filter(Boolean);
 }
 
@@ -54,6 +55,7 @@ function words(text: string): string[] {
  */
 export function splitPersonName(text: string): { first: string; last: string } | null {
   const w = words(text);
+  // O(n) time, O(n) space — n = text length
   while (w.length && SUFFIXES.has(w[w.length - 1].toUpperCase())) w.pop();
   if (w.length < 2) return null;
   const first = w[0];

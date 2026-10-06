@@ -10,6 +10,7 @@ from app.database import sync_session_factory
 from app.data_import.interior.venue_scraper_runner import VenueScraperRunner
 
 
+# O(t) time, O(t) space — t = scrape targets processed by VenueScraperRunner.run
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run venue floor plan scraping")
     parser.add_argument("--city-id", required=True, help="UUID of the city")

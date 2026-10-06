@@ -20,6 +20,7 @@ const DEFAULT_CENTER: [number, number] = [-87.6298, 41.8819];
 const SANBORN_YEARS: Record<string, { url: string; label: string; sheets: number; coords: [[number,number],[number,number],[number,number],[number,number]] }> = {}
 
 // Build sheet entries dynamically
+// O(s) time, O(s) space — s = TOTAL_SHEETS (59 sheet entries, built once at module load)
 for (let i = 1; i <= TOTAL_SHEETS; i++) {
   const num = String(i).padStart(4, '0');
   SANBORN_YEARS[`sheet-${i}`] = {
@@ -44,6 +45,7 @@ let offsetLat = 0;
 let rotationDeg = 0;
 let scaleFactor = 1.0;
 
+// O(1) time, O(1) space — c = 4 corner coordinates (a fixed-size tuple)
 function getAdjustedCoords(): [[number,number],[number,number],[number,number],[number,number]] {
   const yearData = SANBORN_YEARS[currentYear];
   if (!yearData) return [[0,0],[0,0],[0,0],[0,0]];
@@ -53,6 +55,7 @@ function getAdjustedCoords(): [[number,number],[number,number],[number,number],[
   const cy0 = (yearData.coords[0][1] + yearData.coords[2][1]) / 2;
 
   // Apply scale around center, then offset
+  // O(1) time, O(1) space — c = 4 corner coordinates (a fixed-size tuple)
   const scaled = yearData.coords.map(([lng, lat]) => {
     const dx = (lng - cx0) * scaleFactor;
     const dy = (lat - cy0) * scaleFactor;
@@ -66,6 +69,7 @@ function getAdjustedCoords(): [[number,number],[number,number],[number,number],[
     const rad = (rotationDeg * Math.PI) / 180;
     const cos = Math.cos(rad);
     const sin = Math.sin(rad);
+    // O(1) time, O(1) space — c = 4 corner coordinates (a fixed-size tuple)
     return scaled.map(([lng, lat]) => {
       const dx = lng - cx;
       const dy = lat - cy;
@@ -76,6 +80,7 @@ function getAdjustedCoords(): [[number,number],[number,number],[number,number],[
   return scaled as [[number,number],[number,number],[number,number],[number,number]];
 }
 
+// O(1) time, O(1) space
 function applyAdjustment(map: maplibregl.Map): void {
   const yearData = SANBORN_YEARS[currentYear];
   if (!yearData) return;
@@ -87,30 +92,36 @@ function applyAdjustment(map: maplibregl.Map): void {
   } catch { /* */ }
 }
 
+// O(1) time, O(1) space
 export function nudgeSanborn(map: maplibregl.Map, dlng: number, dlat: number): void {
   offsetLng += dlng;
   offsetLat += dlat;
   applyAdjustment(map);
 }
 
+// O(1) time, O(1) space
 export function rotateSanborn(map: maplibregl.Map, degrees: number): void {
   rotationDeg += degrees;
   applyAdjustment(map);
 }
 
+// O(1) time, O(1) space
 export function getRotation(): number {
   return rotationDeg;
 }
 
+// O(1) time, O(1) space
 export function scaleSanborn(map: maplibregl.Map, factor: number): void {
   scaleFactor *= factor;
   applyAdjustment(map);
 }
 
+// O(1) time, O(1) space
 export function getScale(): number {
   return scaleFactor;
 }
 
+// O(1) time, O(1) space
 export function resetSanbornOffset(): void {
   offsetLng = 0;
   offsetLat = 0;
@@ -118,6 +129,7 @@ export function resetSanbornOffset(): void {
   scaleFactor = 1.0;
 }
 
+// O(1) time, O(1) space
 export function addSanbornOverlay(map: maplibregl.Map, config: LayerConfig): void {
   if (map.getSource(SOURCE_ID)) return;
 
@@ -143,6 +155,7 @@ export function addSanbornOverlay(map: maplibregl.Map, config: LayerConfig): voi
   });
 }
 
+// O(1) time, O(1) space
 export function setSanbornYear(map: maplibregl.Map, year: string): void {
   const yearData = SANBORN_YEARS[year];
   if (!yearData) return;
@@ -179,10 +192,12 @@ export function setSanbornYear(map: maplibregl.Map, year: string): void {
   }
 }
 
+// O(s) time, O(s) space — s = TOTAL_SHEETS (59 sheet keys)
 export function getSanbornYears(): string[] {
   return Object.keys(SANBORN_YEARS);
 }
 
+// O(1) time, O(1) space
 export function getSanbornLayerIds(_configId: string): string[] {
   return [LAYER_ID_PREFIX];
 }

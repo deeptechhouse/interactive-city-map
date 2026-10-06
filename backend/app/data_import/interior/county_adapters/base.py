@@ -5,6 +5,7 @@ class CountyAdapterBase(ABC):
     """Abstract base for county property record adapters."""
 
     @abstractmethod
+    # O(1) time, O(1) space
     def fetch_property(self, pin: str) -> dict | None:
         """Fetch property details by parcel ID.
 
@@ -13,5 +14,6 @@ class CountyAdapterBase(ABC):
         """
 
     @abstractmethod
+    # O(k) time, O(k) space — k = results returned for one address search
     def search_by_address(self, address: str) -> list[dict]:
         """Search properties by address. Returns list of property dicts."""

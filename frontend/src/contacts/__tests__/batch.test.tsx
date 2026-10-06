@@ -146,6 +146,49 @@ describe('ContactListStore.applyOwnerAnswer (single commit, 2026-10-06)', () => 
   });
 });
 
+describe('ContactListStore batch apply/reset (one commit, 2026-10-06)', () => {
+  const list = () => [
+    building('b1', '1001 W NORTH AVE'),
+    building('b2', '5 N STATE ST'),
+    building('b3', '1001 w north ave'),
+    building('b4', '9 E ELM ST'),
+  ];
+  const REPLY = [
+    { street: '5 N STATE ST', answer: { status: 'not_found', lookedUpAt: '2026-10-01' } as OwnerAnswer },
+    { street: '1001 W NORTH AVE', answer: FOUND },
+    { street: '9 E ELM ST', answer: { status: 'unavailable', reason: 'out of credits' } as OwnerAnswer },
+    { street: '1001 W NORTH AVE', answer: { status: 'unavailable', reason: 'second' } as OwnerAnswer },
+  ];
+
+  it('applyOwnerAnswers gives the same list as applying each answer in order', () => {
+    const one = new ContactListStore(null, 'chicago', list());
+    for (const r of REPLY) one.applyOwnerAnswer(r.street, r.answer);
+    const batch = new ContactListStore(null, 'chicago', list());
+    const notify = vi.fn();
+    batch.subscribe(notify);
+    batch.applyOwnerAnswers(REPLY);
+    expect(batch.getSnapshot()).toEqual(one.getSnapshot());
+    expect(notify).toHaveBeenCalledTimes(1);
+  });
+
+  it('resetPendingOwners matches per-building resets with one commit', () => {
+    const ids = ['b1', 'b2', 'b4', 'missing'];
+    const one = new ContactListStore(null, 'chicago', list());
+    one.markOwnersPending(['b1', 'b2', 'b3']);
+    one.applyOwnerAnswer('5 N STATE ST', FOUND); // b2 no longer pending — must stay found
+    for (const id of ids) one.resetPendingOwner(id);
+    const batch = new ContactListStore(null, 'chicago', list());
+    batch.markOwnersPending(['b1', 'b2', 'b3']);
+    batch.applyOwnerAnswer('5 N STATE ST', FOUND);
+    const notify = vi.fn();
+    batch.subscribe(notify);
+    batch.resetPendingOwners(ids);
+    expect(batch.getSnapshot()).toEqual(one.getSnapshot());
+    expect(batch.getSnapshot().map((b) => b.owners[0]?.skipTrace)).toEqual(['idle', 'found', 'pending', 'idle']);
+    expect(notify).toHaveBeenCalledTimes(1);
+  });
+});
+
 // ---------------------------------------------------------------------------
 
 describe('OwnerBatchRunner', () => {

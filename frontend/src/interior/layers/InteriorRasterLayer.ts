@@ -23,10 +23,12 @@ export interface InteriorRasterConfig {
   opacity?: number;
 }
 
+// O(k) time, O(k) space — k = characters in the id string (template concatenation)
 function sourceId(id: string): string {
   return `${SOURCE_PREFIX}-${id}`;
 }
 
+// O(k) time, O(k) space — k = characters in the id string (template concatenation)
 function layerId(id: string): string {
   return `${LAYER_PREFIX}-${id}`;
 }
@@ -35,6 +37,8 @@ function layerId(id: string): string {
  * Add an interior raster image overlay to the map.
  * Uses MapLibre's image source type to position a raster at specific coordinates.
  */
+// MapLibre receives the GeoJSON/image config by reference; its own tiling/render work is outside this function and not counted.
+// O(1) time, O(1) space
 export function addInteriorRasterOverlay(
   map: maplibregl.Map,
   config: InteriorRasterConfig,
@@ -63,6 +67,7 @@ export function addInteriorRasterOverlay(
 /**
  * Remove an interior raster overlay from the map.
  */
+// O(1) time, O(1) space
 export function removeInteriorRasterOverlay(
   map: maplibregl.Map,
   id: string,
@@ -85,6 +90,7 @@ export function removeInteriorRasterOverlay(
 /**
  * Update the opacity of an existing interior raster overlay.
  */
+// O(1) time, O(1) space
 export function setInteriorRasterOpacity(
   map: maplibregl.Map,
   id: string,
@@ -103,6 +109,7 @@ export function setInteriorRasterOpacity(
 /**
  * Get the MapLibre layer IDs for a given interior raster overlay.
  */
+// O(k) time, O(k) space — k = characters in the id string
 export function getInteriorRasterLayerIds(id: string): string[] {
   return [layerId(id)];
 }

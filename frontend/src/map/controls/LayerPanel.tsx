@@ -17,6 +17,7 @@ interface LayerPanelProps {
  * state in React — unmounting would silently reset e.g. the zoning-type selection while
  * the map still showed it filtered.
  */
+// O(l) time, O(l) space — l = layers for the city (getLayersByGroup buckets them, then each group renders its own)
 export const LayerPanel: React.FC<LayerPanelProps> = ({ layerControls, children }) => {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -24,6 +25,25 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({ layerControls, children 
 
   const groupedLayers = getLayersByGroup();
   const groupOrder: LayerGroup[] = ['infrastructure', 'zoning', 'poi', 'government', 'safety', 'historical', 'parks'];
+
+  // O(1) time, O(1) space
+  // O(g) time, O(g) space — g = 7 layer groups (the fixed groupOrder list); the per-layer
+  // work happens inside each GroupToggle, so a whole panel render is O(l) — l = layers.
+  const groupToggles = groupOrder.map((group) => {
+    const layers = groupedLayers[group];
+    if (layers.length === 0) return null;
+    return (
+      <GroupToggle
+        key={group}
+        group={group}
+        label={groupLabels[group]}
+        layers={layers}
+        onToggleLayer={toggleLayer}
+        onToggleGroup={toggleGroup}
+        onOpacityChange={setOpacity}
+      />
+    );
+  });
 
   return (
     <>
@@ -40,21 +60,7 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({ layerControls, children 
           </button>
         </div>
         <div className="layer-panel__content">
-          {groupOrder.map((group) => {
-            const layers = groupedLayers[group];
-            if (layers.length === 0) return null;
-            return (
-              <GroupToggle
-                key={group}
-                group={group}
-                label={groupLabels[group]}
-                layers={layers}
-                onToggleLayer={toggleLayer}
-                onToggleGroup={toggleGroup}
-                onOpacityChange={setOpacity}
-              />
-            );
-          })}
+          {groupToggles}
           {children}
         </div>
       </aside>

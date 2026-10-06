@@ -27,6 +27,7 @@ interface SanbornControlsProps {
  * Designed to sit inside the layer panel area at ~250 px width with
  * the project's dark theme.
  */
+// O(1) time, O(1) space
 export const SanbornControls: React.FC<SanbornControlsProps> = ({
   visible,
   opacity,

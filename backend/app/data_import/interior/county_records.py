@@ -11,9 +11,11 @@ from app.models.building import Building
 class CountyRecordsEnricher:
     """Enriches building metadata with county auditor/assessor records."""
 
+    # O(1) time, O(1) space
     def __init__(self, session: Session):
         self._session = session
 
+    # O(1) time, O(1) space — k = 5 mapped fields
     def enrich_building(self, building_id: uuid.UUID, records: dict) -> None:
         """Update building metadata from county record data.
 
@@ -27,6 +29,7 @@ class CountyRecordsEnricher:
             "owner_name": "owner_name",
         }
         updates = {}
+        # O(1) time, O(1) space — k = 5 mapped fields
         for record_key, model_field in field_map.items():
             if record_key in records and records[record_key]:
                 updates[model_field] = records[record_key]
@@ -38,6 +41,7 @@ class CountyRecordsEnricher:
         self._session.execute(stmt)
         self._session.commit()
 
+    # O(r + log n) time, O(r) space — r = size of the county API response parsed by the adapter; n = buildings (primary-key UPDATE)
     def enrich_from_api(self, building_id: uuid.UUID, pin: str, county_adapter) -> dict | None:
         """Fetch records from a county adapter and apply them.
 

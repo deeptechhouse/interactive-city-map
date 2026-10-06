@@ -17,6 +17,8 @@ interface InteriorEditorProps {
   onClose: () => void;
 }
 
+// Per render the toolbar is fixed-size; the costs that scale with the drawing are in the handlers below.
+// O(1) time, O(1) space
 export const InteriorEditor: React.FC<InteriorEditorProps> = ({
   buildingId,
   level,
@@ -45,6 +47,7 @@ export const InteriorEditor: React.FC<InteriorEditorProps> = ({
 
   // KEYBOARD SHORTCUTS
   useEffect(() => {
+    // O(u + r) time, O(u + r) space — u = actions on the undo stack; r = actions on the redo stack (editor.undo/redo copy them)
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (drawPointsRef.current.length > 0) {
@@ -71,6 +74,7 @@ export const InteriorEditor: React.FC<InteriorEditorProps> = ({
   }, [editor]);
 
   // PREVIEW LAYERS
+  // O(1) time, O(1) space
   const clearPreviewLayers = useCallback(() => {
     if (!mapInstance) return;
     if (mapInstance.getLayer(PREVIEW_LINE_LAYER)) mapInstance.removeLayer(PREVIEW_LINE_LAYER);
@@ -78,6 +82,7 @@ export const InteriorEditor: React.FC<InteriorEditorProps> = ({
     if (mapInstance.getSource(PREVIEW_SOURCE)) mapInstance.removeSource(PREVIEW_SOURCE);
   }, [mapInstance]);
 
+  // O(v) time, O(v) space — v = corners placed so far (one point feature each)
   const updatePreview = useCallback(
     (pts: [number, number][], cursor?: [number, number]) => {
       if (!mapInstance) return;
@@ -85,6 +90,7 @@ export const InteriorEditor: React.FC<InteriorEditorProps> = ({
       const features: GeoJSON.Feature[] = [];
 
       // Placed points
+      // O(v) time, O(v) space — v = corners placed so far
       for (const pt of pts) {
         features.push({
           type: 'Feature',
@@ -153,6 +159,7 @@ export const InteriorEditor: React.FC<InteriorEditorProps> = ({
   );
 
   // SAVE HANDLERS
+  // O(u) time, O(u) space — u = actions on the undo stack (pushAction copies it); the API call is network, not counted
   const handleSaveRoom = useCallback(
     async (polygon: GeoJSON.Polygon) => {
       setSaving(true);
@@ -181,6 +188,7 @@ export const InteriorEditor: React.FC<InteriorEditorProps> = ({
     [buildingId, level, roomType, roomName, onSave, editor],
   );
 
+  // O(u) time, O(u) space — u = actions on the undo stack (pushAction copies it); the API call is network, not counted
   const handleSaveWall = useCallback(
     async (line: GeoJSON.LineString) => {
       setSaving(true);
@@ -207,6 +215,7 @@ export const InteriorEditor: React.FC<InteriorEditorProps> = ({
     [buildingId, level, onSave, editor],
   );
 
+  // O(u) time, O(u) space — u = actions on the undo stack (pushAction copies it); the API call is network, not counted
   const handleSaveFeature = useCallback(
     async (point: GeoJSON.Point) => {
       setSaving(true);
@@ -243,6 +252,7 @@ export const InteriorEditor: React.FC<InteriorEditorProps> = ({
 
     let localPoints: [number, number][] = [];
 
+    // O(v + u) time, O(v + u) space — v = corners placed so far (rooms capped at MAX_ROOM_VERTICES = 100); u = undo-stack size when a feature is saved
     const handleClick = (e: maplibregl.MapMouseEvent) => {
       const pt: [number, number] = [e.lngLat.lng, e.lngLat.lat];
 
@@ -270,6 +280,8 @@ export const InteriorEditor: React.FC<InteriorEditorProps> = ({
       }
     };
 
+    // bigo-allow: v is capped at MAX_ROOM_VERTICES (100) by handleClick before any corner is stored, so isValidPolygon's quadratic pair check is bounded
+      // O(v²) time, O(v) space — v = room corners (at most MAX_ROOM_VERTICES = 100)
     const handleDblClick = (e: maplibregl.MapMouseEvent) => {
       if (tool !== 'draw-room') return;
       e.preventDefault();
@@ -286,6 +298,7 @@ export const InteriorEditor: React.FC<InteriorEditorProps> = ({
       clearPreviewLayers();
     };
 
+    // O(v) time, O(v) space — v = corners placed so far (updatePreview rebuilds one feature per corner)
     const handleMouseMove = (e: maplibregl.MapMouseEvent) => {
       if (localPoints.length > 0) {
         updatePreview(localPoints, [e.lngLat.lng, e.lngLat.lat]);
@@ -315,6 +328,7 @@ export const InteriorEditor: React.FC<InteriorEditorProps> = ({
   ]);
 
   // UNDO / REDO HANDLERS
+  // O(u + r) time, O(u + r) space — u = actions on the undo stack; r = actions on the redo stack (editor.undo copies both); the API call is network, not counted
   const handleUndo = useCallback(async () => {
     const action = editor.undo();
     if (!action || !action.undoData) return;
@@ -329,6 +343,7 @@ export const InteriorEditor: React.FC<InteriorEditorProps> = ({
     }
   }, [editor, onSave]);
 
+  // O(u + r) time, O(u + r) space — u = actions on the undo stack; r = actions on the redo stack (editor.redo copies both); the API call is network, not counted
   const handleRedo = useCallback(async () => {
     const action = editor.redo();
     if (!action) return;
@@ -366,6 +381,20 @@ export const InteriorEditor: React.FC<InteriorEditorProps> = ({
   ];
 
   const featureTypes = ['door', 'stair', 'elevator', 'restroom', 'exit', 'utility'] as const;
+
+  // O(1) time, O(1) space — k = 15 room types (literal list above)
+  const roomTypeOptions = roomTypes.map((t) => (
+    <option key={t} value={t}>
+      {t.charAt(0).toUpperCase() + t.slice(1)}
+    </option>
+  ));
+
+  // O(1) time, O(1) space — k = 6 feature types (literal list above)
+  const featureTypeOptions = featureTypes.map((t) => (
+    <option key={t} value={t}>
+      {t.charAt(0).toUpperCase() + t.slice(1)}
+    </option>
+  ));
 
   return (
     <>
@@ -419,11 +448,7 @@ export const InteriorEditor: React.FC<InteriorEditorProps> = ({
               value={roomType}
               onChange={(e) => setRoomType(e.target.value)}
             >
-              {roomTypes.map((t) => (
-                <option key={t} value={t}>
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
-                </option>
-              ))}
+              {roomTypeOptions}
             </select>
             <input
               style={styles.input}
@@ -445,11 +470,7 @@ export const InteriorEditor: React.FC<InteriorEditorProps> = ({
                 editor.setFeaturePlacementType(e.target.value as typeof featureTypes[number])
               }
             >
-              {featureTypes.map((t) => (
-                <option key={t} value={t}>
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
-                </option>
-              ))}
+              {featureTypeOptions}
             </select>
           </div>
         )}
@@ -500,6 +521,7 @@ export const InteriorEditor: React.FC<InteriorEditorProps> = ({
   );
 };
 
+// O(1) time, O(1) space
 function ToolButton({
   icon,
   label,

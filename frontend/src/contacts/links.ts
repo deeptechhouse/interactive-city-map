@@ -23,6 +23,7 @@ export function safeHref(url: string): string | null {
 }
 
 /** "Oct 2, 2026" from an ISO date; '' stays ''. */
+// O(n) time, O(1) space — n = length of the ISO date string
 export function formatLookupDate(iso: string): string {
   const t = Date.parse(iso);
   return Number.isNaN(t) ? '' : new Date(t).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });

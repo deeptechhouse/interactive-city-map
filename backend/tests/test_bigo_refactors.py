@@ -421,3 +421,48 @@ class TestSplitArcgisRings:
         hole = _ring(15, 15, 5, ccw=True)
         polys = split_arcgis_rings({"type": "Polygon", "coordinates": [big, small, hole]})
         assert [len(p.interiors) for p in polys] == [1, 0]
+
+
+# ---------------------------------------------------------------------------
+# Moderation queue — LIMIT pushed into SQL
+# ---------------------------------------------------------------------------
+
+class TestModerationLimit:
+    @pytest.mark.asyncio
+    async def test_limit_is_in_the_sql(self):
+        from app.services.interior_source_service import InteriorSourceService
+
+        session = MagicMock()
+
+        async def _exec(stmt):
+            session.stmt = stmt
+            return MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[]))))
+
+        session.execute = _exec
+        await InteriorSourceService.get_sources_by_status("reported", session, limit=50)
+        assert session.stmt._limit_clause is not None
+        await InteriorSourceService.get_sources_by_status("reported", session)
+        assert session.stmt._limit_clause is None  # default unchanged: no limit
+
+
+# ---------------------------------------------------------------------------
+# PhoneLookupService — chain cache bounded by configured cities
+# ---------------------------------------------------------------------------
+
+class TestPhoneChainCache:
+    def test_unknown_cities_share_the_default_chain(self):
+        from app.services.phone_lookup_service import PhoneLookupService, SlidingWindowRateLimiter
+
+        built: list[list[str]] = []
+
+        def factory(names):
+            built.append(list(names))
+            return SimpleNamespace(provider_names=tuple(names))
+
+        svc = PhoneLookupService(["google"], {"detroit": ["foursquare", "google"]},
+                                 SlidingWindowRateLimiter(10), chain_factory=factory)
+        for k in range(500):
+            assert svc.providers_for(f"made-up-{k}") == ("google",)
+        assert svc.providers_for("Detroit") == ("foursquare", "google")
+        assert svc.providers_for("chicago") == ("google",)
+        assert built == [["google"], ["foursquare", "google"]]  # 2 chains, not 502

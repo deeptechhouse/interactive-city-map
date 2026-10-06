@@ -52,6 +52,7 @@ const WARNING_THRESHOLD = 80_000;
 /*  Hook                                                               */
 /* ------------------------------------------------------------------ */
 
+// O(1) time, O(1) space
 export function useProgressiveLoading(
   map: maplibregl.Map | null,
 ): ProgressiveLoadingState {
@@ -75,11 +76,15 @@ export function useProgressiveLoading(
     let visibleCount = 0;
 
     // Show / hide layers according to thresholds
+    // bigo-allow: t = 5 keys of ZOOM_THRESHOLDS and k <= 3 ids per key in THRESHOLD_LAYER_MAP are literals in code, not input-sized
+    // O(t * k) time, O(1) space — t = entries in ZOOM_THRESHOLDS (5 fixed keys); k = layer ids per threshold (at most 3 in THRESHOLD_LAYER_MAP)
     for (const [key, minZoom] of Object.entries(ZOOM_THRESHOLDS)) {
       const layerIds =
         THRESHOLD_LAYER_MAP[key as keyof typeof ZOOM_THRESHOLDS] ?? [];
       const shouldBeVisible = zoom >= minZoom;
 
+      // bigo-lint: disable=BIGO006 — evaluate() runs on map zoom events, not per render, and t * k is a fixed literal bound (see the bigo-allow above)
+      // O(k) time, O(1) space — k = layer ids for one threshold (at most 3 in THRESHOLD_LAYER_MAP)
       for (const layerId of layerIds) {
         try {
           if (!currentMap.getLayer(layerId)) continue;

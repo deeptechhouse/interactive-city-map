@@ -13,6 +13,7 @@ import { SearchStateStore, type SectionDef, type Updater } from './searchState';
 
 export const SearchStateContext = createContext<SearchStateStore>(new SearchStateStore());
 
+// O(1) time, O(1) space
 export function useSearchStore(): SearchStateStore {
   return useContext(SearchStateContext);
 }
@@ -37,6 +38,7 @@ export function useSearchSection<T>(def: SectionDef<T>): [T, (next: Updater<T>) 
  * `value` must be JSON-serialisable; `apply` receives UNTRUSTED json and must validate it.
  * The adapter reads through a ref, so it always captures the latest render's value.
  */
+// O(1) time, O(1) space
 export function useSearchAdapter(key: string, value: unknown, apply: (raw: unknown) => void): void {
   const store = useSearchStore();
   const latest = useRef({ value, apply });

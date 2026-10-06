@@ -12,6 +12,7 @@ class GeocoderAdapter(ABC):
     """Abstract interface for geocoding an address to (lat, lon)."""
 
     @abstractmethod
+    # O(1) time, O(1) space
     async def geocode(self, address: str) -> tuple[float, float]:
         """Return (latitude, longitude) for the given address.
 
@@ -27,9 +28,11 @@ class GeocodingError(Exception):
 class PeliasGeocoderAdapter(GeocoderAdapter):
     """Geocoder backed by a Pelias instance."""
 
+    # O(1) time, O(1) space
     def __init__(self, base_url: str = settings.pelias_url):
         self._base_url = base_url.rstrip("/")
 
+    # O(a + b) time, O(b) space — a = address length; b = response size
     async def geocode(self, address: str) -> tuple[float, float]:
         url = f"{self._base_url}/v1/search"
         params = {"text": address, "size": 1}
@@ -49,6 +52,7 @@ class CensusGeocoderAdapter(GeocoderAdapter):
 
     _BASE_URL = "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress"
 
+    # O(a + b) time, O(b) space — a = address length; b = response size
     async def geocode(self, address: str) -> tuple[float, float]:
         params = {
             "address": address,
@@ -69,6 +73,7 @@ class CensusGeocoderAdapter(GeocoderAdapter):
 class ChainedGeocoderAdapter(GeocoderAdapter):
     """Tries Pelias first, falls back to Census geocoder on failure."""
 
+    # O(1) time, O(1) space
     def __init__(
         self,
         primary: Optional[GeocoderAdapter] = None,
@@ -77,6 +82,7 @@ class ChainedGeocoderAdapter(GeocoderAdapter):
         self._primary = primary or PeliasGeocoderAdapter()
         self._fallback = fallback or CensusGeocoderAdapter()
 
+    # O(a + b) time, O(b) space — a = address length; b = response size
     async def geocode(self, address: str) -> tuple[float, float]:
         try:
             return await self._primary.geocode(address)

@@ -5,14 +5,17 @@ import { FEDERAL_CATEGORY_COLORS } from '../../utils/colorSchemes';
 
 const SOURCE_ID = 'federal-properties-source';
 
+// O(k) time, O(k) space — k = entries in the colour table it reads (a constant table in colorSchemes.ts)
 function categoryColorExpression(): unknown {
   const pairs: string[] = [];
+  // O(k) time, O(k) space — k = entries in FEDERAL_CATEGORY_COLORS (a constant table in colorSchemes.ts)
   for (const [cat, color] of Object.entries(FEDERAL_CATEGORY_COLORS)) {
     pairs.push(cat, color);
   }
   return ['match', ['get', 'category'], ...pairs, '#888888'];
 }
 
+// O(k) time, O(k) space — k = entries in FEDERAL_CATEGORY_COLORS (a constant table in colorSchemes.ts)
 export function addFederalPropertyLayer(map: maplibregl.Map, config: LayerConfig): void {
   if (!map.getSource(SOURCE_ID)) {
     map.addSource(SOURCE_ID, {
@@ -62,6 +65,7 @@ export function addFederalPropertyLayer(map: maplibregl.Map, config: LayerConfig
   } as maplibregl.AddLayerObject);
 }
 
+// O(1) time, O(1) space
 export function getFederalPropertyLayerIds(configId: string): string[] {
   return [
     `${configId}-markers`,

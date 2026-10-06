@@ -176,6 +176,33 @@
   <li>The Sanborn branch runs line detection and OCR twice. That is the same Big O at roughly twice the cost, and is noted in <code>floor_plan_extractor.py</code>.</li>
   <li>The repo-wide ruff, Prettier and tsc backlogs predate this work. New lines over 100 characters are the one-line §41 annotation comments.</li>
 </ul>
+<h2>Live-code sweep — branch <code>chore/bigo-relevant-check</code> (2026-10-06)</h2>
+<div class="answer" style="border-left-color: var(--low)">
+  <p><strong>Every function and loop in live code has now been checked, and each carries a time/space note.</strong> 686 previously unannotated constructs were analysed. Only the 10 in Alembic migrations (one-time schema scripts) are left without notes, by design, and <code>.bigo-baseline.json</code> now records just those 10.</p>
+</div>
+<ul>
+  <li><strong>How it was done:</strong> 9 Sonnet agents, each owning a separate set of files. They were barred from making network or database calls, from touching caches, storage formats and city scoping, and from changing behaviour without a test.</li>
+  <li><strong>Accuracy check:</strong> three independent reviewers re-derived a stratified sample of 150 notes. The sample was every exception and amortisation note, 110 random non-trivial notes and 25 random trivial ones. Results: 141 of 146 correct, 3 wrong bounds and 2 unenforced justifications, all corrected. All 17 JSX <code>.map()</code> moves were confirmed behaviour-identical.</li>
+</ul>
+<div class="scroll"><table>
+<thead><tr><th>Found by the sweep</th><th>Before</th><th>After</th><th>Verified by</th></tr></thead>
+<tbody>
+<tr><td><code>OwnerBatchRunner</code> applying batch answers</td><td>one full list copy and save per answer, O(r·s)</td><td><code>applyOwnerAnswers</code> / <code>resetPendingOwners</code>: one pass, one commit</td><td>Tests show the result equals applying answers one by one; listeners are notified once.</td></tr>
+<tr><td>8 importers + Dayton <code>replace_rows</code></td><td><code>executemany</code>: one INSERT round trip per row</td><td><code>insert_rows</code> (<code>execute_values</code>, 1000 rows per statement)</td><td>Throwaway PostGIS with migrations 001–004: 2,500 rows per loader, counts, valid geometry and idempotent re-runs.</td></tr>
+<tr><td>Moderation queue</td><td>fetched every source with the status, then sliced</td><td><code>LIMIT</code> applied in SQL</td><td>Unit test on the generated SQL.</td></tr>
+<tr><td><code>PhoneLookupService</code> chain cache</td><td>one entry per arbitrary city slug (unbounded)</td><td>configured cities plus one shared default</td><td>Test: 500 made-up slugs build 2 chains.</td></tr>
+<tr><td><code>RailroadLayer</code> colours</td><td>expression rebuilt per status layer, O(s·k)</td><td>built once, O(s + k)</td><td>tsc, ESLint</td></tr>
+<tr><td><code>import_sanborn._safe_filename</code></td><td>repeat-until-stable loop</td><td>one regex pass, O(L)</td><td>Spot checks on sample titles.</td></tr>
+<tr><td><code>floor_plan_classifier.train</code></td><td>O(n³) kernel-SVM fit, unrecorded</td><td><code>bigo-allow</code>: offline only, with no caller in app or scripts</td><td>Reviewer confirmed there is no caller.</td></tr>
+</tbody></table></div>
+<p><strong>Recorded, not changed (linear, or not a Big O issue):</strong></p>
+<ul>
+  <li>Building search scans the whole city: <code>similarity()</code> and <code>ILIKE '%q%'</code> can't use an index.</li>
+  <li>Three list routes (buildings by bbox, POIs, railroads) have no row cap, so a response can get very large.</li>
+  <li>Some importers rely on the server honouring a requested page size.</li>
+</ul>
+<p><strong>Tests:</strong> the backend gives 466 passed and 7 failed; the frontend gives 299 passed and 51 failed. All the failures also fail on the baseline. tsc has no new errors, and the paid lookup caches are untouched (76 rows, unchanged file date).</p>
+
 </main>
 </body>
 </html>

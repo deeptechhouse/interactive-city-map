@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { THEME } from '../utils/colorSchemes';
-import { useInteriorEditor, EditorAction } from './hooks/useInteriorEditor';
+import { useInteriorEditor } from './hooks/useInteriorEditor';
 import { createRoom, createWall, createFeature, deleteRoom, deleteWall, deleteFeature } from '../api/interior';
-import { createLineStringFromPoints, createPolygonFromPoints, createPointFeature, createPreviewLine, isValidPolygon, calculatePolygonArea } from './utils/drawModes';
+import { createLineStringFromPoints, createPolygonFromPoints, createPointFeature, createPreviewLine, isValidPolygon, MAX_ROOM_VERTICES } from './utils/drawModes';
 import { MeasureTool } from './MeasureTool';
 
 const PREVIEW_SOURCE = 'editor-preview-source';
@@ -249,6 +249,12 @@ export const InteriorEditor: React.FC<InteriorEditorProps> = ({
       if (tool === 'draw-feature') {
         const geom = createPointFeature(pt);
         handleSaveFeature(geom);
+        return;
+      }
+
+      // Cap room corners: keeps isValidPolygon's pairwise edge check bounded (see MAX_ROOM_VERTICES).
+      if (tool === 'draw-room' && localPoints.length >= MAX_ROOM_VERTICES) {
+        setError(`A room can have at most ${MAX_ROOM_VERTICES} corners — double-click to finish it.`);
         return;
       }
 

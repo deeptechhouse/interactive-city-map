@@ -40,7 +40,8 @@ export const DOLLARS_PER_CREDIT = 0.02;
 /**
  * Credit range for a batch. Low = every owner found the first time (names at 1, the
  * rest at 2). High = every name misses and is re-traced by address (2 each). Misses
- * cost nothing, so actual spend is usually lower still. O(n).
+ * cost nothing, so actual spend is usually lower still.
+ * O(n) time, O(1) space — n = candidates.
  */
 export function batchCostRange(candidates: readonly BatchCandidate[]): { low: number; high: number; byName: number } {
   const byName = candidates.filter((c) => c.firstName && c.lastName).length;
@@ -217,7 +218,7 @@ export class OwnerBatchRunner {
     await this.finish();
   }
 
-  /** Count from the store (the single source of truth), not from replies. O(n). */
+  /** Count from the store (the single source of truth), not from replies. O(n + k) time, O(k) space — n = buildings in the list; k = buildings in this batch. */
   private async finish(): Promise<void> {
     const found = this.store.countOwnersFound(this.state.buildingIds);
     this.set({ ...this.state, phase: 'done', found, message: '', exportNote: '' });
@@ -249,7 +250,7 @@ export class OwnerBatchRunner {
   }
 }
 
-/** Validate untrusted saved state. O(1). */
+/** Validate untrusted saved state. O(b) time, O(b) space — b = building ids in the saved batch. */
 export function parseSavedBatch(raw: unknown): BatchState {
   if (!raw || typeof raw !== 'object') return { ...IDLE_BATCH };
   const o = raw as Record<string, unknown>;

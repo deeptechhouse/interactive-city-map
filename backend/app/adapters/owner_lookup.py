@@ -113,7 +113,7 @@ class OwnerLookupAdapter(ABC):
 
 
 def digits_phone(raw: Any) -> str:
-    """'5125550100' / '+1-512-555-0100' → '(512) 555-0100'; other shapes returned as-is. O(n)."""
+    """O(n) time, O(n) space — n = input length. '5125550100' / '+1-512-555-0100' → '(512) 555-0100'; other shapes as-is."""
     text = str(raw or "").strip()
     digits = "".join(ch for ch in text if ch.isdigit())
     if len(digits) == 11 and digits.startswith("1"):
@@ -151,8 +151,9 @@ class TracerfyOwnerLookup(OwnerLookupAdapter):
     def is_configured(self) -> bool:
         return bool(self._api_key)
 
+    # O(p + e) time, O(p + e) space — p = phones in the reply; e = emails in the reply
     async def lookup(self, query: OwnerQuery) -> Optional[OwnerContactResult]:
-        """One HTTP call. O(p + e) parsing — p phones, e emails in the reply."""
+        """One HTTP call."""
         body = {
             "address": query.street,
             "city": query.city,
@@ -244,8 +245,9 @@ class BatchDataOwnerLookup(OwnerLookupAdapter):
         result = self._parse(data)
         return result if result and result.is_hit else None
 
+    # O(p + e) time, O(p + e) space — p = phones in the reply; e = emails in the reply
     def _parse(self, data: dict) -> Optional[OwnerContactResult]:
-        """Accept either documented reply shape. O(p + e)."""
+        """Accept either documented reply shape."""
         results = data.get("results")
         # Shape A: {"results": {"persons": [{name, phoneNumbers, emails}]}}
         if isinstance(results, dict) and isinstance(results.get("persons"), list):
@@ -299,7 +301,7 @@ class ChainedOwnerLookup(OwnerLookupAdapter):
         return tuple(p.name for p in self._providers)
 
     async def lookup(self, query: OwnerQuery) -> Optional[OwnerContactResult]:
-        """O(p) HTTP calls worst case — p = configured providers (≤ 2).
+        """O(p) time, O(p) space — p = configured providers, ≤ 2 (one HTTP call each, worst case).
 
         Raises ProviderUnavailable when every provider ERRORED (e.g. Tracerfy HTTP 402,
         out of credits) — never report or cache that as "no match".
@@ -326,5 +328,5 @@ _OWNER_FACTORIES: dict[str, Callable[[], OwnerLookupAdapter]] = {
 
 
 def build_owner_lookup(provider_names: list[str]) -> ChainedOwnerLookup:
-    """Config names → chain; unknown names ignored. O(p)."""
+    """Config names → chain; unknown names ignored. O(p) time, O(p) space — p = provider names."""
     return ChainedOwnerLookup([_OWNER_FACTORIES[n]() for n in provider_names if n in _OWNER_FACTORIES])

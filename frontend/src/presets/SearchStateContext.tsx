@@ -19,7 +19,8 @@ export function useSearchStore(): SearchStateStore {
 
 /**
  * Like useState, but the value lives in the store: it survives the control unmounting and
- * is saved/restored by presets. `def` must be a module-level constant. O(1) per render.
+ * is saved/restored by presets. `def` must be a module-level constant.
+ * O(1) time, O(1) space — r = 1 store lookup per render.
  */
 export function useSearchSection<T>(def: SectionDef<T>): [T, (next: Updater<T>) => void] {
   const store = useSearchStore();

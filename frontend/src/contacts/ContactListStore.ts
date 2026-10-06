@@ -327,17 +327,28 @@ export class ContactListStore {
    * Apply a batch answer to every building at that street (normally one). The skip
    * trace is per PROPERTY, so it fills the building's FIRST owner — for condo buildings
    * with several owners of record, the person found belongs to one unit at most.
-   * SUPER-LINEAR (reported 2026-10-02): each match commits (re-copies + re-saves) the whole list.
-   * bigo-allow: m = buildings sharing one street address — normally 1, only duplicate address picks raise it
-   * O(n + m * s) time, O(m + s) space — n = buildings in the list; m = buildings at that street; s = total list size
+   * Fixed 2026-10-06 (Big O audit): this used to commit — re-copy, re-save to storage and
+   * notify listeners — up to twice PER matching building, quadratic in m and s. It now builds the new
+   * list in one pass and commits once. The stored list format is unchanged.
+   * Each matching building stores its own copy of the answer's phones/emails, and a found
+   * phone/email is either already on that owner or gets added, so the merge work is
+   * bounded by the list size after the write.
+   * O(s) time, O(s) space — s = total list size after the answer is written
    */
   applyOwnerAnswer(street: string, answer: OwnerAnswer): void {
     const key = street.trim().toUpperCase();
-    // bigo-allow: m = buildings sharing one street address — normally 1, only duplicate address picks raise it
-    // O(n + m * s) time, O(m + s) space — n = buildings in the list (filter); m = buildings at that street; s = total list size (one commit per match)
-    for (const b of this.buildings.filter((x) => x.address.trim().toUpperCase() === key && x.owners.length)) {
-      this.applyOwnerPatch(b.id, 0, ownerPatchFromAnswer(answer));
-    }
+    let changed = false;
+    // O(s) time, O(s) space — s = total list size after the write (see the doc comment above)
+    const next = this.buildings.map((b) => {
+      if (!b.owners.length || b.address.trim().toUpperCase() !== key) return b;
+      changed = true;
+      const { reason, ...found } = ownerPatchFromAnswer(answer); // fresh copy per building, as before
+      // O(o) time, O(o) space — o = owners at this building (only the first is merged)
+      // bigo-lint: disable=BIGO006 — amortised: each owner is visited once across all buildings
+      const owners = b.owners.map((o, i) => (i === 0 ? mergeSkipTrace(o, found) : o));
+      return reason ? { ...b, owners, note: reason } : { ...b, owners };
+    });
+    if (changed) this.commit(next);
   }
 
   /** First owner back to idle if it's still "searching…" (batch failed).

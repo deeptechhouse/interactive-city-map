@@ -113,6 +113,39 @@ describe('store batch helpers', () => {
   });
 });
 
+describe('ContactListStore.applyOwnerAnswer (single commit, 2026-10-06)', () => {
+  it('fills every building at the street with ONE commit and leaves the others alone', () => {
+    const store = new ContactListStore(null, 'chicago', [
+      building('b1', '1001 W NORTH AVE'),
+      building('b2', '1001 w north ave'),
+      building('b3', '5 N STATE ST'),
+    ]);
+    const before = store.getSnapshot();
+    const notify = vi.fn();
+    store.subscribe(notify);
+
+    store.applyOwnerAnswer('1001 W NORTH AVE', FOUND);
+
+    expect(notify).toHaveBeenCalledTimes(1);
+    const after = store.getSnapshot();
+    expect(after.map((b) => b.owners[0].skipTrace)).toEqual(['found', 'found', before[2].owners[0].skipTrace]);
+    expect(after[2]).toBe(before[2]); // untouched building keeps its identity
+    expect(after[0].owners[0].extraPhones).not.toBe(after[1].owners[0].extraPhones); // each gets its own copy
+  });
+
+  it('writes the reason note and skips the commit when nothing matches', () => {
+    const store = new ContactListStore(null, 'chicago', [building('b1', '1001 W NORTH AVE')]);
+    const notify = vi.fn();
+    store.subscribe(notify);
+    store.applyOwnerAnswer('9 NOWHERE ST', FOUND);
+    expect(notify).not.toHaveBeenCalled();
+    store.applyOwnerAnswer('1001 W NORTH AVE', { status: 'unavailable', reason: 'out of credits' } as never);
+    expect(store.getSnapshot()[0]).toMatchObject({ note: 'out of credits' });
+    expect(store.getSnapshot()[0].owners[0].skipTrace).toBe('unavailable');
+    expect(notify).toHaveBeenCalledTimes(1);
+  });
+});
+
 // ---------------------------------------------------------------------------
 
 describe('OwnerBatchRunner', () => {

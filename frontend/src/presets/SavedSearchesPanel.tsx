@@ -13,7 +13,7 @@ interface SavedSearchesPanelProps {
   saved: UseSavedSearchesReturn;
 }
 
-/** "Oct 2, 3:15 PM" — empty for presets saved before timestamps were valid. O(1). */
+/** "Oct 2, 3:15 PM" — empty for presets saved before timestamps were valid. O(1) time, O(1) space. */
 function formatSavedAt(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
@@ -30,7 +30,8 @@ export const SavedSearchesPanel: React.FC<SavedSearchesPanelProps> = ({ saved })
   const [status, setStatus] = useState('');
 
   const trimmed = normaliseName(name);
-  // `presets` is already this city's list, so a name match is the preset that would be overwritten. O(n).
+  // `presets` is already this city's list, so a name match is the preset that would be overwritten.
+  // O(n) time, O(1) space — n = this city's presets
   const existing = trimmed ? presets.find((p) => p.name.toLowerCase() === trimmed.toLowerCase()) : undefined;
 
   const handleSave = (e: React.FormEvent) => {

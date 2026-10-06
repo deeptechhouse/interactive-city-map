@@ -107,7 +107,7 @@ class OwnerBatchService:
     # ---- start ----
 
     async def start(self, queries: list[OwnerQuery], client_id: str, refresh: bool = False) -> BatchStatus:
-        """O(q) store reads + at most two Tracerfy submits. Duplicate properties are sent once."""
+        """O(q) time, O(q) space — q = queries (q store reads + at most two Tracerfy submits). Duplicate properties are sent once."""
         unique: dict[str, OwnerQuery] = {}
         for q in queries:  # O(q) — dedupe by property (first occurrence wins, incl. its name)
             unique.setdefault(_key(q), q)
@@ -133,6 +133,7 @@ class OwnerBatchService:
         job_id = uuid.uuid4().hex
         state: dict = {"items": [_to_dict(q) for q in to_send], "queues": [], "followup": [], "done": False}
         first_submit = True
+        # O(q) time, O(q) space — q = queries split across k = 2 trace types (named, unnamed)
         for trace_type, batch in (("normal", named), ("advanced", unnamed)):
             if not batch:
                 continue
@@ -143,9 +144,13 @@ class OwnerBatchService:
                     raise  # nothing spent yet → report the error (e.g. 402 out of credits)
                 # A queue is already running (credits will be spent) — keep the job and
                 # send these as a follow-up "advanced" queue on the next poll.
+                # O(b) time, O(b) space — b = queries in this batch (the two batches partition q)
+                # bigo-lint: disable=BIGO006 — the two batches partition the queries, so this sums to q
                 state["followup"].extend(_to_dict(q) for q in batch)
                 continue
             first_submit = False
+            # O(b) time, O(b) space — b = queries in this batch (the two batches partition q)
+            # bigo-lint: disable=BIGO006 — the two batches partition the queries, so this sums to q
             state["queues"].append({"queue_id": queue_id, "trace_type": trace_type,
                                     "items": [_to_dict(q) for q in batch], "done": False})
         self._store.save_job(job_id, state)

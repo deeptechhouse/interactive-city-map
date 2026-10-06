@@ -7,7 +7,8 @@ export const IL_SOS_SEARCH_URL = 'https://apps.ilsos.gov/businessentitysearch/';
 
 /**
  * Only render http(s) links. Websites come from third-party place data; a
- * "javascript:" URL in an href would run in our page when clicked (XSS). O(n).
+ * "javascript:" URL in an href would run in our page when clicked (XSS).
+ * O(n) time, O(n) space — n = URL length.
  */
 export function safeHref(url: string): string | null {
   const trimmed = url.trim();

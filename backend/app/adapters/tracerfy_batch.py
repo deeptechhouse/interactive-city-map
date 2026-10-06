@@ -56,8 +56,9 @@ _BASE = "https://tracerfy.com/v1/api"
 _ALLOWED_RESULT_DOMAINS = ("digitaloceanspaces.com", "tracerfy.com")
 
 
+# O(d) time, O(1) space — d = allowed domains
 def _allowed_result_url(url: str) -> bool:
-    """https and host is an allowed domain or a subdomain of one. O(d)."""
+    """https and host is an allowed domain or a subdomain of one."""
     parsed = urlparse(url)
     host = (parsed.hostname or "").lower()
     return parsed.scheme == "https" and any(host == d or host.endswith(f".{d}") for d in _ALLOWED_RESULT_DOMAINS)
@@ -118,8 +119,9 @@ class TracerfyBatchClient:
         except httpx.HTTPError as err:
             raise ProviderUnavailable("tracerfy", 0, str(err)) from err
 
+    # O(q) time, O(q) space — q = queries
     async def submit(self, queries: list[OwnerQuery], trace_type: str = "advanced") -> str:
-        """Create a queue for ``queries``. Returns Tracerfy's queue id. O(q).
+        """Create a queue for ``queries``. Returns Tracerfy's queue id.
 
         trace_type "normal" sends each query's first/last name; "advanced" ignores them.
         """
@@ -190,8 +192,9 @@ class TracerfyBatchClient:
         return resp.text
 
 
+# O(q) time, O(q) space — q = queries
 def build_upload_csv(queries: list[OwnerQuery], with_names: bool = False) -> str:
-    """The rows Tracerfy traces, as CSV text (csv module handles quoting/commas). O(q).
+    """The rows Tracerfy traces, as CSV text (csv module handles quoting/commas).
     Names are written only for a "normal" (by-name) queue."""
     buf = io.StringIO()
     writer = csv.writer(buf)
@@ -203,7 +206,7 @@ def build_upload_csv(queries: list[OwnerQuery], with_names: bool = False) -> str
 
 
 def _norm_col(name: str) -> str:
-    """'Email-1' / 'email_1' / ' EMAIL 1 ' → 'email_1'. O(n)."""
+    """'Email-1' / 'email_1' / ' EMAIL 1 ' → 'email_1'. O(n) time, O(n) space — n = name length."""
     return "_".join(name.strip().lower().replace("-", " ").replace("_", " ").split())
 
 

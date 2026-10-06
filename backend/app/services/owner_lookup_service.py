@@ -68,7 +68,7 @@ class OwnerLookupService:
         return self._chain.provider_names
 
     async def lookup(self, query: OwnerQuery, client_id: str, refresh: bool = False) -> OwnerLookupAnswer:
-        """O(log n) on a saved answer (SQLite index); O(p) provider calls otherwise."""
+        """O(log n + p) time, O(1) space — n = saved answers (SQLite index); p = provider calls on a miss."""
         if not refresh:
             saved = self._store.get(query)
             if saved is not None:

@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from shapely import MultiPolygon, Polygon
+from shapely import MultiPolygon, Polygon, STRtree  # STRtree: R-tree, O(log n + k) box queries
 from shapely.geometry import LinearRing, mapping, shape
 
 from app.data_import.arcgis_helper import ArcGISFeatureServerClient
@@ -67,15 +67,19 @@ def read_features(raw_path: Path) -> list[dict]:
     return raw.get("features", []) if isinstance(raw, dict) else []
 
 
-# bigo-allow: r and o count rings of ONE footprint (almost always ≤ 3); linear in vertices
 def split_arcgis_rings(geometry: dict | None) -> list[Polygon]:
-    """O(r·o + v) time, O(v) space — r = rings; o = outer rings; v = vertices.
+    """O(v + r log o + K) time, O(v) space — v = vertices; r = hole rings; o = outer rings; K = containment work on bounding-box hits.
 
     arcgis_helper turns an ArcGIS `rings` list into ONE GeoJSON Polygon whatever the ring
     count, so a 2-part building became one polygon whose second part is a false "hole"
     (audit 2026-10-02). ArcGIS's own rule decides instead: outer rings run CLOCKWISE,
     holes counter-clockwise. Each clockwise ring starts a polygon; each hole joins the
     outer ring that contains it. Real GeoJSON Multi/Polygons pass through split by part.
+
+    Hole → shell lookup goes through an R-tree of the shells (2026-10-06): the old
+    every-hole-against-every-shell scan was O(r·o) and relied on "almost always ≤ 3
+    rings", which a campus or complex multi-part footprint can exceed. Candidates are
+    still tried in shell order, so "first containing shell wins" is unchanged.
     """
     if not geometry:
         return []
@@ -102,13 +106,14 @@ def split_arcgis_rings(geometry: dict | None) -> list[Polygon]:
     shells = [Polygon(o) for o in outers]
     # O(o) time, O(o) space — o = outer rings
     hole_lists: list[list] = [[] for _ in outers]
-    # bigo-allow: r and o are rings of ONE building footprint (almost always ≤ 3)
-    # O(r·o) time, O(1) space — r = hole rings; o = outer rings of this one feature
+    tree = STRtree(shells) if holes else None
+    # O(r log o + K) time, O(1) space — r = hole rings; o = outer rings; K = containment work on bbox hits
     for hole in holes:
         probe = Polygon(hole).representative_point()
-        # O(o) time, O(1) space — o = outer rings
-        for idx, shell in enumerate(shells):
-            if shell.contains(probe):
+        # O(k) time, O(1) space — k = containment work for this hole's bbox hits (sums to K)
+        # bigo-lint: disable=BIGO006 — amortised: per-hole candidate work sums to K across the outer loop
+        for idx in sorted(tree.query(probe)):
+            if shells[idx].contains(probe):
                 hole_lists[idx].append(hole)
                 break
     # O(o) time, O(v) space — o = outer rings; v = vertices

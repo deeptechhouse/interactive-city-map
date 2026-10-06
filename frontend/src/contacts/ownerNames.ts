@@ -37,7 +37,7 @@ const SUFFIXES = new Set(['JR', 'SR', 'II', 'III', 'IV', 'V']);
 // trust wording. ADJUSTABLE: add fragments if non-people slip through.
 const NOT_A_PERSON = /\b(TRU|TRUS|TRUST|TRUSTEE|TR|DECL|DECLA|DECLAR|DEC|LIV|LIVING|REV|T\s?D|ESTATE|EST|HEIRS|UNKNOWN|TAXPAYER|CURRENT|OCCUPANT|OWNER|CEMETERY|PARISH|CONDO|ASSN)\b/i;
 
-/** Letters (incl. accented), apostrophes and hyphens only, 2+ letters. O(n). */
+/** Letters (incl. accented), apostrophes and hyphens only, 2+ letters. O(n) time, O(n) space — n = word length. */
 function isNameWord(w: string): boolean {
   return /^[\p{L}][\p{L}'-]*$/u.test(w) && w.replace(/['-]/g, '').length >= 2;
 }
@@ -49,7 +49,8 @@ function words(text: string): string[] {
 
 /**
  * "FIRST [MIDDLE…] LAST [SUFFIX]" → {first, last}, or null when it isn't clearly a
- * person: fewer than two name words, an initial as first name, or digits/symbols. O(n).
+ * person: fewer than two name words, an initial as first name, or digits/symbols.
+ * O(n) time, O(n) space — n = text length.
  */
 export function splitPersonName(text: string): { first: string; last: string } | null {
   const w = words(text);
@@ -61,7 +62,8 @@ export function splitPersonName(text: string): { first: string; last: string } |
 }
 
 /**
- * A Cook County owner-of-record string → the FIRST owner's name, or null. O(n).
+ * A Cook County owner-of-record string → the FIRST owner's name, or null.
+ * O(n) time, O(n) space — n = text length.
  *
  *   "THOMAS J LIZAK"           → THOMAS / LIZAK
  *   "GREGORY BASIL & LOIS B"   → GREGORY / BASIL        (first owner complete before "&")
@@ -92,7 +94,7 @@ export function countyOwnerName(raw: string): { first: string; last: string } | 
   return isNameWord(first) && isNameWord(last) && !SUFFIXES.has(last.toUpperCase()) ? { first, last } : null;
 }
 
-/** The name to send for this owner, or null → 2-credit address trace. O(n). */
+/** The name to send for this owner, or null → 2-credit address trace. O(n) time, O(n) space — n = name text length. */
 export function traceNameFor(owner: OwnerContact): TraceName | null {
   const fromContact = owner.contactPerson ? splitPersonName(owner.contactPerson) : null;
   if (fromContact) return { ...fromContact, source: 'contact' };

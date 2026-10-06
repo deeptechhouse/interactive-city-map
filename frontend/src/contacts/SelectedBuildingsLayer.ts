@@ -12,7 +12,7 @@ const FILL_ID = 'buildings-selected-fill';
 const LINE_ID = 'buildings-selected-line';
 const SELECTED_COLOR = '#f0b429'; // amber: distinct from the blue hover + focus outline
 
-/** Filter matching the given ids. O(n) — n = selected ids. */
+/** Filter matching the given ids. O(n) time, O(n) space — n = selected ids. */
 function idFilter(ids: readonly string[]): maplibregl.FilterSpecification {
   return ['in', ['get', 'id'], ['literal', [...ids]]] as unknown as maplibregl.FilterSpecification;
 }

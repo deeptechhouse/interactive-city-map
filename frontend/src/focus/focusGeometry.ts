@@ -47,7 +47,7 @@ export type BoundaryIndex = Record<FocusKind, ReadonlyMap<string, readonly AreaF
 
 export const FOCUS_KINDS: readonly FocusKind[] = ['zip', 'police', 'ward'];
 
-/** True when nothing is selected — the mask should be removed entirely. O(1). */
+/** True when nothing is selected — the mask should be removed entirely. O(1) time, O(1) space. */
 export function isEmptySelection(sel: FocusSelection): boolean {
   return sel.zip.length + sel.police.length + sel.ward.length === 0;
 }
@@ -98,7 +98,7 @@ function unionOf(features: readonly AreaFeature[]): AreaFeature | null {
 export function buildFocusShape(sel: FocusSelection, boundaries: BoundaryIndex): AreaFeature | null {
   const perKind: AreaFeature[] = [];
   for (const kind of FOCUS_KINDS) {
-    // O(k) kinds, each O(s) selected ids → overall O(selected features)
+    // O(v log v) time, O(v) space — v = vertices of the selected boundaries; k = 3 focus kinds
     const feats = sel[kind].flatMap((id) => boundaries[kind].get(id) ?? []);
     const merged = unionOf(feats);
     if (merged) perKind.push(merged);
@@ -140,7 +140,7 @@ export function buildMask(shape: AreaFeature | null): AreaFeature {
   return (difference(featureCollection([WORLD, shape])) as AreaFeature | null) ?? WORLD;
 }
 
-/** Pick 'mode' from untrusted saved state, defaulting to union. O(1). */
+/** Pick 'mode' from untrusted saved state, defaulting to union. O(1) time, O(1) space. */
 export function coerceMode(value: unknown): FocusMode {
   return value === 'intersection' ? 'intersection' : 'union';
 }

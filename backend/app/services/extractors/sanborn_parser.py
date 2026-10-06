@@ -10,6 +10,17 @@ Sanborn maps use a well-known colour-coding convention:
 This module detects building materials via HSV colour analysis and
 hatching via FFT frequency peaks, then delegates room segmentation,
 wall detection, and OCR to the sibling extractor classes.
+
+FLOW
+    extract_sanborn_rooms() → LineDetector.detect() → RoomSegmenter.segment()
+        → RoomSegmenter.indexed_polygons() → TextExtractor (OCR + label match)
+        → per room: crop to its bounding box → detect_material() on the crop.
+
+TRAP (fixed 2026-10-06, Big O audit): the per-room loop allocated a
+FULL-IMAGE mask and converted the FULL image to HSV for every room —
+O(R·P) for R rooms on a P-pixel sheet. Now each room works on its own
+bounding-box crop, so the total is O(P + A), A = summed room bounding-box areas. The material
+ratio is unchanged: pixels outside the room were already masked to zero.
 """
 
 from __future__ import annotations
@@ -37,6 +48,7 @@ class SanbornParser:
     # Material detection
     # ------------------------------------------------------------------
 
+    # O(P) time, O(P) space — P = pixels in *image* (k = 4 fixed materials)
     def detect_material(
         self,
         image: np.ndarray,
@@ -68,6 +80,7 @@ class SanbornParser:
         best_match = "unknown"
         best_ratio = 0.0
 
+        # O(P) time, O(P) space — P = pixels in *image*; k = 4 fixed materials
         for material, ranges in self.COLOR_RANGES.items():
             mask = cv2.inRange(hsv, ranges["lower"], ranges["upper"])
             if building_mask is not None:
@@ -83,6 +96,7 @@ class SanbornParser:
     # Hatching detection
     # ------------------------------------------------------------------
 
+    # O(P log P) time, O(P) space — P = pixels in *image* (2-D FFT)
     def detect_hatching(self, image: np.ndarray) -> bool:
         """Detect whether a region contains hatching patterns.
 
@@ -113,6 +127,7 @@ class SanbornParser:
     # Full extraction pipeline
     # ------------------------------------------------------------------
 
+    # O(P log P + L log L + K + V + A) time, O(P + V) space — P = image pixels; L = Hough segments; K = line/label candidate pairs; V = contour vertices; A = summed room bounding-box areas
     def extract_sanborn_rooms(self, image: np.ndarray) -> list[dict]:
         """Run the full Sanborn extraction pipeline.
 
@@ -125,10 +140,11 @@ class SanbornParser:
         line_detector = LineDetector(min_line_length=20, max_line_gap=8)
         lines = line_detector.detect(image)
 
-        # 2. Segment rooms
+        # 2. Segment rooms. indexed_polygons keeps each polygon's contour index —
+        #    invalid contours are dropped, so a bare enumerate() would misalign.
         segmenter = RoomSegmenter(min_room_area=200)
         contours = segmenter.segment(image, lines)
-        polygons = segmenter.contours_to_polygons(contours)
+        polygons = segmenter.indexed_polygons(contours)
 
         # 3. Extract and classify text labels
         text_ext = TextExtractor()
@@ -138,14 +154,18 @@ class SanbornParser:
 
         # 4. Build per-room results with material detection
         results: list[dict] = []
-        for i, (poly, cnt) in enumerate(zip(polygons, contours)):
-            mask = np.zeros(image.shape[:2], dtype=np.uint8)
-            cv2.drawContours(mask, [cnt], 0, 255, -1)
-            material = self.detect_material(image, mask)
+        # O(A + V) time, O(A) space — A = summed room bounding-box areas (one crop alive at a time); V = contour vertices
+        for idx, poly in polygons:
+            cnt = contours[idx]
+            x, y, w, h = cv2.boundingRect(cnt)
+            mask = np.zeros((h, w), dtype=np.uint8)
+            cv2.drawContours(mask, [cnt], 0, 255, -1, offset=(-x, -y))
+            material = self.detect_material(image[y:y + h, x:x + w], mask)
 
-            room_labels = label_matches.get(i, [])
             room_name: str | None = None
-            for label in room_labels:
+            # O(m) time, O(1) space — m = labels matched to this room (each label matches at most one room)
+            # bigo-lint: disable=BIGO006 — amortised: every label belongs to one room, so this sums to T labels
+            for label in label_matches.get(idx, []):
                 if label.get("label_type") == "room_name":
                     room_name = label["text"]
                     break

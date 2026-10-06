@@ -23,7 +23,7 @@ export const CHICAGO_BOUNDARIES: BoundaryIndex = {
   ward: indexBoundaries(WARD_BOUNDARIES, 'ward'),
 };
 
-/** Numeric-aware sort so "Ward 2" comes before "Ward 10". O(n log n). */
+/** Numeric-aware sort so "Ward 2" comes before "Ward 10". O(n log n) time, O(n) space — n = boundary ids. */
 function sortedIds(index: ReadonlyMap<string, unknown>): string[] {
   return [...index.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }

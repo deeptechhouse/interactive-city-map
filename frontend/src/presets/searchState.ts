@@ -85,7 +85,7 @@ export class SearchStateStore {
     this.#notify();
   }
 
-  /** Attach an external adapter; returns the detach function (use as an effect cleanup). O(1). */
+  /** Attach an external adapter; returns the detach function (use as an effect cleanup). O(1) time, O(1) space. */
   attach(key: string, section: ExternalSection): () => void {
     this.#externals.set(key, section);
     return () => {
@@ -95,7 +95,8 @@ export class SearchStateStore {
 
   /**
    * Capture everything. Sections that were applied but never mounted are passed through
-   * as-is, so re-saving a preset doesn't silently drop them. O(k) — k = sections (+ toJson).
+   * as-is, so re-saving a preset doesn't silently drop them.
+   * O(k) time, O(k) space — k = sections (plus each section's toJson)
    */
   snapshot(): SearchSnapshot {
     const out: SearchSnapshot = {};
@@ -109,7 +110,7 @@ export class SearchStateStore {
    * Restore a snapshot. An owned section MISSING from the snapshot resets to its initial
    * value — a preset saved before that filter existed means "that filter untouched".
    * External sections missing from the snapshot are left alone (we can't know their default).
-   * O(k) — k = sections (+ fromJson).
+   * O(k) time, O(k) space — k = sections (plus each section's fromJson)
    */
   apply(snap: SearchSnapshot): void {
     this.#pending.clear();
@@ -139,7 +140,8 @@ export class SearchStateStore {
 /**
  * SectionDef for a checkbox list stored as a Set of keys. Unknown keys in saved json are
  * dropped (a category removed in a later version must not break the filter expression).
- * Saved as a sorted array so identical selections produce identical json. O(n log n), n = keys.
+ * Saved as a sorted array so identical selections produce identical json.
+ * O(n log n) time, O(n) space — n = keys.
  */
 export function setSection(
   key: string,

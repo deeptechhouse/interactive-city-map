@@ -22,6 +22,7 @@ from app.services.extractors.text_extractor import TextExtractor
 class FloorPlanExtractor:
     """Orchestrates the full floor plan extraction pipeline: image -> vectorised GeoJSON."""
 
+    # O(1) time, O(1) space
     def __init__(self) -> None:
         self._line_detector = LineDetector()
         self._room_segmenter = RoomSegmenter()
@@ -33,6 +34,7 @@ class FloorPlanExtractor:
     # Core extraction
     # ------------------------------------------------------------------
 
+    # O(E) time, O(E) space — E = image-pipeline work (pixels + Hough segments + OCR words + contour vertices, see the extractors)
     def extract(
         self,
         image_path: str | None = None,
@@ -83,6 +85,7 @@ class FloorPlanExtractor:
     # Extract + persist
     # ------------------------------------------------------------------
 
+    # O(E + F) time, O(E + F) space — E = image-pipeline work (pixels + Hough segments + OCR words + contour vertices, see the extractors); F = room + wall features persisted
     def extract_and_store(
         self,
         source_id: Any,
@@ -131,6 +134,7 @@ class FloorPlanExtractor:
         building_id = source.building_id
 
         # Persist rooms
+        # O(F) time, O(F) space — F = room features (session.add only queues, one commit below)
         for feature in result["rooms_geojson"].get("features", []):
             geom_shape = shape(feature["geometry"])
             props = feature["properties"]
@@ -146,6 +150,7 @@ class FloorPlanExtractor:
             session.add(room)
 
         # Persist walls
+        # O(F) time, O(F) space — F = wall features
         for feature in result["walls_geojson"].get("features", []):
             geom_shape = shape(feature["geometry"])
             wall = InteriorWall(
@@ -172,6 +177,7 @@ class FloorPlanExtractor:
     # Internal helpers
     # ------------------------------------------------------------------
 
+    # O(P) time, O(P) space — P = image pixels (decode)
     @staticmethod
     def _load_image(
         image_path: str | None,
@@ -191,17 +197,24 @@ class FloorPlanExtractor:
 
         return image
 
+    # O(E) time, O(E) space — E = image-pipeline work (pixels + Hough segments + OCR words + contour vertices, see the extractors)
     def _extract_sanborn(
         self,
         image: np.ndarray,
     ) -> tuple[list[dict], list[tuple[int, int, int, int]], list[dict]]:
-        """Sanborn-specific extraction branch."""
+        """Sanborn-specific extraction branch.
+
+        NOTE: SanbornParser already runs line detection and OCR internally; they
+        run a second time here to return walls + labels. Same Big O, ~2× the
+        constant — fold them together if Sanborn extraction gets slow.
+        """
         rooms_data = self._sanborn_parser.extract_sanborn_rooms(image)
         lines = self._line_detector.detect(image)
         text_labels = self._text_extractor.extract_text_regions(image)
         text_labels = self._text_extractor.classify_labels(text_labels)
         return rooms_data, lines, text_labels
 
+    # O(E) time, O(E) space — E = image-pipeline work (pixels + Hough segments + OCR words + contour vertices, see the extractors)
     def _extract_generic(
         self,
         image: np.ndarray,
@@ -209,17 +222,23 @@ class FloorPlanExtractor:
         """Generic floor plan extraction branch."""
         lines = self._line_detector.detect(image)
         contours = self._room_segmenter.segment(image, lines)
-        polygons = self._room_segmenter.contours_to_polygons(contours)
+        # indexed_polygons keeps the contour index: label_matches is keyed by CONTOUR
+        # index, and invalid contours are dropped, so enumerate() here would misalign
+        # every room after the first dropped one (bug fixed 2026-10-06).
+        polygons = self._room_segmenter.indexed_polygons(contours)
 
         text_labels = self._text_extractor.extract_text_regions(image)
         text_labels = self._text_extractor.classify_labels(text_labels)
         label_matches = self._text_extractor.match_labels_to_rooms(text_labels, contours)
 
         rooms_data: list[dict] = []
-        for i, poly in enumerate(polygons):
-            room_labels = label_matches.get(i, [])
+        # O(R + T) time, O(R) space — R = rooms; T = labels (each matched to at most one room)
+        for idx, poly in polygons:
+            room_labels = label_matches.get(idx, [])
             room_name: str | None = None
             room_type = "room"
+            # O(m) time, O(1) space — m = labels matched to this room
+            # bigo-lint: disable=BIGO006 — amortised: every label belongs to one room, so this sums to T
             for label in room_labels:
                 if label.get("label_type") == "room_name":
                     room_name = label["text"]

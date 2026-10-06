@@ -89,7 +89,8 @@ class SlidingWindowRateLimiter:
     def allow(self, client_id: str) -> bool:
         now = self._clock()
         events = self._events.setdefault(client_id, deque())
-        # Amortised O(1): drop timestamps that have left the window.
+        # Drop timestamps that have left the window (amortised: each timestamp is popped once).
+        # O(1) time, O(1) space — e = 1 expired event per call, amortised (each event is appended and popped once)
         while events and now - events[0] >= self._window_s:
             events.popleft()
         if len(events) >= self._limit:
@@ -149,7 +150,7 @@ class PhoneLookupService:
         )
 
     def _chain_for(self, city: str) -> ChainedPhoneLookup:
-        """O(1) amortised — chains are built once per city then reused."""
+        """O(1) time, O(1) space — c = 1 chain per city, built once then reused (amortised)."""
         key = city.lower()
         if key not in self._chains:
             self._chains[key] = self._chain_factory(self._by_city.get(key, self._default))
@@ -171,8 +172,9 @@ class PhoneLookupService:
             query.city.strip().lower(),
         )
 
+    # O(p) time, O(1) space — p = provider calls on a miss (a cache hit is constant)
     async def lookup(self, city: str, query: BusinessQuery, client_id: str) -> PhoneLookupResult:
-        """Cached lookup. O(1) on a cache hit; O(p) provider calls on a miss."""
+        """Cached lookup."""
         key = self._cache_key(city, query)
         cached = self._cache.get(key)
         if cached is not None:

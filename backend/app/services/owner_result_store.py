@@ -40,8 +40,9 @@ from app.adapters.owner_lookup import OwnerContactResult, OwnerPhone, OwnerQuery
 DEFAULT_PATH = Path(__file__).resolve().parents[2] / "data" / "owner_lookups.sqlite3"
 
 
+# O(n) time, O(n) space — n = address length
 def address_key(q: OwnerQuery) -> str:
-    """Cache key for a query — see owner_lookup.property_key. O(n)."""
+    """Cache key for a query — see owner_lookup.property_key."""
     return property_key(q.street, q.city, q.state)
 
 

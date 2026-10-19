@@ -66,12 +66,14 @@ export const CONFIDENCE_COLORS = {
   low: '#ef4444',
 };
 
+// O(1) time, O(1) space
 export function getConfidenceColor(confidence: number): string {
   if (confidence >= 0.7) return CONFIDENCE_COLORS.high;
   if (confidence >= 0.4) return CONFIDENCE_COLORS.medium;
   return CONFIDENCE_COLORS.low;
 }
 
+// O(k) time, O(k) space — k = characters in the room type (toLowerCase)
 export function getRoomColor(roomType: string | null): string {
   return (
     ROOM_TYPE_COLORS[(roomType ?? 'unknown').toLowerCase()] ??

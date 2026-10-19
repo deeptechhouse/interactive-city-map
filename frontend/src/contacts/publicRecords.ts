@@ -22,6 +22,7 @@ import { looksLikeCompany, newOwner, type BusinessContact, type OwnerContact, ty
 /** Fetch function signature — injectable so tests never touch the network. */
 export type FetchJson = (url: string) => Promise<unknown>;
 
+// O(b) time, O(b) space — b = response body size
 export const defaultFetchJson: FetchJson = async (url) => {
   const resp = await fetch(url, { headers: { Accept: 'application/json' } });
   if (!resp.ok) throw new Error(`HTTP ${resp.status} from ${new URL(url).host}`);
@@ -31,7 +32,7 @@ export const defaultFetchJson: FetchJson = async (url) => {
 /**
  * Upper-case, single-spaced, safe-character address: "1001  w North Ave" → "1001 W NORTH AVE".
  * Both datasets store addresses this way, so exact matching works after normalising.
- * O(n) — n = address length.
+ * O(n) time, O(n) space — n = address length.
  */
 export function normaliseAddress(address: string): string {
   return address
@@ -41,17 +42,20 @@ export function normaliseAddress(address: string): string {
     .trim();
 }
 
-/** Quote a value as a SoQL string literal. O(n). */
+/** Quote a value as a SoQL string literal. O(n) time, O(n) space — n = value length. */
 export function soqlString(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
+// O(p) time, O(p) space — p = total length of the query parameters
 function buildUrl(base: string, params: Record<string, string>): string {
   const url = new URL(base);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v); // O(p)
+  // O(p) time, O(p) space — p = total length of the query parameters
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   return url.toString();
 }
 
+// O(n) time, O(n) space — n = string length (trim copies)
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
 // ---------------------------------------------------------------------------
@@ -76,6 +80,7 @@ export class CookCountyOwnerSource implements OwnerSource {
   // them all floods the panel and the CSV. 25 covers small condo buildings.
   static readonly MAX_OWNERS = 25;
 
+  // O(1) time, O(1) space
   constructor(private readonly fetchJson: FetchJson = defaultFetchJson) {}
 
   /** One HTTP call. O(r) time, O(r) space — r = rows returned (≤ 200). */
@@ -101,8 +106,8 @@ export class CookCountyOwnerSource implements OwnerSource {
     const newest = parseFloat(str((rows[0] as Record<string, unknown>).year));
     const seen = new Set<string>();
     const owners: OwnerContact[] = [];
+    // O(r) time, O(r) space — r = rows returned (≤ 200)
     for (const raw of rows) {
-      // O(r)
       const row = raw as Record<string, unknown>;
       if (parseFloat(str(row.year)) !== newest) break; // sorted desc → done with newest year
       const name = str(row.owner_address_name) || str(row.mail_address_name);
@@ -131,7 +136,7 @@ export class CookCountyOwnerSource implements OwnerSource {
   }
 }
 
-/** Read one of the county's address groups ("owner_address" / "mail_address"). O(1). */
+/** Read one of the county's address groups ("owner_address" / "mail_address"). O(1) time, O(1) space. */
 function addressFrom(row: Record<string, unknown>, prefix: 'owner_address' | 'mail_address'): PostalAddress {
   return {
     street: str(row[`${prefix}_full`]),
@@ -156,6 +161,7 @@ export class ChicagoLicenseSource implements BusinessSource {
   // building but starts pulling in the neighbours across the street (~20 m).
   static readonly FALLBACK_RADIUS_M = 25;
 
+  // O(1) time, O(1) space
   constructor(private readonly fetchJson: FetchJson = defaultFetchJson) {}
 
   /** One HTTP call. O(r) time, O(r) space — r = licence rows (≤ 200). */
@@ -178,24 +184,27 @@ export class ChicagoLicenseSource implements BusinessSource {
     if (!Array.isArray(rows)) return [];
 
     // One business often holds several licences (one row each) → dedupe by account+site.
+    // Activities are collected in an insertion-ordered Set per business and joined once at
+    // the end. (Before 2026-10-06 each merge did a substring search of the growing joined
+    // string — O(r·a); a Set is O(1) per row and only drops EXACT repeats.)
     const byKey = new Map<string, BusinessContact>();
+    const activities = new Map<string, Set<string>>();
+    // O(r) time, O(r) space — r = licence rows (≤ 200)
     for (const raw of rows) {
-      // O(r)
       const row = raw as Record<string, unknown>;
       const legalName = str(row.legal_name);
       const name = str(row.doing_business_as_name) || legalName;
       if (!name) continue;
       const account = str(row.account_number);
       const id = account ? `${account}-${str(row.site_number)}` : name.toUpperCase();
-      const existing = byKey.get(id);
       const activity = str(row.business_activity);
-      if (existing) {
-        // Merge activities from extra licences, avoiding repeats.
-        if (activity && !existing.activity.includes(activity)) {
-          existing.activity = existing.activity ? `${existing.activity} | ${activity}` : activity;
-        }
+      const seen = activities.get(id);
+      if (seen) {
+        // Extra licence for a business we already have — just merge its activity.
+        if (activity) seen.add(activity);
         continue;
       }
+      activities.set(id, new Set(activity ? [activity] : []));
       byKey.set(id, {
         id,
         name,
@@ -209,6 +218,10 @@ export class ChicagoLicenseSource implements BusinessSource {
         website: '',
       });
     }
-    return [...byKey.values()];
+    // O(b + r) time, O(b) space — b = businesses; r = activities across them
+    return [...byKey.values()].map((biz) => ({
+      ...biz,
+      activity: [...(activities.get(biz.id) ?? [])].join(' | '),
+    }));
   }
 }

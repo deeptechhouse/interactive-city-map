@@ -15,6 +15,7 @@ from app.models import Railroad, City
 router = APIRouter(tags=["railroads"])
 
 
+# O(g) time, O(g) space — g = characters in the row's GeoJSON geometry string
 def _railroad_to_dict(row) -> dict:
     """Convert a Railroad row (with GeoJSON geometry) to a response dict."""
     rr = row[0] if hasattr(row, "__getitem__") else row
@@ -35,6 +36,7 @@ def _railroad_to_dict(row) -> dict:
 
 
 @router.get("/cities/{slug}/railroads")
+# O(log n + g) time, O(g) space — n = railroad segments in the database; g = total GeoJSON characters across the returned rows (segments of this city matching the optional owner/status filters, indexed, no row limit)
 async def list_railroads(
     slug: str,
     owner: Optional[str] = Query(None, description="Filter by railroad owner"),
@@ -59,4 +61,5 @@ async def list_railroads(
 
     result = await session.execute(stmt)
     rows = result.all()
+    # O(g) time, O(g) space — g = total GeoJSON characters across the railroad segments in the result (one dict per row)
     return [_railroad_to_dict(row) for row in rows]

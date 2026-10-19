@@ -22,6 +22,7 @@ class ProviderUnavailable(Exception):
     tell "out of credits" (402) from "provider down".
     """
 
+    # O(1) time, O(1) space
     def __init__(self, provider: str, status: int, detail: str = ""):
         super().__init__(f"{provider} failed with HTTP {status}: {detail[:200]}")
         self.provider = provider
@@ -29,8 +30,9 @@ class ProviderUnavailable(Exception):
         self.detail = detail
 
 
+# O(1) time, O(1) space
 def raise_if_all_failed(errors: list[tuple[str, Exception]], answered: bool) -> None:
-    """Chain helper: raise ProviderUnavailable when no provider gave a real answer. O(1)."""
+    """Chain helper: raise ProviderUnavailable when no provider gave a real answer."""
     if answered or not errors:
         return
     name, err = errors[-1]
@@ -44,20 +46,21 @@ def raise_if_all_failed(errors: list[tuple[str, Exception]], answered: bool) -> 
 TIMEOUT_S = 8.0
 
 
+# O(k) time, O(k) space — k = key length
 def real_key(key: str) -> str:
     """Return ``key`` unless it is empty or still the .env.example placeholder.
 
     Trap (2026-10-02): .env was copied from .env.example with FOURSQUARE_API_KEY left as
     "your_foursquare_api_key_here"; the adapter treated that as configured, so every lookup
     burned a request on a guaranteed 401 and Foursquare silently returned nothing.
-    O(1).
     """
     key = (key or "").strip()
     return "" if not key or key.startswith("your_") else key
 
 
+# O(b) time, O(b) space — b = response size
 async def post_json(client: Optional[httpx.AsyncClient], url: str, headers: dict, body) -> dict:
-    """POST and decode JSON; raises httpx.HTTPStatusError on 4xx/5xx. O(response size)."""
+    """POST and decode JSON; raises httpx.HTTPStatusError on 4xx/5xx."""
     if client is not None:
         resp = await client.post(url, headers=headers, json=body)
     else:
@@ -67,8 +70,9 @@ async def post_json(client: Optional[httpx.AsyncClient], url: str, headers: dict
     return resp.json()
 
 
+# O(b) time, O(b) space — b = response size
 async def get_json(client: Optional[httpx.AsyncClient], url: str, headers: dict, params: dict) -> dict:
-    """GET and decode JSON; raises httpx.HTTPStatusError on 4xx/5xx. O(response size)."""
+    """GET and decode JSON; raises httpx.HTTPStatusError on 4xx/5xx."""
     if client is not None:
         resp = await client.get(url, headers=headers, params=params)
     else:

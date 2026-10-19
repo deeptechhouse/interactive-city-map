@@ -19,6 +19,7 @@ interface ExternalLinksPanelProps {
 const COOK_COUNTY_ASSESSOR_BASE =
   'https://www.cookcountyassessor.com/pin/';
 
+// O(p) time, O(p) space — p = parcel PIN length
 function generateAssessorUrl(parcelPin: string | null | undefined): string | null {
   if (!parcelPin) return null;
   const cleaned = parcelPin.replace(/[^0-9]/g, '');
@@ -26,6 +27,7 @@ function generateAssessorUrl(parcelPin: string | null | undefined): string | nul
   return `${COOK_COUNTY_ASSESSOR_BASE}${cleaned}`;
 }
 
+// O(p) time, O(p) space — p = parcel PIN length (generateAssessorUrl runs every render)
 export const ExternalLinksPanel: React.FC<ExternalLinksPanelProps> = ({
   buildingId,
   parcelPin,

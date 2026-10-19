@@ -6,11 +6,13 @@ interface OpacitySliderProps {
   onOpacityChange: (id: string, value: number) => void;
 }
 
+// O(1) time, O(1) space
 export const OpacitySlider: React.FC<OpacitySliderProps> = ({
   id,
   opacity,
   onOpacityChange,
 }) => {
+  // O(1) time, O(1) space
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onOpacityChange(id, parseFloat(e.target.value) / 100);
   };

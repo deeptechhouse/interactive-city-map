@@ -8,6 +8,7 @@ import structlog
 from app.database import sync_session_factory
 
 
+# O(t) time, O(t) space — t = targets, sheets or permits handled by the chosen subcommand
 def main() -> None:
     parser = argparse.ArgumentParser(description="Interior maps data import")
     sub = parser.add_subparsers(dest="command")

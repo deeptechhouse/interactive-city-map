@@ -9,10 +9,12 @@ export interface FloorPlan {
   updated_at: string;
 }
 
+// O(n) time, O(n) space — n = floor plans returned in the response (JSON-parsed client-side)
 export async function getFloorPlans(buildingId: string): Promise<FloorPlan[]> {
   return apiClient.get<FloorPlan[]>(`/api/v1/buildings/${buildingId}/floor-plans`);
 }
 
+// O(1) time, O(1) space
 export async function uploadFloorPlan(
   buildingId: string,
   level: number,

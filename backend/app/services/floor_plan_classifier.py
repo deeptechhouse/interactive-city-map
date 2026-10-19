@@ -27,6 +27,7 @@ class FloorPlanClassifier:
 
     _N_FEATURES: int = 10
 
+    # O(1) time, O(1) space
     def __init__(self) -> None:
         self._model = None
 
@@ -34,6 +35,7 @@ class FloorPlanClassifier:
     # Model persistence
     # ------------------------------------------------------------------
 
+    # O(m) time, O(m) space — m = size of the pickled model file
     def load_model(self) -> bool:
         """Load a pre-trained model from disk.
 
@@ -50,6 +52,7 @@ class FloorPlanClassifier:
     # Feature extraction
     # ------------------------------------------------------------------
 
+    # O(P) time, O(P) space — P = pixels in the decoded image
     def extract_features(self, image_data: bytes) -> np.ndarray:
         """Extract a fixed-length feature vector from raw image bytes.
 
@@ -77,6 +80,7 @@ class FloorPlanClassifier:
         h_lines = 0
         v_lines = 0
         if lines is not None:
+            # O(l) time, O(1) space — l = Hough line segments detected
             for line in lines:
                 x1, y1, x2, y2 = line[0]
                 angle = abs(np.degrees(np.arctan2(y2 - y1, x2 - x1)))
@@ -107,6 +111,7 @@ class FloorPlanClassifier:
         # 8. Text-region proxy (small contour ratio)
         _, binary_inv = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
         contours, _ = cv2.findContours(binary_inv, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # O(c) time, O(1) space — c = external contours found
         small_contours = sum(1 for c in contours if 10 < cv2.contourArea(c) < 500)
         text_proxy = small_contours / max(len(contours), 1)
 
@@ -127,6 +132,7 @@ class FloorPlanClassifier:
     # Prediction
     # ------------------------------------------------------------------
 
+    # O(P + s) time, O(P) space — P = pixels in the image; s = support vectors in the loaded model
     def predict(self, image_data: bytes) -> tuple[bool, float]:
         """Predict whether an image is a floor plan.
 
@@ -148,6 +154,8 @@ class FloorPlanClassifier:
     # Training
     # ------------------------------------------------------------------
 
+    # bigo-allow: kernel-SVM fit (libsvm SMO) is Θ(n²)–Θ(n³) in training samples by construction; offline only — no caller in app/ or scripts/
+    # O(P + n^3) time, O(n + p) space — n = training images; P = total pixels across all images; p = pixels in the largest image
     def train(
         self,
         image_data_list: list[bytes],
@@ -171,6 +179,7 @@ class FloorPlanClassifier:
         from sklearn.preprocessing import StandardScaler
         from sklearn.svm import SVC
 
+        # O(P) time, O(n + p) space — P = total pixels across all images; n = training images; p = pixels in the largest image
         features = np.array([self.extract_features(img) for img in image_data_list])
         labels_arr = np.array(labels)
 
@@ -194,6 +203,7 @@ class FloorPlanClassifier:
     # ------------------------------------------------------------------
 
     @staticmethod
+    # O(1) time, O(1) space
     def _heuristic_predict(features: np.ndarray) -> tuple[bool, float]:
         """Rule-based prediction when no trained model is available."""
         edge_density = features[0]

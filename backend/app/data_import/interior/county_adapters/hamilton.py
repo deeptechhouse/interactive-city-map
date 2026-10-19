@@ -8,6 +8,7 @@ class HamiltonCountyAdapter(CountyAdapterBase):
 
     API_URL = "https://wedge1.hcauditor.org/api/property/"
 
+    # O(1) time, O(1) space
     def _normalize(self, record: dict) -> dict:
         return {
             "pin": record.get("parcel_id", ""),
@@ -19,6 +20,7 @@ class HamiltonCountyAdapter(CountyAdapterBase):
             "owner_name": record.get("owner", ""),
         }
 
+    # O(1) time, O(1) space
     def fetch_property(self, pin: str) -> dict | None:
         """Fetch property by parcel ID from Hamilton County auditor API."""
         resp = httpx.get(
@@ -34,6 +36,8 @@ class HamiltonCountyAdapter(CountyAdapterBase):
             return None
         return self._normalize(data)
 
+    # NOTE: the request asks limit=20 but the server honouring it is assumed, not enforced; k is whatever it returns.
+    # O(a + k) time, O(k) space — a = chars in the address; k = results returned
     def search_by_address(self, address: str) -> list[dict]:
         """Search properties by address via Hamilton County API."""
         resp = httpx.get(
@@ -45,5 +49,6 @@ class HamiltonCountyAdapter(CountyAdapterBase):
         resp.raise_for_status()
         results = resp.json()
         if isinstance(results, list):
+            # O(k) time, O(k) space — k = results returned
             return [self._normalize(r) for r in results]
         return []

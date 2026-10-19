@@ -30,12 +30,14 @@ router = APIRouter(tags=["interior"])
 
 # ── Helpers ─────────────────────────────────────────────────────
 
+# O(v) time, O(v) space — v = vertices in the geometry (WKB decode + GeoJSON mapping)
 def _geom_to_dict(geom) -> dict | None:
     if geom is None:
         return None
     return mapping(to_shape(geom))
 
 
+# O(1) time, O(1) space
 def _source_to_dict(s: InteriorSource) -> dict:
     return {
         "id": s.id,
@@ -55,6 +57,7 @@ def _source_to_dict(s: InteriorSource) -> dict:
     }
 
 
+# O(v) time, O(v) space — v = vertices in the room geometry
 def _room_to_dict(r: InteriorRoom) -> dict:
     return {
         "id": r.id,
@@ -73,6 +76,7 @@ def _room_to_dict(r: InteriorRoom) -> dict:
     }
 
 
+# O(v) time, O(v) space — v = vertices in the wall geometry
 def _wall_to_dict(w: InteriorWall) -> dict:
     return {
         "id": w.id,
@@ -88,6 +92,7 @@ def _wall_to_dict(w: InteriorWall) -> dict:
     }
 
 
+# O(v) time, O(v) space — v = vertices in the feature geometry
 def _feature_to_dict(f: InteriorFeature) -> dict:
     return {
         "id": f.id,
@@ -103,6 +108,7 @@ def _feature_to_dict(f: InteriorFeature) -> dict:
     }
 
 
+# O(log n) time, O(1) space — n = buildings in the database (primary-key lookup)
 async def _require_building(building_id: uuid.UUID, session: AsyncSession) -> Building:
     stmt = select(Building).where(Building.id == building_id)
     result = await session.execute(stmt)
@@ -115,16 +121,19 @@ async def _require_building(building_id: uuid.UUID, session: AsyncSession) -> Bu
 # ── Sources ─────────────────────────────────────────────────────
 
 @router.get("/buildings/{building_id}/interior/sources")
+# O(log n + s) time, O(s) space — n = buildings in the database; s = interior sources of this building (indexed, no limit)
 async def list_sources(
     building_id: uuid.UUID,
     session: AsyncSession = Depends(get_async_session),
 ):
     await _require_building(building_id, session)
     sources = await InteriorService.get_sources(building_id, session)
+    # O(s) time, O(s) space — s = interior sources of this building
     return [_source_to_dict(s) for s in sources]
 
 
 @router.post("/buildings/{building_id}/interior/sources", status_code=201)
+# O(log n) time, O(1) space — n = rows in buildings and interior_sources (lookup + insert)
 async def create_source(
     building_id: uuid.UUID,
     data: InteriorSourceCreateRequest,
@@ -140,6 +149,7 @@ class StatusUpdateRequest(BaseModel):
 
 
 @router.patch("/interior/sources/{source_id}/status")
+# O(log n) time, O(1) space — n = interior sources in the database (primary-key lookup + update)
 async def update_source_status(
     source_id: uuid.UUID,
     data: StatusUpdateRequest,
@@ -154,6 +164,7 @@ async def update_source_status(
 # ── Rooms ───────────────────────────────────────────────────────
 
 @router.get("/buildings/{building_id}/interior/rooms")
+# O(log n + r log r + v) time, O(v) space — n = buildings in the database; r = rooms of this building (optionally one level, sorted); v = total vertices across the returned room geometries
 async def list_rooms(
     building_id: uuid.UUID,
     level: Optional[int] = None,
@@ -161,10 +172,12 @@ async def list_rooms(
 ):
     await _require_building(building_id, session)
     rooms = await InteriorService.get_rooms(building_id, session, level=level)
+    # O(v) time, O(v) space — v = total vertices across the rooms room geometries returned
     return [_room_to_dict(r) for r in rooms]
 
 
 @router.post("/buildings/{building_id}/interior/rooms", status_code=201)
+# O(log n + v) time, O(v) space — n = rows in buildings and interior_rooms (lookup + insert); v = vertices in the submitted geometry
 async def create_room(
     building_id: uuid.UUID,
     data: InteriorRoomCreateRequest,
@@ -176,6 +189,7 @@ async def create_room(
 
 
 @router.delete("/interior/rooms/{room_id}", status_code=204)
+# O(log n) time, O(1) space — n = interior rooms in the database (primary-key delete)
 async def delete_room(
     room_id: uuid.UUID,
     session: AsyncSession = Depends(get_async_session),
@@ -189,6 +203,7 @@ async def delete_room(
 # ── Walls ───────────────────────────────────────────────────────
 
 @router.get("/buildings/{building_id}/interior/walls")
+# O(log n + w log w + v) time, O(v) space — n = buildings in the database; w = walls of this building (optionally one level, sorted); v = total vertices across the returned wall geometries
 async def list_walls(
     building_id: uuid.UUID,
     level: Optional[int] = None,
@@ -196,10 +211,12 @@ async def list_walls(
 ):
     await _require_building(building_id, session)
     walls = await InteriorService.get_walls(building_id, session, level=level)
+    # O(v) time, O(v) space — v = total vertices across the walls wall geometries returned
     return [_wall_to_dict(w) for w in walls]
 
 
 @router.post("/buildings/{building_id}/interior/walls", status_code=201)
+# O(log n + v) time, O(v) space — n = rows in buildings and interior_walls (lookup + insert); v = vertices in the submitted geometry
 async def create_wall(
     building_id: uuid.UUID,
     data: InteriorWallCreateRequest,
@@ -211,6 +228,7 @@ async def create_wall(
 
 
 @router.delete("/interior/walls/{wall_id}", status_code=204)
+# O(log n) time, O(1) space — n = interior walls in the database (primary-key delete)
 async def delete_wall(
     wall_id: uuid.UUID,
     session: AsyncSession = Depends(get_async_session),
@@ -224,6 +242,7 @@ async def delete_wall(
 # ── Features ────────────────────────────────────────────────────
 
 @router.get("/buildings/{building_id}/interior/features")
+# O(log n + f log f + v) time, O(v) space — n = buildings in the database; f = features of this building (optionally one level, sorted); v = total vertices across the returned feature geometries
 async def list_features(
     building_id: uuid.UUID,
     level: Optional[int] = None,
@@ -231,10 +250,12 @@ async def list_features(
 ):
     await _require_building(building_id, session)
     features = await InteriorService.get_features(building_id, session, level=level)
+    # O(v) time, O(v) space — v = total vertices across the features feature geometries returned
     return [_feature_to_dict(f) for f in features]
 
 
 @router.post("/buildings/{building_id}/interior/features", status_code=201)
+# O(log n + v) time, O(v) space — n = rows in buildings and interior_features (lookup + insert); v = vertices in the submitted geometry
 async def create_feature(
     building_id: uuid.UUID,
     data: InteriorFeatureCreateRequest,
@@ -246,6 +267,7 @@ async def create_feature(
 
 
 @router.delete("/interior/features/{feature_id}", status_code=204)
+# O(log n) time, O(1) space — n = interior features in the database (primary-key delete)
 async def delete_feature(
     feature_id: uuid.UUID,
     session: AsyncSession = Depends(get_async_session),
@@ -259,6 +281,7 @@ async def delete_feature(
 # ── Summary ─────────────────────────────────────────────────────
 
 @router.get("/buildings/{building_id}/interior/summary")
+# O(log n + m) time, O(1) space — n = buildings in the database; m = interior rows of this building counted by the 4 COUNT queries (indexed by building_id)
 async def get_summary(
     building_id: uuid.UUID,
     session: AsyncSession = Depends(get_async_session),
@@ -271,6 +294,7 @@ async def get_summary(
 # ── Extraction trigger ──────────────────────────────────────────
 
 @router.post("/interior/sources/{source_id}/extract")
+# O(log n) time, O(1) space — n = interior sources in the database (primary-key lookup + update)
 async def trigger_extraction(
     source_id: uuid.UUID,
     session: AsyncSession = Depends(get_async_session),

@@ -23,6 +23,7 @@ const SOURCE_TYPE_COLORS: Record<string, string> = {
   county_records: '#dc2626',
 };
 
+// O(1) time, O(1) space
 const getConfidenceColor = (confidence: number): string => {
   if (confidence >= 0.7) return THEME.success;
   if (confidence >= 0.4) return THEME.warning;
@@ -57,41 +58,41 @@ const styles = {
   },
 } as const;
 
+// O(n) time, O(n) space — n = data sources for the building (one chip each)
 export const SourceSelector: React.FC<SourceSelectorProps> = ({
   sources,
   selectedSourceId,
   onSourceChange,
 }) => {
-  return (
-    <div style={styles.container}>
-      {sources.map((source) => {
-        const isSelected = source.id === selectedSourceId;
-        const typeColor = SOURCE_TYPE_COLORS[source.source_type] ?? THEME.accent;
-        const label = SOURCE_TYPE_LABELS[source.source_type] ?? source.source_type;
+  // O(n) time, O(n) space — n = data sources (one chip each)
+  const chips = sources.map((source) => {
+    const isSelected = source.id === selectedSourceId;
+    const typeColor = SOURCE_TYPE_COLORS[source.source_type] ?? THEME.accent;
+    const label = SOURCE_TYPE_LABELS[source.source_type] ?? source.source_type;
 
-        return (
-          <button
-            key={source.id}
-            style={{
-              ...styles.chip,
-              background: isSelected
-                ? `${typeColor}18`
-                : THEME.bgSecondary,
-              borderColor: isSelected ? typeColor : THEME.border,
-              color: isSelected ? THEME.text : THEME.textMuted,
-            }}
-            onClick={() => onSourceChange(source.id)}
-          >
-            <span>{label}</span>
-            <span
-              style={{
-                ...styles.confidenceDot,
-                background: getConfidenceColor(source.confidence),
-              }}
-            />
-          </button>
-        );
-      })}
-    </div>
-  );
+    return (
+      <button
+        key={source.id}
+        style={{
+          ...styles.chip,
+          background: isSelected
+            ? `${typeColor}18`
+            : THEME.bgSecondary,
+          borderColor: isSelected ? typeColor : THEME.border,
+          color: isSelected ? THEME.text : THEME.textMuted,
+        }}
+        onClick={() => onSourceChange(source.id)}
+      >
+        <span>{label}</span>
+        <span
+          style={{
+            ...styles.confidenceDot,
+            background: getConfidenceColor(source.confidence),
+          }}
+        />
+      </button>
+    );
+  });
+
+  return <div style={styles.container}>{chips}</div>;
 };

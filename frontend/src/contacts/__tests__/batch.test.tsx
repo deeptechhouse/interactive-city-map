@@ -113,6 +113,82 @@ describe('store batch helpers', () => {
   });
 });
 
+describe('ContactListStore.applyOwnerAnswer (single commit, 2026-10-06)', () => {
+  it('fills every building at the street with ONE commit and leaves the others alone', () => {
+    const store = new ContactListStore(null, 'chicago', [
+      building('b1', '1001 W NORTH AVE'),
+      building('b2', '1001 w north ave'),
+      building('b3', '5 N STATE ST'),
+    ]);
+    const before = store.getSnapshot();
+    const notify = vi.fn();
+    store.subscribe(notify);
+
+    store.applyOwnerAnswer('1001 W NORTH AVE', FOUND);
+
+    expect(notify).toHaveBeenCalledTimes(1);
+    const after = store.getSnapshot();
+    expect(after.map((b) => b.owners[0].skipTrace)).toEqual(['found', 'found', before[2].owners[0].skipTrace]);
+    expect(after[2]).toBe(before[2]); // untouched building keeps its identity
+    expect(after[0].owners[0].extraPhones).not.toBe(after[1].owners[0].extraPhones); // each gets its own copy
+  });
+
+  it('writes the reason note and skips the commit when nothing matches', () => {
+    const store = new ContactListStore(null, 'chicago', [building('b1', '1001 W NORTH AVE')]);
+    const notify = vi.fn();
+    store.subscribe(notify);
+    store.applyOwnerAnswer('9 NOWHERE ST', FOUND);
+    expect(notify).not.toHaveBeenCalled();
+    store.applyOwnerAnswer('1001 W NORTH AVE', { status: 'unavailable', reason: 'out of credits' } as never);
+    expect(store.getSnapshot()[0]).toMatchObject({ note: 'out of credits' });
+    expect(store.getSnapshot()[0].owners[0].skipTrace).toBe('unavailable');
+    expect(notify).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ContactListStore batch apply/reset (one commit, 2026-10-06)', () => {
+  const list = () => [
+    building('b1', '1001 W NORTH AVE'),
+    building('b2', '5 N STATE ST'),
+    building('b3', '1001 w north ave'),
+    building('b4', '9 E ELM ST'),
+  ];
+  const REPLY = [
+    { street: '5 N STATE ST', answer: { status: 'not_found', lookedUpAt: '2026-10-01' } as OwnerAnswer },
+    { street: '1001 W NORTH AVE', answer: FOUND },
+    { street: '9 E ELM ST', answer: { status: 'unavailable', reason: 'out of credits' } as OwnerAnswer },
+    { street: '1001 W NORTH AVE', answer: { status: 'unavailable', reason: 'second' } as OwnerAnswer },
+  ];
+
+  it('applyOwnerAnswers gives the same list as applying each answer in order', () => {
+    const one = new ContactListStore(null, 'chicago', list());
+    for (const r of REPLY) one.applyOwnerAnswer(r.street, r.answer);
+    const batch = new ContactListStore(null, 'chicago', list());
+    const notify = vi.fn();
+    batch.subscribe(notify);
+    batch.applyOwnerAnswers(REPLY);
+    expect(batch.getSnapshot()).toEqual(one.getSnapshot());
+    expect(notify).toHaveBeenCalledTimes(1);
+  });
+
+  it('resetPendingOwners matches per-building resets with one commit', () => {
+    const ids = ['b1', 'b2', 'b4', 'missing'];
+    const one = new ContactListStore(null, 'chicago', list());
+    one.markOwnersPending(['b1', 'b2', 'b3']);
+    one.applyOwnerAnswer('5 N STATE ST', FOUND); // b2 no longer pending — must stay found
+    for (const id of ids) one.resetPendingOwner(id);
+    const batch = new ContactListStore(null, 'chicago', list());
+    batch.markOwnersPending(['b1', 'b2', 'b3']);
+    batch.applyOwnerAnswer('5 N STATE ST', FOUND);
+    const notify = vi.fn();
+    batch.subscribe(notify);
+    batch.resetPendingOwners(ids);
+    expect(batch.getSnapshot()).toEqual(one.getSnapshot());
+    expect(batch.getSnapshot().map((b) => b.owners[0]?.skipTrace)).toEqual(['idle', 'found', 'pending', 'idle']);
+    expect(notify).toHaveBeenCalledTimes(1);
+  });
+});
+
 // ---------------------------------------------------------------------------
 
 describe('OwnerBatchRunner', () => {

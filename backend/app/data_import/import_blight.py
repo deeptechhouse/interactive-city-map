@@ -36,7 +36,7 @@ from datetime import datetime, timezone
 
 from shapely.geometry import Point, mapping, shape
 
-from app.data_import.base_importer import BaseImporter
+from app.data_import.base_importer import BaseImporter, insert_rows
 from app.data_import.arcgis_helper import ArcGISFeatureServerClient
 
 # Only the fields transform() reads — blight_tickets has 48, this cuts the payload ~5x.
@@ -280,10 +280,10 @@ class BlightImporter(BaseImporter):
                  r["source"], r["geom_json"])
                 for r in records
             ]
-            # O(n) time, O(c) space — n = records; c = chunk_size rows per executemany
+            # O(n) time, O(c) space — n = records; c = chunk_size rows per insert_rows call
             for i in range(0, len(batch), chunk_size):
                 chunk = batch[i : i + chunk_size]
-                cur.executemany(sql, chunk)
+                insert_rows(cur, sql, chunk)
                 total += len(chunk)
                 self._log.info("loaded_chunk", progress=total, total=len(batch))
             conn.commit()

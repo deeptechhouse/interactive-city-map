@@ -4,6 +4,7 @@ import { RAILROAD_ROW_PARCELS } from './data/railroadRowData';
 
 const SOURCE_ID = 'railroad-row-source';
 
+// O(1) time, O(1) space
 export function addRailroadRowLayer(map: maplibregl.Map, config: LayerConfig): void {
   if (!map.getSource(SOURCE_ID)) {
     map.addSource(SOURCE_ID, {
@@ -66,6 +67,7 @@ export function addRailroadRowLayer(map: maplibregl.Map, config: LayerConfig): v
   } as maplibregl.AddLayerObject);
 }
 
+// O(1) time, O(1) space
 export function getRailroadRowLayerIds(configId: string): string[] {
   return [
     `${configId}-fill`,

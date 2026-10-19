@@ -4,6 +4,7 @@ import { IS_STATIC } from '../utils/staticMode';
 class ApiClient {
   private baseUrl: string;
 
+  // O(1) time, O(1) space
   constructor() {
     this.baseUrl = apiBaseUrl();
   }
@@ -81,6 +82,7 @@ class ApiClient {
 }
 
 export class ApiError extends Error {
+  // O(m) time, O(m) space — m = length of the response body text (copied into the message)
   constructor(
     public readonly status: number,
     public readonly body: string,

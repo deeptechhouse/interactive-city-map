@@ -7,7 +7,8 @@ export const IL_SOS_SEARCH_URL = 'https://apps.ilsos.gov/businessentitysearch/';
 
 /**
  * Only render http(s) links. Websites come from third-party place data; a
- * "javascript:" URL in an href would run in our page when clicked (XSS). O(n).
+ * "javascript:" URL in an href would run in our page when clicked (XSS).
+ * O(n) time, O(n) space — n = URL length.
  */
 export function safeHref(url: string): string | null {
   const trimmed = url.trim();
@@ -22,6 +23,7 @@ export function safeHref(url: string): string | null {
 }
 
 /** "Oct 2, 2026" from an ISO date; '' stays ''. */
+// O(n) time, O(1) space — n = length of the ISO date string
 export function formatLookupDate(iso: string): string {
   const t = Date.parse(iso);
   return Number.isNaN(t) ? '' : new Date(t).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });

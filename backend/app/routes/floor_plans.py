@@ -14,6 +14,7 @@ from app.services import floor_plan_service
 router = APIRouter(tags=["floor_plans"])
 
 
+# O(1) time, O(1) space
 def _floor_plan_to_dict(fp: FloorPlan) -> dict:
     """Convert a FloorPlan ORM object to a response dict."""
     return {
@@ -30,16 +31,19 @@ def _floor_plan_to_dict(fp: FloorPlan) -> dict:
 
 
 @router.get("/buildings/{building_id}/floor-plans")
+# O(log n + p log p) time, O(p) space — n = floor plans in the database; p = floor plans of this building (sorted by level)
 async def list_floor_plans(
     building_id: uuid.UUID,
     session: AsyncSession = Depends(get_async_session),
 ):
     """Return all floor plans for the given building."""
     plans = await floor_plan_service.get_floor_plans(building_id, session)
+    # O(p) time, O(p) space — p = floor plans of this building
     return [_floor_plan_to_dict(fp) for fp in plans]
 
 
 @router.post("/buildings/{building_id}/floor-plans", status_code=201)
+# O(log n + f) time, O(f) space — n = rows in buildings/floor_plans lookups and insert; f = bytes of the uploaded file (read fully into memory)
 async def upload_floor_plan(
     building_id: uuid.UUID,
     level: int = Form(...),
@@ -69,6 +73,7 @@ async def upload_floor_plan(
 
 
 @router.get("/floor-plans/{floor_plan_id}")
+# O(log n) time, O(1) space — n = floor plans in the database (primary-key lookup)
 async def get_floor_plan(
     floor_plan_id: uuid.UUID,
     session: AsyncSession = Depends(get_async_session),

@@ -18,6 +18,7 @@ class RoomSegmenter:
     5. Extract and simplify contours.
     """
 
+    # O(1) time, O(1) space
     def __init__(self, min_room_area: int = 500, max_room_area: int = 500_000) -> None:
         self._min_room_area = min_room_area  # pixels
         self._max_room_area = max_room_area
@@ -26,6 +27,7 @@ class RoomSegmenter:
     # Public API
     # ------------------------------------------------------------------
 
+    # O(P + W + C) time, O(P + C) space — P = image pixels; W = wall lines; C = contour points found
     def segment(
         self,
         image: np.ndarray,
@@ -49,6 +51,7 @@ class RoomSegmenter:
 
         # Reinforce detected wall lines onto the binary mask
         if wall_lines:
+            # O(W) time, O(1) space — W = wall lines (each draw touches ≤ its own pixels, counted in P)
             for x1, y1, x2, y2 in wall_lines:
                 cv2.line(binary, (x1, y1), (x2, y2), 255, 2)
 
@@ -66,6 +69,7 @@ class RoomSegmenter:
         contours, _hierarchy = cv2.findContours(inverted, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
         rooms: list[np.ndarray] = []
+        # O(C) time, O(C) space — C = contour points found by findContours
         for cnt in contours:
             area = cv2.contourArea(cnt)
             if not (self._min_room_area <= area <= self._max_room_area):
@@ -78,20 +82,37 @@ class RoomSegmenter:
 
         return rooms
 
+    # O(V) time, O(V) space — V = total contour vertices
     def contours_to_polygons(self, contours: list[np.ndarray]) -> list[Polygon]:
         """Convert OpenCV contours to Shapely Polygons.
 
-        Invalid or degenerate polygons are silently skipped.
+        Invalid or degenerate polygons are silently skipped — so the result does
+        NOT line up with *contours*. Anything that also indexes the contours
+        (label matches, masks) must use :meth:`indexed_polygons` instead.
         """
-        polygons: list[Polygon] = []
-        for cnt in contours:
+        # O(R) time, O(R) space — R = kept polygons
+        return [poly for _, poly in self.indexed_polygons(contours)]
+
+    # O(V) time, O(V) space — V = total contour vertices
+    def indexed_polygons(self, contours: list[np.ndarray]) -> list[tuple[int, Polygon]]:
+        """Like :meth:`contours_to_polygons`, but each polygon keeps its contour index.
+
+        TRAP (fixed 2026-10-06): callers used to zip/enumerate the filtered
+        polygon list against the unfiltered contours. After the first dropped
+        contour every later room got its neighbour's OCR label and material.
+        """
+        polygons: list[tuple[int, Polygon]] = []
+        # O(V) time, O(V) space — V = total contour vertices
+        for idx, cnt in enumerate(contours):
+            # O(v) time, O(v) space — v = vertices of this contour (sums to V)
+            # bigo-lint: disable=BIGO006 — amortised: each vertex is read once across all contours
             pts = [(int(p[0][0]), int(p[0][1])) for p in cnt]
             if len(pts) < 3:
                 continue
             try:
                 poly = Polygon(pts)
                 if poly.is_valid and not poly.is_empty:
-                    polygons.append(poly)
+                    polygons.append((idx, poly))
             except Exception:
                 continue
         return polygons

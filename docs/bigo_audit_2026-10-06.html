@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Big O Audit</title>
+<style>
+  :root {
+    --bg: #f7f6f2; --panel: #ffffff; --ink: #1d1f24; --muted: #5d6270; --line: #dcdad3;
+    --accent: #2f5d8a; --high: #a3271f; --med: #9a5b00; --low: #3c6e3c; --code-bg: #efede7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15171b; --panel: #1d2026; --ink: #e8e6e1; --muted: #a2a7b3; --line: #33373f;
+      --accent: #8db8e3; --high: #ff8a80; --med: #f2b45c; --low: #8fcf8f; --code-bg: #262a31;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #15171b; --panel: #1d2026; --ink: #e8e6e1; --muted: #a2a7b3; --line: #33373f;
+    --accent: #8db8e3; --high: #ff8a80; --med: #f2b45c; --low: #8fcf8f; --code-bg: #262a31;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.7rem; margin: 0 0 4px; }
+  h2 { font-size: 1.2rem; margin: 40px 0 10px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+  .tile b { display: block; font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+  .tile span { color: var(--muted); font-size: .88rem; }
+  .answer { background: var(--panel); border-left: 4px solid var(--high); padding: 12px 16px; border-radius: 4px; }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); font-size: .9rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 3px; font-size: .85em; word-break: break-word; }
+  .sev { font-weight: 700; font-size: .78rem; text-transform: uppercase; }
+  .high { color: var(--high); } .med { color: var(--med); } .low { color: var(--low); }
+  .bar { height: 8px; background: var(--line); border-radius: 4px; min-width: 80px; }
+  .bar i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+  ul { padding-left: 20px; }
+</style>
+</head>
+<body>
+<main>
+<h1>Big O Audit — interactive-city-map</h1>
+<p class="sub">Branch <code>chore/bigo-audit</code> (from <code>feat/multi-city</code> @ c3a055d) · 2026-10-06 · Rule: ~/.claude/CLAUDE.md §41 · Tool: bigo-lint + manual review</p>
+
+<h2>Answer</h2>
+<div class="answer">
+  <p><strong>No.</strong> 881 of the 1,731 functions and loops (51%) have a valid Big O annotation. 798 have none, and 52 have an annotation in the wrong format. Of the 239 source files that contain functions or loops, 100 are fully annotated, 137 have no annotations at all, and 2 are partly done.</p>
+  <p>The annotated half is clean: it contains <strong>no</strong> super-linear code that lacks a recorded exception. Reading the unannotated half by hand found <strong>9 super-linear or N+1 defects</strong> and 1 minor one. They are in the interior / floor-plan pipeline, the venue scraper and two frontend components. The audit also found 4 weakly justified <code>bigo-allow</code> exceptions and 1 correctness bug, which is not a Big O issue.</p>
+</div>
+
+<div class="tiles" style="margin-top:16px">
+  <div class="tile"><b>1,731</b><span>constructs (1,123 functions · 608 loops / iteration calls)</span></div>
+  <div class="tile"><b>881</b><span>validly annotated (51%)</span></div>
+  <div class="tile"><b>798</b><span>unannotated (547 BIGO001 + 251 BIGO002)</span></div>
+  <div class="tile"><b>52</b><span>malformed (BIGO003: time/space missing)</span></div>
+  <div class="tile"><b>9 + 1</b><span>defects found in unannotated code (+1 minor)</span></div>
+</div>
+
+<h2>Coverage by directory</h2>
+<div class="scroll"><table>
+<thead><tr><th>Directory</th><th class="num">Files</th><th class="num">Constructs</th><th class="num">Annotated</th><th class="num">Malformed</th><th>Coverage</th></tr></thead>
+<tbody>
+<tr><td><code>backend/app/data_import</code></td><td class="num">57</td><td class="num">466</td><td class="num">345</td><td class="num">0</td><td><div class="bar"><i style="width:74%"></i></div>74%</td></tr>
+<tr><td><code>frontend/src/map</code></td><td class="num">46</td><td class="num">203</td><td class="num">107</td><td class="num">0</td><td><div class="bar"><i style="width:53%"></i></div>53%</td></tr>
+<tr><td><code>frontend/src/contacts</code></td><td class="num">14</td><td class="num">194</td><td class="num">144</td><td class="num">12</td><td><div class="bar"><i style="width:74%"></i></div>74%</td></tr>
+<tr><td><code>backend/app/services</code></td><td class="num">22</td><td class="num">186</td><td class="num">5</td><td class="num">6</td><td><div class="bar"><i style="width:3%"></i></div>3%</td></tr>
+<tr><td><code>backend/app/adapters</code></td><td class="num">7</td><td class="num">125</td><td class="num">27</td><td class="num">12</td><td><div class="bar"><i style="width:22%"></i></div>22%</td></tr>
+<tr><td><code>frontend/src/interior</code></td><td class="num">22</td><td class="num">114</td><td class="num">0</td><td class="num">0</td><td><div class="bar"><i style="width:0%"></i></div>0%</td></tr>
+<tr><td><code>backend/app/routes</code></td><td class="num">11</td><td class="num">104</td><td class="num">41</td><td class="num">0</td><td><div class="bar"><i style="width:39%"></i></div>39%</td></tr>
+<tr><td><code>frontend/src/cities</code></td><td class="num">14</td><td class="num">84</td><td class="num">84</td><td class="num">0</td><td><div class="bar"><i style="width:100%"></i></div>100%</td></tr>
+<tr><td><code>frontend/src/utils</code></td><td class="num">7</td><td class="num">58</td><td class="num">30</td><td class="num">2</td><td><div class="bar"><i style="width:52%"></i></div>52%</td></tr>
+<tr><td><code>frontend/src/presets</code></td><td class="num">6</td><td class="num">50</td><td class="num">16</td><td class="num">14</td><td><div class="bar"><i style="width:32%"></i></div>32%</td></tr>
+<tr><td><code>frontend/src/discovery</code></td><td class="num">5</td><td class="num">48</td><td class="num">48</td><td class="num">0</td><td><div class="bar"><i style="width:100%"></i></div>100%</td></tr>
+<tr><td><code>frontend/src/focus</code></td><td class="num">5</td><td class="num">29</td><td class="num">17</td><td class="num">6</td><td><div class="bar"><i style="width:59%"></i></div>59%</td></tr>
+<tr><td><code>frontend/src/api</code></td><td class="num">6</td><td class="num">28</td><td class="num">4</td><td class="num">0</td><td><div class="bar"><i style="width:14%"></i></div>14%</td></tr>
+<tr><td><code>frontend/src/panels</code></td><td class="num">5</td><td class="num">15</td><td class="num">0</td><td class="num">0</td><td><div class="bar"><i style="width:0%"></i></div>0%</td></tr>
+<tr><td><code>backend/alembic</code> (all)</td><td class="num">6</td><td class="num">12</td><td class="num">2</td><td class="num">0</td><td><div class="bar"><i style="width:17%"></i></div>17%</td></tr>
+<tr><td><code>backend/scripts</code>, <code>backend/app</code> root, <code>frontend/src</code> root</td><td class="num">6</td><td class="num">15</td><td class="num">11</td><td class="num">0</td><td><div class="bar"><i style="width:73%"></i></div>73%</td></tr>
+</tbody></table></div>
+<p class="sub">Tests, generated code and vendored code are exempt under §41 and are left out of these counts. The shell scripts (<code>run.sh</code>, <code>setup.sh</code>, <code>deploy/</code>) have nothing for bigo-lint to check.</p>
+
+<h2>Super-linear defects found in unannotated code</h2>
+<p>None of these is annotated, so the linter cannot see them. Each one was confirmed by reading the code. Severity reflects input size × how often the code runs.</p>
+<div class="scroll"><table>
+<thead><tr><th>Sev</th><th>Location</th><th>Current bound</th><th>Cause</th><th>Refactor → target</th></tr></thead>
+<tbody>
+<tr><td class="sev high">High</td><td><code>backend/app/data_import/interior/permit_importer.py:47</code></td><td>O(P·B) time, O(B) space — P = permits, B = buildings with an address</td><td>Runs <code>SELECT Building WHERE address IS NOT NULL</code> again for <em>every</em> permit (N+1 over the whole table), then scans every building and re-normalises its address.</td><td>Query once and build a <code>dict[normalized_address → Building]</code>, then look up each permit in O(1) → <strong>O(P + B)</strong>.</td></tr>
+<tr><td class="sev high">High</td><td><code>backend/app/services/extractors/sanborn_parser.py:141</code></td><td>O(R·H·W) time — R = rooms, H·W = image pixels</td><td>Allocates a full-image <code>np.zeros(image.shape)</code> mask for every room and runs <code>detect_material</code> over the whole image.</td><td>Crop to <code>cv2.boundingRect(cnt)</code> and draw the mask in that ROI → <strong>O(Σ room-bbox area)</strong>, which is at most O(H·W) for non-overlapping rooms.</td></tr>
+<tr><td class="sev high">High</td><td><code>backend/app/services/extractors/line_detector.py:91</code> (<code>_merge_collinear</code>)</td><td>O(L²) time, O(L) space — L = Hough line segments</td><td>Compares every segment with every other one. HoughLinesP output is not capped, so a detailed Sanborn sheet can produce thousands of segments.</td><td>Bucket segments by angle (θ bins of size <code>angle_thresh</code>) and by a midpoint grid (cell = <code>dist_thresh</code>), then compare only the neighbouring cells → <strong>O(L)</strong> expected.</td></tr>
+<tr><td class="sev med">Med</td><td><code>backend/app/services/extractors/text_extractor.py:101</code> (<code>match_labels_to_rooms</code>)</td><td>O(T·R·v) time — T = text labels, R = room contours, v = vertices per contour</td><td>Tests every label against every contour in turn with <code>pointPolygonTest</code>.</td><td>Build a Shapely <code>STRtree</code> of the room polygons once and query it for each label's centre → <strong>O((T + R) log R)</strong>.</td></tr>
+<tr><td class="sev med">Med</td><td><code>frontend/src/map/controls/POIListPanel.tsx:270</code></td><td>O(n²) per render — n = visible POIs</td><td><code>pois.indexOf(poi)</code> runs for every rendered item on every render, including each hover state change (line 273 repeats it on each mouse-enter).</td><td>Store <code>hoverId = poi.id</code> instead of an index, or precompute a <code>Map&lt;id, index&gt;</code> in a <code>useMemo</code> → <strong>O(n)</strong>.</td></tr>
+<tr><td class="sev med">Med</td><td><code>backend/app/services/venue_scraper_service.py:73,115,117</code></td><td>O(A·Q) time — A = anchors seen, Q = queue length</td><td><code>to_visit.pop(0)</code> and <code>insert(0, …)</code> on a list cost O(Q) each. Links are also queued without deduplication, so the queue grows with every duplicate anchor.</td><td>Use <code>collections.deque</code> (<code>popleft</code> / <code>appendleft</code>) plus a <code>queued</code> set → <strong>O(A)</strong>.</td></tr>
+<tr><td class="sev med">Med</td><td><code>frontend/src/interior/utils/drawModes.ts:30</code> (<code>isValidPolygon</code>)</td><td>O(v²) time, O(1) space — v = polygon vertices</td><td>Checks every pair of edges for intersection. v comes from user drawing or imported geometry, and nothing caps it.</td><td>Either enforce a vertex cap and record <code>bigo-allow</code> with that cap, or use a Shamos–Hoey sweep → <strong>O(v log v)</strong>.</td></tr>
+<tr><td class="sev med">Med</td><td><code>backend/app/data_import/interior/osm_indoor.py:93</code></td><td>W round trips — W = indoor ways (each round trip O(log B) via GiST)</td><td>N+1: one <code>ST_Contains</code> query per way.</td><td>Send all centroids in one query (<code>VALUES</code> / unnest joined against <code>buildings</code>) → <strong>1 round trip</strong>, O(W log B).</td></tr>
+<tr><td class="sev low">Low</td><td><code>backend/app/data_import/interior/venue_scraper_runner.py:168</code></td><td>C extra queries per target — C = candidate images</td><td>Loop-invariant query: <code>_get_building_city_id(target.building_id)</code> runs once per candidate, but <code>target.building_id</code> never changes inside the loop.</td><td>Move it above the <code>for candidate</code> loop → <strong>1 query per target</strong>.</td></tr>
+<tr><td class="sev low">Low</td><td><code>frontend/src/contacts/publicRecords.ts:194</code></td><td>O(r·a) — r = rows (≤ 200, set by <code>$limit</code>), a = joined activity string length</td><td><code>existing.activity.includes(activity)</code> searches a string that grows with each merge.</td><td>Keep a <code>Set</code> of activities per key and join once at the end → O(r). Bounded by the 200-row limit, so this is low priority.</td></tr>
+</tbody></table></div>
+
+<h2>Recorded exceptions (<code>bigo-allow</code>) — review</h2>
+<p><code>bigo-lint --report</code> lists 9 annotated constructs above O(n log n). Every one has an exception recorded, but 4 do not meet §41's "proven small bound" standard:</p>
+<div class="scroll"><table>
+<thead><tr><th>Verdict</th><th>Location</th><th>Bound</th><th>Recorded reason</th></tr></thead>
+<tbody>
+<tr><td class="sev low">OK</td><td><code>frontend/src/map/controls/BuildingLegend.tsx:131, 150</code></td><td>O(l·i)</td><td>Fixed sizes: 5 sublayers × 8 legend items. This is a proven constant.</td></tr>
+<tr><td class="sev low">OK</td><td><code>backend/app/data_import/detroit/import_boundaries.py:168, 178</code></td><td>O(z·c)</td><td>z ≤ 72 ZCTAs in the Detroit bbox. This is a dataset bound.</td></tr>
+<tr><td class="sev med">Weak</td><td><code>backend/app/data_import/detroit/common.py:71, 107</code></td><td>O(r·o)</td><td>"almost always ≤ 3" rings. Being usually small is not a proof: multipolygon footprints with many holes can exceed it. Fix: put the shells in an STRtree, or assert the bound.</td></tr>
+<tr><td class="sev med">Weak</td><td><code>frontend/src/contacts/ContactListStore.ts:334, 338</code></td><td>O(n + m·s)</td><td>"normally 1" building per street address. Duplicate-address selections can raise m. Fix: commit once after the loop instead of once per match → O(n + s).</td></tr>
+</tbody></table></div>
+
+<h2>Malformed annotations (BIGO003) — 52</h2>
+<p>These constructs were analysed, but their annotations use the old docstring style (<code>"""… O(n)."""</code>) or leave out <code>time</code>/<code>space</code>. They need rewriting to <code>O(..) time, O(..) space — n = ..</code>:</p>
+<ul>
+  <li><code>backend/app/adapters/</code>: <code>http_json.py</code> (3), <code>owner_lookup.py</code> (5), <code>tracerfy_batch.py</code> (4)</li>
+  <li><code>backend/app/services/</code>: <code>owner_batch_service.py</code>, <code>owner_lookup_service.py</code>, <code>owner_result_store.py</code> (1 each), <code>phone_lookup_service.py</code> (3)</li>
+  <li><code>frontend/src/contacts/</code>: <code>OwnerBatchRunner.ts</code> (3), <code>SelectedBuildingsLayer.ts</code>, <code>links.ts</code> (1 each), <code>ownerNames.ts</code> (4), <code>publicRecords.ts</code> (3)</li>
+  <li><code>frontend/src/focus/</code>: <code>FocusMaskLayer.ts</code> (2), <code>focusAreas.ts</code> (1), <code>focusGeometry.ts</code> (3)</li>
+  <li><code>frontend/src/presets/</code>: <code>SavedSearchesPanel.tsx</code> (2), <code>SearchStateContext.tsx</code> (1), <code>savedSearches.ts</code> (7), <code>searchState.ts</code> (4)</li>
+  <li><code>frontend/src/utils/safeStorage.ts</code> (2)</li>
+</ul>
+
+<h2>Side finding — correctness (not Big O)</h2>
+<p><code>RoomSegmenter.contours_to_polygons</code> (<code>room_segmenter.py:81</code>) silently drops invalid contours. Its callers still index the result as if it lined up with <code>contours</code>:</p>
+<ul>
+  <li><code>floor_plan_extractor.py:219</code> uses <code>label_matches.get(i)</code> with a polygon index, but <code>label_matches</code> is keyed by contour index.</li>
+  <li><code>sanborn_parser.py:141</code> uses <code>zip(polygons, contours)</code>.</li>
+</ul>
+<p>After the first dropped contour, every later room gets the wrong label and material. Fix: have <code>contours_to_polygons</code> return <code>(contour_index, polygon)</code> pairs.</p>
+
+<h2>Method &amp; limits</h2>
+<ul>
+  <li><strong>Coverage:</strong> I ran <code>bigo-lint</code> 1.x over <code>backend/</code>, <code>frontend/src</code>, <code>frontend/e2e</code> and <code>scripts/</code>, and enumerated every construct through its engine API to get the totals.</li>
+  <li><strong>Unannotated code:</strong> I screened every outermost unannotated loop or iteration call for nesting or linear-cost calls inside the loop (<code>indexOf</code>/<code>includes</code>/<code>find</code>/<code>filter</code>, <code>sort</code>, DB/HTTP calls, <code>in &lt;list&gt;</code>). That gave 36 candidates, which I read by hand: 10 confirmed defects, 26 linear or bounded.</li>
+  <li><strong>Not covered:</strong> super-linear cost reached <em>through</em> a call to an unannotated helper from a plain function body (no loop at the call site), and costs inside SQL (query plans were not EXPLAINed). The JS/TS parser is heuristic (see <code>/usr/local/lib/bigo-lint/README.html</code>). The 798 unannotated constructs were not individually given bounds. Doing that would be the full retrofit, which is deferred by your 2026-10-02 decision.</li>
+  <li><strong>Linter report:</strong> <code>bigo_report.html</code> (repo root) lists the 9 annotated super-linear constructs and their exceptions.</li>
+</ul>
+
+<h2>Resolution — branch <code>fix/bigo-defects</code> (2026-10-06)</h2>
+<div class="answer" style="border-left-color: var(--low)">
+  <p><strong>Every finding in this report is fixed.</strong> 0 malformed annotations, 0 unjustified super-linear constructs and 0 weak exceptions remain. The unannotated count is down to 696 (from 798) and is locked by <code>.bigo-baseline.json</code>, so it can only go down.</p>
+</div>
+<div class="scroll"><table>
+<thead><tr><th>Finding</th><th>Before</th><th>After</th><th>How it was verified</th></tr></thead>
+<tbody>
+<tr><td><code>permit_importer.py</code></td><td>O(P·B), P full-table queries, no city filter</td><td>O(P + B), 1 query per run, Chicago only</td><td>Unit tests: one query, first match wins, <code>cities.slug = 'chicago'</code> in the SQL. A read-only run on the live DB built an index of 66,139 Chicago addresses.</td></tr>
+<tr><td><code>sanborn_parser.py</code> masks</td><td>O(R·P)</td><td>O(P + A), A = summed room-box area</td><td>Unit test: the cropped mask gives the same pixel count and material as the full-image mask.</td></tr>
+<tr><td><code>line_detector._merge_collinear</code></td><td>O(L²)</td><td>O(L log L + K), two STRtrees</td><td>Matches a brute-force reference on 13 random inputs. <em>Behaviour change:</em> the threshold now uses the sum of half-lengths. The previously failing <code>test_merge_collinear_merges_parallel_nearby</code> now passes.</td></tr>
+<tr><td><code>text_extractor.match_labels_to_rooms</code></td><td>O(T·R·v)</td><td>O(V + T log R + K)</td><td>Matches a brute-force reference on 8 random sets of overlapping rooms. Boundary labels and empty inputs are covered.</td></tr>
+<tr><td><code>POIListPanel.tsx</code></td><td>O(n²) per render</td><td>O(n) per render (hover by id)</td><td>Type-check and lint clean. Hover can no longer point at the wrong row after the list refreshes.</td></tr>
+<tr><td><code>venue_scraper_service.crawl</code></td><td>O(A·Q)</td><td>O(G + A), deque</td><td>Crawl-order test passes against both the old and the new code, so the visit order is identical.</td></tr>
+<tr><td><code>drawModes.isValidPolygon</code></td><td>O(v²), v unbounded</td><td>O(v²) with v ≤ 100 enforced (<code>MAX_ROOM_VERTICES</code>)</td><td>New vitest. The editor refuses a room's 101st corner with a message.</td></tr>
+<tr><td><code>osm_indoor.py</code></td><td>W round trips</td><td>⌈W/1000⌉ round trips (VALUES join, DISTINCT ON)</td><td>Read-only check on the live PostGIS with 500 points: 346/346 matches identical to the old per-row query.</td></tr>
+<tr><td><code>venue_scraper_runner.py</code></td><td>2 queries per floor plan</td><td>1 query per target, lazily</td><td>Unit tests: 4 plans → 1 query; no plans → 0 queries.</td></tr>
+<tr><td><code>publicRecords.ts</code> activities</td><td>O(r·a) substring search</td><td>O(r), Set per business</td><td>Existing contacts tests pass. Only exact repeats are dropped now.</td></tr>
+<tr><td><code>detroit/common.split_arcgis_rings</code> (weak exception)</td><td>O(r·o), "almost always ≤ 3"</td><td>O(v + r log o + K), STRtree</td><td>New tests: 30-part footprint; first containing shell wins on overlap. Detroit parity tests pass.</td></tr>
+<tr><td><code>ContactListStore.applyOwnerAnswer</code> (weak exception)</td><td>O(m·s), up to 2m commits</td><td>O(s), 1 commit</td><td>New tests: one notify, untouched buildings keep their identity, the reason note is written. The stored list format is unchanged.</td></tr>
+<tr><td>Contour/polygon index bug</td><td>labels and materials shifted after a dropped contour</td><td><code>RoomSegmenter.indexed_polygons</code> keeps contour indices</td><td>New test: bow-tie contour, then Kitchen and Office labels land on the right rooms.</td></tr>
+<tr><td>52 malformed annotations</td><td>BIGO003</td><td>0</td><td>The 49 left after the code fixes were rewritten one by one; the rest went with the rewritten files. Long docstring annotations were moved into <code># O(..)</code> comments above the function.</td></tr>
+</tbody></table></div>
+<h2>Test results vs. baseline (<code>c3a055d</code>)</h2>
+<ul>
+  <li><strong>Backend:</strong> 464 passed and 7 failed. The 7 also fail on the baseline (<code>test_routes</code> buildings/POI endpoints and the map-server range request), and none touch the changed code. One baseline failure was fixed. The run used a stubbed OCR, because Tesseract isn't installed on this Mac.</li>
+  <li><strong>Frontend:</strong> 297 passed and 51 failed. The 51 are identical to the baseline: the interior component tests run in vitest's <code>node</code> environment, which has no <code>document</code>. <code>tsc</code> shows no new errors (one existing error is fixed), ESLint is clean on the changed files, and the production bundle builds.</li>
+  <li><strong>Paid lookup caches:</strong> backed up to <code>backend/data/backup_20261006/</code> (both checkouts, gitignored) and never written. The main checkout still has 76 owner results, with an unchanged file date. Browser storage keys and formats are unchanged.</li>
+</ul>
+<h2>Still open (not part of this report's findings)</h2>
+<ul>
+  <li>696 legacy functions and loops are still unannotated. They are locked by the baseline and get annotated when their files are next edited.</li>
+  <li>The repo has no pre-commit hook, so <code>bigo-lint --changed</code> isn't enforced at commit time. <code>/usr/local/lib/bigo-lint/pre-commit-snippet.yaml</code> can be added.</li>
+  <li>The Sanborn branch runs line detection and OCR twice. That is the same Big O at roughly twice the cost, and is noted in <code>floor_plan_extractor.py</code>.</li>
+  <li>The repo-wide ruff, Prettier and tsc backlogs predate this work. New lines over 100 characters are the one-line §41 annotation comments.</li>
+</ul>
+<h2>Live-code sweep — branch <code>chore/bigo-relevant-check</code> (2026-10-06)</h2>
+<div class="answer" style="border-left-color: var(--low)">
+  <p><strong>Every function and loop in live code has now been checked, and each carries a time/space note.</strong> 686 previously unannotated constructs were analysed. Only the 10 in Alembic migrations (one-time schema scripts) are left without notes, by design, and <code>.bigo-baseline.json</code> now records just those 10.</p>
+</div>
+<ul>
+  <li><strong>How it was done:</strong> 9 Sonnet agents, each owning a separate set of files. They were barred from making network or database calls, from touching caches, storage formats and city scoping, and from changing behaviour without a test.</li>
+  <li><strong>Accuracy check:</strong> three independent reviewers re-derived a stratified sample of 150 notes. The sample was every exception and amortisation note, 110 random non-trivial notes and 25 random trivial ones. Results: 141 of 146 correct, 3 wrong bounds and 2 unenforced justifications, all corrected. All 17 JSX <code>.map()</code> moves were confirmed behaviour-identical.</li>
+</ul>
+<div class="scroll"><table>
+<thead><tr><th>Found by the sweep</th><th>Before</th><th>After</th><th>Verified by</th></tr></thead>
+<tbody>
+<tr><td><code>OwnerBatchRunner</code> applying batch answers</td><td>one full list copy and save per answer, O(r·s)</td><td><code>applyOwnerAnswers</code> / <code>resetPendingOwners</code>: one pass, one commit</td><td>Tests show the result equals applying answers one by one; listeners are notified once.</td></tr>
+<tr><td>8 importers + Dayton <code>replace_rows</code></td><td><code>executemany</code>: one INSERT round trip per row</td><td><code>insert_rows</code> (<code>execute_values</code>, 1000 rows per statement)</td><td>Throwaway PostGIS with migrations 001–004: 2,500 rows per loader, counts, valid geometry and idempotent re-runs.</td></tr>
+<tr><td>Moderation queue</td><td>fetched every source with the status, then sliced</td><td><code>LIMIT</code> applied in SQL</td><td>Unit test on the generated SQL.</td></tr>
+<tr><td><code>PhoneLookupService</code> chain cache</td><td>one entry per arbitrary city slug (unbounded)</td><td>configured cities plus one shared default</td><td>Test: 500 made-up slugs build 2 chains.</td></tr>
+<tr><td><code>RailroadLayer</code> colours</td><td>expression rebuilt per status layer, O(s·k)</td><td>built once, O(s + k)</td><td>tsc, ESLint</td></tr>
+<tr><td><code>import_sanborn._safe_filename</code></td><td>repeat-until-stable loop</td><td>one regex pass, O(L)</td><td>Spot checks on sample titles.</td></tr>
+<tr><td><code>floor_plan_classifier.train</code></td><td>O(n³) kernel-SVM fit, unrecorded</td><td><code>bigo-allow</code>: offline only, with no caller in app or scripts</td><td>Reviewer confirmed there is no caller.</td></tr>
+</tbody></table></div>
+<p><strong>Recorded, not changed (linear, or not a Big O issue):</strong></p>
+<ul>
+  <li>Building search scans the whole city: <code>similarity()</code> and <code>ILIKE '%q%'</code> can't use an index.</li>
+  <li>Three list routes (buildings by bbox, POIs, railroads) have no row cap, so a response can get very large.</li>
+  <li>Some importers rely on the server honouring a requested page size.</li>
+</ul>
+<p><strong>Tests:</strong> the backend gives 466 passed and 7 failed; the frontend gives 299 passed and 51 failed. All the failures also fail on the baseline. tsc has no new errors, and the paid lookup caches are untouched (76 rows, unchanged file date).</p>
+
+</main>
+</body>
+</html>

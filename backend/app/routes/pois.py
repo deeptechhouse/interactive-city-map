@@ -16,9 +16,11 @@ from app.models import POI, City
 router = APIRouter(tags=["pois"])
 
 
+# O(b) time, O(b) space — b = characters in the bbox query string (parsed into exactly 4 floats or rejected)
 def _parse_bbox(bbox: str) -> tuple[float, float, float, float]:
     """Parse a 'minlon,minlat,maxlon,maxlat' string into four floats."""
     try:
+        # O(b) time, O(b) space — b = characters in the bbox query string (parsed into exactly 4 floats or rejected)
         parts = [float(x.strip()) for x in bbox.split(",")]
         if len(parts) != 4:
             raise ValueError
@@ -30,6 +32,7 @@ def _parse_bbox(bbox: str) -> tuple[float, float, float, float]:
         )
 
 
+# O(g) time, O(g) space — g = characters in the row's GeoJSON geometry string
 def _poi_to_dict(row) -> dict:
     """Convert a POI row (with GeoJSON geometry) to a response dict."""
     poi = row[0] if hasattr(row, "__getitem__") else row
@@ -60,6 +63,7 @@ def _poi_to_dict(row) -> dict:
 
 
 @router.get("/cities/{slug}/pois")
+# O(log n + g) time, O(g) space — n = POIs in the database; g = total GeoJSON characters across the returned rows (POIs of this city matching the optional category/bbox filters via city/GiST/category indexes, no row limit)
 async def list_pois(
     slug: str,
     category: Optional[str] = Query(None, description="Filter by category"),
@@ -85,10 +89,12 @@ async def list_pois(
 
     result = await session.execute(stmt)
     rows = result.all()
+    # O(g) time, O(g) space — g = total GeoJSON characters across the POIs in the result (one dict per row)
     return [_poi_to_dict(row) for row in rows]
 
 
 @router.get("/pois/{poi_id}")
+# O(log n + g) time, O(g) space — n = POIs in the database (primary-key lookup); g = GeoJSON characters of the geometry
 async def get_poi(
     poi_id: uuid.UUID,
     session: AsyncSession = Depends(get_async_session),
@@ -103,6 +109,7 @@ async def get_poi(
 
 
 @router.post("/pois", status_code=201)
+# O(log n + g) time, O(g) space — n = rows in cities/pois (lookups + insert); g = GeoJSON characters of the geometry re-fetched
 async def create_poi(
     name: str,
     category: str,

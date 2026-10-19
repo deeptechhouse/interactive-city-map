@@ -45,7 +45,7 @@ def _city_to_dict(row) -> dict:
 
 
 @router.get("")
-# O(n) time, O(n) space — n = cities (3)
+# O(c) time, O(c) space — c = cities in the database (full table read, no limit)
 async def list_cities(session: AsyncSession = Depends(get_async_session)):
     """Return all cities with their bounds and center as GeoJSON."""
     stmt = select(
@@ -55,12 +55,12 @@ async def list_cities(session: AsyncSession = Depends(get_async_session)):
     )
     result = await session.execute(stmt)
     rows = result.all()
-    # O(n) time, O(n) space — n = cities
+    # O(c) time, O(c) space — c = cities returned
     return [_city_to_dict(row) for row in rows]
 
 
 @router.get("/{slug}")
-# O(1) time, O(1) space — n = 1 city (indexed slug lookup)
+# O(log c) time, O(1) space — c = cities in the database (slug has a unique index)
 async def get_city(slug: str, session: AsyncSession = Depends(get_async_session)):
     """Return city detail including layer configuration."""
     stmt = select(

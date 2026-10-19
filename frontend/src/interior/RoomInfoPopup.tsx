@@ -13,6 +13,7 @@ interface RoomInfoPopupProps {
   onClose: () => void;
 }
 
+// O(1) time, O(1) space
 const formatLevel = (level: number): string => {
   if (level < 0) return `B${Math.abs(level)}`;
   if (level === 0) return 'G';
@@ -67,6 +68,7 @@ const styles = {
   },
 } as const;
 
+// O(1) time, O(1) space
 export const RoomInfoPopup: React.FC<RoomInfoPopupProps> = ({
   room,
   position,

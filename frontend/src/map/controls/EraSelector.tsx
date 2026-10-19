@@ -49,34 +49,38 @@ interface EraSelectorProps {
  * Each era renders as a pill-style button. The selected pill receives
  * the accent highlight colour.
  */
+// O(e) time, O(e) space — e = eras passed in
 export const EraSelector: React.FC<EraSelectorProps> = ({
   eras,
   selectedEraId,
   onSelectEra,
 }) => {
+  // O(e) time, O(e) space — e = eras passed in
+  const eraPills = eras.map((era) => {
+    const isSelected = era.id === selectedEraId;
+    return (
+      <label
+        key={era.id}
+        className={`era-selector__pill ${isSelected ? 'era-selector__pill--active' : ''}`}
+      >
+        <input
+          type="radio"
+          name="sanborn-era"
+          value={era.id}
+          checked={isSelected}
+          onChange={() => onSelectEra(era)}
+          className="era-selector__radio"
+        />
+        <span className="era-selector__pill-text">{era.label}</span>
+      </label>
+    );
+  });
+
   return (
     <fieldset className="era-selector" role="radiogroup" aria-label="Select Sanborn map era">
       <legend className="era-selector__legend">Era</legend>
       <div className="era-selector__pills">
-        {eras.map((era) => {
-          const isSelected = era.id === selectedEraId;
-          return (
-            <label
-              key={era.id}
-              className={`era-selector__pill ${isSelected ? 'era-selector__pill--active' : ''}`}
-            >
-              <input
-                type="radio"
-                name="sanborn-era"
-                value={era.id}
-                checked={isSelected}
-                onChange={() => onSelectEra(era)}
-                className="era-selector__radio"
-              />
-              <span className="era-selector__pill-text">{era.label}</span>
-            </label>
-          );
-        })}
+        {eraPills}
       </div>
 
       <style>{`

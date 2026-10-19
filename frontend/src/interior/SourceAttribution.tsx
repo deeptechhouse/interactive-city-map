@@ -24,6 +24,7 @@ const SOURCE_TYPE_COLORS: Record<string, string> = {
   county_records: '#dc2626',
 };
 
+// O(1) time, O(1) space
 const getConfidenceColor = (confidence: number): string => {
   if (confidence >= 0.7) return THEME.success;
   if (confidence >= 0.4) return THEME.warning;
@@ -54,6 +55,7 @@ const styles = {
   },
 } as const;
 
+// O(1) time, O(1) space
 export const SourceAttribution: React.FC<SourceAttributionProps> = ({
   sourceType,
   sourceDate,

@@ -5,6 +5,7 @@ import { STATIC_ZIP_CODES } from './data/static_zip_codes';
 
 const SOURCE_ID = 'zipcodes-source';
 
+// O(1) time, O(1) space
 export function addZipCodeLayer(map: maplibregl.Map, config: LayerConfig): void {
   const { isGeoJson } = addDualModeSource(map, SOURCE_ID, config.sourceUrl, 'zip_codes', STATIC_ZIP_CODES);
   const slp = sourceLayerProp('zip_codes', isGeoJson);
@@ -58,6 +59,7 @@ export function addZipCodeLayer(map: maplibregl.Map, config: LayerConfig): void 
   } as maplibregl.AddLayerObject);
 }
 
+// O(1) time, O(1) space
 export function getZipCodeLayerIds(configId: string): string[] {
   return [`${configId}-stroke`, `${configId}-label`];
 }

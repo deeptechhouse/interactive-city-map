@@ -12,6 +12,7 @@ import time
 
 import httpx
 import psycopg2
+from psycopg2.extras import execute_values  # multi-row INSERT, paged
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -26,6 +27,28 @@ HTTP_HEADERS = {"User-Agent": USER_AGENT}
 # Cache downloaded files here so re-runs don't re-download
 CACHE_DIR = Path(tempfile.gettempdir()) / "citymap_import_cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+
+
+# ADJUSTABLE: rows per INSERT statement in insert_rows(). Bigger = fewer round trips but a
+# larger statement in memory (a building row with its GeoJSON is ~1-2 KB → ~2 MB at 1000).
+INSERT_PAGE_SIZE = 1000
+
+
+# O(n) time, O(p) space — n = rows inserted; p = INSERT_PAGE_SIZE rows rendered per statement
+def insert_rows(cur, sql: str, rows, page_size: int = INSERT_PAGE_SIZE) -> int:
+    """Run a single-row ``INSERT … VALUES (…)`` for many rows; return how many were sent.
+
+    TRAP (fixed 2026-10-06, Big O audit): ``cursor.executemany`` in psycopg2 sends one
+    INSERT per row — a database round trip per record, ~180k for Chicago buildings.
+    ``execute_values`` sends one multi-row INSERT per ``page_size`` rows. The ``(…)``
+    after VALUES becomes the per-row template, so callers keep their existing SQL.
+    """
+    head, sep, template = sql.partition("VALUES")
+    if not sep or not template.strip().startswith("("):
+        raise ValueError("insert_rows expects 'INSERT … VALUES (…)' SQL")
+    execute_values(cur, f"{head}VALUES %s", rows, template=template.strip(), page_size=page_size)
+    return len(rows)
 
 
 class BaseImporter(ABC):

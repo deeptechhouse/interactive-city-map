@@ -7,7 +7,7 @@ from pathlib import Path
 from shapely.geometry import shape, mapping
 from shapely import MultiPolygon, Polygon
 
-from app.data_import.base_importer import BaseImporter
+from app.data_import.base_importer import BaseImporter, insert_rows
 
 
 # Map zone code prefixes to zone_class categories
@@ -31,18 +31,21 @@ _ZONE_CLASS_MAP = {
 }
 
 
+# O(1) time, O(1) space — k = 16 zone prefixes
 def _classify_zone(zone_code: str) -> str:
     """Map a Chicago zone code to a broad zone_class."""
     if not zone_code:
         return "other"
     code = zone_code.strip().upper()
     # Try longest prefix first
+    # O(1) time, O(1) space — k = 16 zone prefixes
     for prefix in sorted(_ZONE_CLASS_MAP, key=len, reverse=True):
         if code.startswith(prefix):
             return _ZONE_CLASS_MAP[prefix]
     return "other"
 
 
+# O(v) time, O(v) space — v = vertices in the geometry
 def _ensure_multipolygon(geom) -> str | None:
     """Convert a Shapely geometry to a MultiPolygon GeoJSON string."""
     if geom is None or geom.is_empty:
@@ -57,6 +60,7 @@ def _ensure_multipolygon(geom) -> str | None:
 class ZoningImporter(BaseImporter):
     layer_name = "zoning"
 
+    # O(n) time, O(n) space — n = zoning features downloaded
     def download(self) -> Path:
         cached = self._load_json_cache()
         if cached:
@@ -78,10 +82,12 @@ class ZoningImporter(BaseImporter):
         data = self._http_get_json(url)
         return self._save_json_cache(data)
 
+    # O(n + v) time, O(n + v) space — n = features in the raw file; v = total vertices across all feature geometries
     def transform(self, raw_path: Path) -> list[dict]:
         raw = json.loads(raw_path.read_text())
         features = raw.get("features", raw) if isinstance(raw, dict) else raw
         records = []
+        # O(n + v) time, O(n + v) space — n = features in the raw file; v = total vertices across all feature geometries
         for feat in features:
             props = feat.get("properties", {})
             geom_json = feat.get("geometry")
@@ -109,6 +115,8 @@ class ZoningImporter(BaseImporter):
         self._log.info("transformed", count=len(records))
         return records
 
+    # Rows go through insert_rows (multi-row INSERT, INSERT_PAGE_SIZE per statement).
+    # O(n) time, O(n) space — n = records inserted (n / INSERT_PAGE_SIZE statements)
     def load(self, records: list[dict]) -> int:
         if not records:
             return 0
@@ -122,15 +130,15 @@ class ZoningImporter(BaseImporter):
                 VALUES (%s, %s, %s, %s, %s, %s, %s,
                     ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326))
             """
+            # O(n) time, O(n) space — n = records being turned into insert tuples
             batch = [
                 (r["id"], r["city_id"], r["zone_code"], r["zone_class"],
                  r["zone_name"], r["description"], r["ordinance_ref"],
                  r["geom_json"])
                 for r in records
             ]
-            cur.executemany(sql, batch)
+            count = insert_rows(cur, sql, batch)
             conn.commit()
-            count = cur.rowcount
             cur.close()
             return count
         finally:

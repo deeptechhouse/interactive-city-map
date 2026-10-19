@@ -5,6 +5,7 @@ import { STATIC_WATERWAYS } from './data/static_waterways';
 
 const SOURCE_ID = 'waterways-source';
 
+// O(1) time, O(1) space
 export function addWaterwayLayer(map: maplibregl.Map, config: LayerConfig): void {
   const { isGeoJson } = addDualModeSource(map, SOURCE_ID, config.sourceUrl, 'waterways', STATIC_WATERWAYS);
   const slp = sourceLayerProp('waterways', isGeoJson);
@@ -89,6 +90,7 @@ export function addWaterwayLayer(map: maplibregl.Map, config: LayerConfig): void
   } as maplibregl.AddLayerObject);
 }
 
+// O(1) time, O(1) space
 export function getWaterwayLayerIds(configId: string): string[] {
   return [`${configId}-glow`, `${configId}-line`, `${configId}-label`];
 }

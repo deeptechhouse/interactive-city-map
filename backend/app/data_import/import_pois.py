@@ -6,7 +6,7 @@ from pathlib import Path
 
 from shapely.geometry import Point, mapping
 
-from app.data_import.base_importer import BaseImporter
+from app.data_import.base_importer import BaseImporter, insert_rows
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
@@ -152,10 +152,10 @@ class POIsImporter(BaseImporter):
             ]
             chunk_size = 2000
             total = 0
-            # O(n) time, O(c) space — n = POI records; c = chunk_size rows sliced per executemany
+            # O(n) time, O(c) space — n = POI records; c = chunk_size rows sliced per insert_rows call
             for i in range(0, len(batch), chunk_size):
                 chunk = batch[i : i + chunk_size]
-                cur.executemany(sql, chunk)
+                insert_rows(cur, sql, chunk)
                 total += len(chunk)
             conn.commit()
             cur.close()

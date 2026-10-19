@@ -12,12 +12,14 @@ const FILL_ID = 'buildings-selected-fill';
 const LINE_ID = 'buildings-selected-line';
 const SELECTED_COLOR = '#f0b429'; // amber: distinct from the blue hover + focus outline
 
-/** Filter matching the given ids. O(n) — n = selected ids. */
+/** Filter matching the given ids. O(n) time, O(n) space — n = selected ids. */
 function idFilter(ids: readonly string[]): maplibregl.FilterSpecification {
   return ['in', ['get', 'id'], ['literal', [...ids]]] as unknown as maplibregl.FilterSpecification;
 }
 
 /** Show outlines for ``ids``. No-op until the buildings layer has created its source. */
+// Assumes MapLibre's filter compile/validate is linear in the literal (not verified).
+// O(n) time, O(n) space — n = selected ids
 export function setSelectedBuildings(map: maplibregl.Map, ids: readonly string[]): void {
   if (!map.getSource(BUILDINGS_SOURCE)) return;
   if (!map.getLayer(FILL_ID)) {

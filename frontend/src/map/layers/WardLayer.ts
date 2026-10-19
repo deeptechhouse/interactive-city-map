@@ -6,14 +6,17 @@ import { WARD_COLORS } from '../../utils/colorSchemes';
 const BOUNDARIES_SOURCE = 'wards-source';
 const OFFICES_SOURCE = 'ward-offices-source';
 
+// O(k) time, O(k) space — k = entries in the colour table it reads (a constant table in colorSchemes.ts)
 function wardColorExpression(): unknown {
   const pairs: (string | number)[] = [];
+  // O(k) time, O(k) space — k = entries in WARD_COLORS (a constant table in colorSchemes.ts)
   for (const [ward, color] of Object.entries(WARD_COLORS)) {
     pairs.push(Number(ward), color);
   }
   return ['match', ['get', 'ward'], ...pairs, '#888888'];
 }
 
+// O(k) time, O(k) space — k = entries in WARD_COLORS (a constant table in colorSchemes.ts)
 export function addWardLayer(map: maplibregl.Map, config: LayerConfig): void {
   if (!map.getSource(BOUNDARIES_SOURCE)) {
     map.addSource(BOUNDARIES_SOURCE, {
@@ -116,6 +119,7 @@ export function addWardLayer(map: maplibregl.Map, config: LayerConfig): void {
   } as maplibregl.AddLayerObject);
 }
 
+// O(1) time, O(1) space
 export function getWardLayerIds(configId: string): string[] {
   return [
     `${configId}-fill`,

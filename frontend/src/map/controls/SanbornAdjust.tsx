@@ -93,6 +93,7 @@ const styles = {
   },
 } as const;
 
+// O(1) time, O(1) space
 export const SanbornAdjust: React.FC<SanbornAdjustProps> = ({ map, visible }) => {
   const [sheetNum, setSheetNum] = useState(1);
   const totalSheets = 59;

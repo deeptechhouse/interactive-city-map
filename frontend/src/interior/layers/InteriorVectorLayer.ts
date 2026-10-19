@@ -16,30 +16,37 @@ export interface InteriorVectorConfig {
   opacity?: number;
 }
 
+// O(k) time, O(k) space — k = characters in the id string (template concatenation)
 function roomsSourceId(id: string): string {
   return `${SOURCE_PREFIX}-rooms-${id}`;
 }
 
+// O(k) time, O(k) space — k = characters in the id string (template concatenation)
 function wallsSourceId(id: string): string {
   return `${SOURCE_PREFIX}-walls-${id}`;
 }
 
+// O(k) time, O(k) space — k = characters in the id string (template concatenation)
 function featuresSourceId(id: string): string {
   return `${SOURCE_PREFIX}-features-${id}`;
 }
 
+// O(k) time, O(k) space — k = characters in the id string (template concatenation)
 function roomsFillLayerId(id: string): string {
   return `${LAYER_PREFIX}-rooms-fill-${id}`;
 }
 
+// O(k) time, O(k) space — k = characters in the id string (template concatenation)
 function roomsStrokeLayerId(id: string): string {
   return `${LAYER_PREFIX}-rooms-stroke-${id}`;
 }
 
+// O(k) time, O(k) space — k = characters in the id string (template concatenation)
 function wallsLayerId(id: string): string {
   return `${LAYER_PREFIX}-walls-${id}`;
 }
 
+// O(k) time, O(k) space — k = characters in the id string (template concatenation)
 function featuresLayerId(id: string): string {
   return `${LAYER_PREFIX}-features-${id}`;
 }
@@ -70,6 +77,8 @@ const ROOM_TYPE_COLOR_EXPRESSION: maplibregl.ExpressionSpecification = [
  * Add interior vector layers (rooms, walls, features) to the map.
  * Creates 3 GeoJSON sources and 4 layers: rooms fill, rooms stroke, walls, features.
  */
+// MapLibre receives the GeoJSON/image config by reference; its own tiling/render work is outside this function and not counted.
+// O(1) time, O(1) space
 export function addInteriorVectorLayers(
   map: maplibregl.Map,
   config: InteriorVectorConfig,
@@ -152,6 +161,7 @@ export function addInteriorVectorLayers(
 /**
  * Remove all interior vector layers and sources from the map.
  */
+// O(1) time, O(1) space
 export function removeInteriorVectorLayers(
   map: maplibregl.Map,
   id: string,
@@ -169,11 +179,15 @@ export function removeInteriorVectorLayers(
   ];
 
   try {
+    // Fixed list of 4 layer ids (literal).
+    // O(1) time, O(1) space
     for (const lyrId of layerIds) {
       if (map.getLayer(lyrId)) {
         map.removeLayer(lyrId);
       }
     }
+    // Fixed list of 3 source ids (literal).
+    // O(1) time, O(1) space
     for (const srcId of sourceIds) {
       if (map.getSource(srcId)) {
         map.removeSource(srcId);
@@ -187,6 +201,7 @@ export function removeInteriorVectorLayers(
 /**
  * Update the opacity of all interior vector layers.
  */
+// O(1) time, O(1) space
 export function setInteriorVectorOpacity(
   map: maplibregl.Map,
   id: string,
@@ -220,6 +235,7 @@ export function setInteriorVectorOpacity(
 /**
  * Get all MapLibre layer IDs for a given interior vector layer set.
  */
+// O(k) time, O(k) space — k = characters in the id string (4 ids built)
 export function getInteriorVectorLayerIds(id: string): string[] {
   return [
     roomsFillLayerId(id),

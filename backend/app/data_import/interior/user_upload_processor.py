@@ -23,9 +23,11 @@ class UserUploadProcessor:
     MAX_DIMENSION = 10000
     QUALITY_CONFIDENCE = {"professional": 0.80, "sketch": 0.40, "photo": 0.20}
 
+    # O(1) time, O(1) space
     def __init__(self, storage: StorageAdapter):
         self._storage = storage
 
+    # O(1) time, O(1) space
     def validate_file(self, file_data: bytes, content_type: str) -> tuple[bool, str]:
         """Validate uploaded file. Returns (is_valid, error_message)."""
         if not file_data:
@@ -46,6 +48,7 @@ class UserUploadProcessor:
                 return False, "Corrupt or unreadable image"
         return True, ""
 
+    # O(P) time, O(P) space — P = pixels in the uploaded image
     def generate_thumbnail(self, file_data: bytes, max_width: int = 300) -> bytes | None:
         """Generate PNG thumbnail. Returns None for non-raster formats."""
         try:
@@ -60,6 +63,7 @@ class UserUploadProcessor:
         except Exception:
             return None
 
+    # O(P + F + v) time, O(P + F + v) space — P = pixels in the image; F = file bytes; v = vertices in the building polygon
     async def process_upload(
         self,
         building_id: uuid.UUID,

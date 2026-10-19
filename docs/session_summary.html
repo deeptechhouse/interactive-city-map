@@ -21,12 +21,29 @@
 </head>
 <body>
 
-<h1>Session Summary — 2026-03-22</h1>
+<h1>Session Summary — 2026-10-06</h1>
+<p><strong>Project:</strong> Interactive City Map — Big O audit and fixes<br>
+<strong>Branches:</strong> <code>chore/bigo-audit</code> (report) → <code>fix/bigo-defects</code> (fixes)<br>
+<strong>Commits:</strong> <code>1f1cbdc</code>, <code>06cfaa4</code>, <code>37e7b89</code></p>
+
+<h2>Section 1: Work Completed This Session</h2>
+<div class="card">
+<ul>
+<li>Audited all 1,731 functions/loops against §41 (<code>docs/bigo_audit_2026-10-06.html</code>). 51% were annotated, and manual review found 10 super-linear/N+1 defects.</li>
+<li>Fixed all 10 defects, 2 weak <code>bigo-allow</code> exceptions and 52 malformed annotations. Fixed the room label/material index-shift bug in floor-plan extraction, and gave the Chicago permit importer its missing city filter.</li>
+<li>Added brute-force equivalence tests (<code>backend/tests/test_bigo_refactors.py</code>, <code>drawModes.test.ts</code>, <code>applyOwnerAnswer</code> tests) and adopted the <code>.bigo-baseline.json</code> ratchet (696 legacy constructs).</li>
+<li>Paid owner-lookup caches were backed up to <code>backend/data/backup_20261006/</code> and never written.</li>
+</ul>
+</div>
+
+<h2>Section 2: Prior Work Before This Session</h2>
+
+<h3>Session 2026-03-22</h3>
 <p><strong>Project:</strong> Interactive City Map — Interior Building Maps<br>
 <strong>Branch:</strong> <code>feat/interior-maps-core</code><br>
 <strong>Commit:</strong> <code>6112b90</code></p>
 
-<h2>Section 1: Work Completed This Session</h2>
+<h3>Work completed 2026-03-22</h3>
 
 <h3>Interior Maps Backend — Full Implementation (30 files, 2,926 lines)</h3>
 
@@ -95,7 +112,7 @@
 </ul>
 </div>
 
-<h2>Section 2: Prior Work Before This Session</h2>
+<h3>Earlier work</h3>
 
 <h3>City Map — Complete (Waves 0–2 of unified plan)</h3>
 <ul>

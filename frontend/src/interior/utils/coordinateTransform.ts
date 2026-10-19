@@ -9,6 +9,7 @@ export type AffineTransform = [number, number, number, number, number, number];
 /**
  * Convert pixel coordinates to world coordinates using an affine transform.
  */
+// O(1) time, O(1) space
 export function pixelToWorld(
   affine: AffineTransform,
   px: number,
@@ -23,6 +24,7 @@ export function pixelToWorld(
  *
  * Throws if the affine transform is singular (determinant near zero).
  */
+// O(1) time, O(1) space
 export function worldToPixel(
   affine: AffineTransform,
   wx: number,
@@ -42,6 +44,7 @@ export function worldToPixel(
  * Transform the four corners of an image (0,0 to width,height) into world
  * coordinates, returning [TL, TR, BR, BL].
  */
+// O(1) time, O(1) space
 export function transformBounds(
   affine: AffineTransform,
   width: number,

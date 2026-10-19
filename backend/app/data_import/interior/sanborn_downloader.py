@@ -17,12 +17,15 @@ class SanbornDownloader:
     IIIF_SUFFIX = "/full/max/0/default.jpg"
     USER_AGENT = "CityMapBot/1.0 (+https://github.com/interactive-city-map)"
 
+    # O(1) time, O(1) space
     def __init__(self, storage: StorageAdapter, output_dir: str = "data/sanborn") -> None:
         self._storage = storage
         self._output_dir = Path(output_dir)
         self._output_dir.mkdir(parents=True, exist_ok=True)
         self._logger = structlog.get_logger()
 
+    # NOTE: single page only (sp=1, c=100); the server honouring c=100 is assumed, not enforced.
+    # O(r) time, O(r) space — r = results on the single page fetched
     def search_sheets(self, city: str, state: str) -> list[dict]:
         """Query LOC for Sanborn sheets matching city/state.
 
@@ -45,6 +48,7 @@ class SanbornDownloader:
                 data = response.json()
 
                 results = data.get("results", [])
+                # O(r) time, O(r) space — r = results on the single page fetched
                 for item in results:
                     item_id = item.get("id", "")
                     title = item.get("title", "")
@@ -68,6 +72,7 @@ class SanbornDownloader:
         self._logger.info("sanborn.search_complete", city=city, sheets_found=len(sheets))
         return sheets
 
+    # O(b) time, O(b) space — b = bytes of the sheet image (held in memory, then written)
     def download_sheet(self, sheet: dict) -> str | None:
         """Download a single sheet via IIIF.
 
@@ -112,6 +117,7 @@ class SanbornDownloader:
             )
             return None
 
+    # O(r + B) time, O(r + b) space — r = search results; B = total image bytes downloaded; b = bytes of the largest single sheet (one held at a time)
     def download_city(
         self, city: str, state: str, max_sheets: int | None = None
     ) -> dict:
@@ -127,6 +133,7 @@ class SanbornDownloader:
 
         to_download = sheets[:max_sheets] if max_sheets else sheets
 
+        # O(d + B) time, O(b) space — d = sheets to download; B = total image bytes; b = bytes of the largest single sheet
         for sheet in to_download:
             result = self.download_sheet(sheet)
             if result is not None:

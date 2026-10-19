@@ -5,6 +5,7 @@ from shapely import minimum_rotated_rectangle
 from shapely.geometry import Polygon
 
 
+# O(n) time, O(n) space — n = control points
 def _solve_affine(src_points: np.ndarray, dst_points: np.ndarray) -> list[float]:
     """Solve for 6-parameter affine transform via least-squares.
 
@@ -17,6 +18,7 @@ def _solve_affine(src_points: np.ndarray, dst_points: np.ndarray) -> list[float]
     # Build system: for each point, two equations
     A = np.zeros((2 * n, 6))
     b = np.zeros(2 * n)
+    # O(n) time, O(n) space — n = control points
     for i in range(n):
         sx, sy = src_points[i]
         dx, dy = dst_points[i]
@@ -29,6 +31,7 @@ def _solve_affine(src_points: np.ndarray, dst_points: np.ndarray) -> list[float]
     return result.tolist()
 
 
+# O(m log m) time, O(m) space — m = corners passed in, 4 from auto_fit
 def _order_corners(corners: list[tuple[float, float]]) -> list[tuple[float, float]]:
     """Order 4 polygon corners as TL, TR, BR, BL.
 
@@ -47,6 +50,7 @@ class GeoreferencingService:
     """Transforms floor plan pixel coordinates to world coordinates."""
 
     @staticmethod
+    # O(v log v) time, O(v) space — v = vertices in the building polygon
     def auto_fit(building_polygon: Polygon, image_width: int, image_height: int) -> list[float]:
         """Auto-fit a floor plan image to a building polygon using the OMBR.
 
@@ -66,6 +70,7 @@ class GeoreferencingService:
         return _solve_affine(src, dst)
 
     @staticmethod
+    # O(n) time, O(n) space — n = control points
     def from_control_points(
         pixel_points: list[tuple[float, float]],
         world_points: list[tuple[float, float]],
@@ -87,12 +92,14 @@ class GeoreferencingService:
         return _solve_affine(np.array(pixel_points, dtype=float), np.array(world_points, dtype=float))
 
     @staticmethod
+    # O(1) time, O(1) space
     def pixel_to_world(affine: list[float], px_x: float, px_y: float) -> tuple[float, float]:
         """Convert pixel coordinates to world coordinates."""
         a, b, c, d, e, f = affine
         return (a * px_x + b * px_y + c, d * px_x + e * px_y + f)
 
     @staticmethod
+    # O(1) time, O(1) space
     def world_to_pixel(affine: list[float], world_x: float, world_y: float) -> tuple[float, float]:
         """Convert world coordinates to pixel coordinates (inverse affine)."""
         a, b, c, d, e, f = affine
@@ -104,6 +111,7 @@ class GeoreferencingService:
         return (px_x, px_y)
 
     @staticmethod
+    # O(1) time, O(1) space
     def affine_to_raster_bounds(affine: list[float], width: int, height: int) -> Polygon:
         """Convert affine + image dimensions to a world-coordinate polygon."""
         p2w = GeoreferencingService.pixel_to_world

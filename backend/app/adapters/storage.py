@@ -13,16 +13,19 @@ class StorageAdapter(ABC):
     """Abstract interface for object-storage operations."""
 
     @abstractmethod
+    # O(s) time, O(1) space — s = file size in bytes
     def upload_file(
         self, bucket: str, key: str, file_data: Union[bytes, object], content_type: str
     ) -> str:
         """Upload a file and return its public URL."""
 
     @abstractmethod
+    # O(1) time, O(1) space
     def get_file_url(self, bucket: str, key: str) -> str:
         """Return a pre-signed or public URL for the given object."""
 
     @abstractmethod
+    # O(1) time, O(1) space
     def delete_file(self, bucket: str, key: str) -> None:
         """Delete an object from storage."""
 
@@ -30,6 +33,7 @@ class StorageAdapter(ABC):
 class MinIOStorageAdapter(StorageAdapter):
     """MinIO-backed storage adapter using the S3-compatible API."""
 
+    # O(1) time, O(1) space
     def __init__(
         self,
         endpoint_url: str = settings.s3_endpoint_url,
@@ -47,12 +51,14 @@ class MinIOStorageAdapter(StorageAdapter):
             config=BotoConfig(signature_version="s3v4"),
         )
 
+    # O(1) time, O(1) space
     def _ensure_bucket(self, bucket: str) -> None:
         try:
             self._client.head_bucket(Bucket=bucket)
         except self._client.exceptions.ClientError:
             self._client.create_bucket(Bucket=bucket)
 
+    # O(s) time, O(1) space — s = file size in bytes
     def upload_file(
         self, bucket: str, key: str, file_data: Union[bytes, object], content_type: str
     ) -> str:
@@ -65,9 +71,11 @@ class MinIOStorageAdapter(StorageAdapter):
         )
         return self.get_file_url(bucket, key)
 
+    # O(1) time, O(1) space
     def get_file_url(self, bucket: str, key: str) -> str:
         return f"{self._endpoint_url}/{bucket}/{key}"
 
+    # O(1) time, O(1) space
     def delete_file(self, bucket: str, key: str) -> None:
         self._client.delete_object(Bucket=bucket, Key=key)
 
@@ -75,6 +83,7 @@ class MinIOStorageAdapter(StorageAdapter):
 class S3StorageAdapter(StorageAdapter):
     """AWS S3-backed storage adapter. Same logic as MinIO but uses standard S3 endpoint."""
 
+    # O(1) time, O(1) space
     def __init__(
         self,
         access_key: str = settings.s3_access_key,
@@ -89,6 +98,7 @@ class S3StorageAdapter(StorageAdapter):
             region_name=region,
         )
 
+    # O(s) time, O(1) space — s = file size in bytes
     def upload_file(
         self, bucket: str, key: str, file_data: Union[bytes, object], content_type: str
     ) -> str:
@@ -100,13 +110,16 @@ class S3StorageAdapter(StorageAdapter):
         )
         return self.get_file_url(bucket, key)
 
+    # O(1) time, O(1) space
     def get_file_url(self, bucket: str, key: str) -> str:
         return f"https://{bucket}.s3.{self._region}.amazonaws.com/{key}"
 
+    # O(1) time, O(1) space
     def delete_file(self, bucket: str, key: str) -> None:
         self._client.delete_object(Bucket=bucket, Key=key)
 
 
+# O(1) time, O(1) space
 def get_storage_adapter() -> StorageAdapter:
     """Factory: return the appropriate storage adapter based on environment."""
     if settings.app_env == "production":

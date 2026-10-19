@@ -8,15 +8,18 @@ class CookCountyAdapter(CountyAdapterBase):
 
     API_URL = "https://datacatalog.cookcountyil.gov/resource/5pge-nu6u.json"
 
+    # O(1) time, O(1) space
     def __init__(self, app_token: str | None = None) -> None:
         self._app_token = app_token
 
+    # O(1) time, O(1) space
     def _headers(self) -> dict[str, str]:
         headers: dict[str, str] = {"Accept": "application/json"}
         if self._app_token:
             headers["X-App-Token"] = self._app_token
         return headers
 
+    # O(1) time, O(1) space
     def _normalize(self, record: dict) -> dict:
         return {
             "pin": record.get("pin", ""),
@@ -28,6 +31,7 @@ class CookCountyAdapter(CountyAdapterBase):
             "owner_name": record.get("taxpayer", ""),
         }
 
+    # O(r) time, O(r) space — r = rows in the Socrata response for one PIN
     def fetch_property(self, pin: str) -> dict | None:
         """Query Socrata by PIN, return normalized property dict or None."""
         params = {"pin": pin}
@@ -40,6 +44,7 @@ class CookCountyAdapter(CountyAdapterBase):
             return None
         return self._normalize(rows[0])
 
+    # O(a) time, O(1) space — a = chars in the address; k = 20 rows ($limit)
     def search_by_address(self, address: str) -> list[dict]:
         """Query by address field, return list of normalized dicts."""
         params = {"$where": f"property_address like '%{address.upper()}%'", "$limit": "20"}
@@ -47,4 +52,5 @@ class CookCountyAdapter(CountyAdapterBase):
             self.API_URL, params=params, headers=self._headers(), timeout=15.0
         )
         resp.raise_for_status()
+        # O(1) time, O(1) space — k = 20 rows ($limit)
         return [self._normalize(r) for r in resp.json()]

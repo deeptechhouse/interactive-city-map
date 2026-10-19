@@ -5,22 +5,27 @@ import { vectorSourceSpec } from '../../utils/layerSourceHelper';
 
 const SOURCE_ID = 'zoning-source';
 
+// O(k) time, O(k) space — k = entries in the colour table it reads (a constant table in colorSchemes.ts)
 function zoningFillColorExpression(): unknown {
   const pairs: string[] = [];
+  // O(k) time, O(k) space — k = entries in ZONING_COLORS (a constant table in colorSchemes.ts)
   for (const [cls, color] of Object.entries(ZONING_COLORS)) {
     pairs.push(cls, color);
   }
   return ['match', ['get', 'zone_class'], ...pairs, '#888888'];
 }
 
+// O(k) time, O(k) space — k = entries in the colour table it reads (a constant table in colorSchemes.ts)
 function zoningStrokeColorExpression(): unknown {
   const pairs: string[] = [];
+  // O(k) time, O(k) space — k = entries in ZONING_STROKE_COLORS (a constant table in colorSchemes.ts)
   for (const [cls, color] of Object.entries(ZONING_STROKE_COLORS)) {
     pairs.push(cls, color);
   }
   return ['match', ['get', 'zone_class'], ...pairs, '#666666'];
 }
 
+// O(z) time, O(z) space — z = entries in ZONING_COLORS plus ZONING_STROKE_COLORS (constant tables)
 export function addZoningLayer(map: maplibregl.Map, config: LayerConfig): void {
   if (map.getSource(SOURCE_ID)) return;
 
@@ -87,6 +92,7 @@ export function addZoningLayer(map: maplibregl.Map, config: LayerConfig): void {
   } as maplibregl.AddLayerObject);
 }
 
+// O(1) time, O(1) space
 export function getZoningLayerIds(configId: string): string[] {
   return [`${configId}-fill`, `${configId}-stroke`, `${configId}-label`];
 }
